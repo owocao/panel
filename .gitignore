@@ -1,0 +1,34 @@
+# dependencies
+node_modules/
+
+# frontend build
+frontend/dist/
+frontend/.vite/
+
+# env files
+.env
+.env.*
+!.env.example
+
+# local runtime data
+data/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+uploads/
+backups/
+
+# logs
+*.log
+logs/
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+
+# Go build outputs
+backend/bin/
+backend/tmp/
+*.test

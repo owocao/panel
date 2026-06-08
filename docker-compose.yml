@@ -1,0 +1,17 @@
+services:
+  biu-panel:
+    build: .
+    image: biu-panel:latest
+    container_name: biu-panel
+    restart: unless-stopped
+    ports:
+      - "55088:55088"
+    environment:
+      BIU_PANEL_PORT: "55088"
+      BIU_PANEL_DATA_DIR: /app/data
+      BIU_PANEL_STATIC_DIR: /app/public
+      # 可选：首次启动自动创建管理员。创建后请删除或注释这两行再重启。
+      # BIU_PANEL_ADMIN_USER: admin
+      # BIU_PANEL_ADMIN_PASSWORD: change-this-password
+    volumes:
+      - ./data:/app/data
