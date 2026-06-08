@@ -557,9 +557,58 @@ function showMenu(event, title, actions) {
   menu.value = { open: true, x: point.clientX, y: point.clientY, title, actions }
 }
 function closeMenu() { menu.value.open = false }
-function showCardMenu(event, item) { showMenu(event, item.name, ['打开', '编辑卡片', '复制链接', '移动分组', '删除']) }
-function showGroupMenu(event, group) { showMenu(event, group.name, ['新增卡片', '编辑分组', '折叠分组', '拖拽排序', '删除分组']) }
-function showBookmarkMenu(event, bookmark) { showMenu(event, bookmark.title, ['打开', '新标签页打开', '新窗口打开', '编辑', '复制链接', '移动到文件夹', '设为首页卡片', '批量选择', '删除']) }
+async function runMenuAction(action) {
+  closeMenu()
+  try {
+    if (action?.run) await action.run()
+  } catch (error) {
+    statusText.value = error.message
+  }
+}
+async function copyText(value) {
+  try {
+    await navigator.clipboard.writeText(value)
+    statusText.value = '链接已复制'
+  } catch {
+    statusText.value = '复制失败，请手动复制'
+  }
+}
+async function addCardFromMenu(group) {
+  const name = prompt('卡片名称')
+  if (!name?.trim()) return
+  const url = prompt('卡片网址')
+  if (!url?.trim()) return
+  await createNavItem({ groupId: group.id, name: name.trim(), icon: name.trim().slice(0, 1), lanUrl: url.trim(), wanUrl: url.trim(), urlMode: 'auto', sort: (group.items?.length || 0) + 1 })
+  await loadNavigation()
+}
+function showCardMenu(event, item) {
+  const url = resolveNavUrl(item)
+  showMenu(event, item.name, [
+    { label: '打开', run: () => { window.location.href = url } },
+    { label: '新标签页打开', run: () => window.open(url, '_blank') },
+    { label: '编辑卡片', run: () => editNavCard(item) },
+    { label: '复制链接', run: () => copyText(url) },
+    { label: '删除', run: () => removeNavCard(item) },
+  ])
+}
+function showGroupMenu(event, group) {
+  showMenu(event, group.name, [
+    { label: '新增卡片', run: () => addCardFromMenu(group) },
+    { label: '编辑分组', run: () => editNavGroup(group) },
+    { label: '上移分组', run: () => moveNavGroup(group, -1) },
+    { label: '下移分组', run: () => moveNavGroup(group, 1) },
+    { label: '删除分组', run: () => removeNavGroup(group) },
+  ])
+}
+function showBookmarkMenu(event, bookmark) {
+  showMenu(event, bookmark.title, [
+    { label: '打开', run: () => { window.location.href = bookmark.url } },
+    { label: '新标签页打开', run: () => window.open(bookmark.url, '_blank') },
+    { label: '编辑', run: () => editBookmark(bookmark) },
+    { label: '复制链接', run: () => copyText(bookmark.url) },
+    { label: '删除', run: () => removeBookmark(bookmark) },
+  ])
+}
 </script>
 
 <template>
@@ -595,6 +644,6 @@ function showBookmarkMenu(event, bookmark) { showMenu(event, bookmark.title, ['�
     </template>
 
     <section v-if="editDialog.open" class="modal-mask" @click.stop="closeEditDialog"><form class="edit-modal" @click.stop @submit.prevent="saveEditDialog"><header class="modal-head"><h2>{{ editDialog.title }}</h2><button type="button" @click="closeEditDialog">关闭</button></header><label v-if="editDialog.type === 'navGroup' || editDialog.type === 'folder'">名称<input v-model="editDialog.form.name" /></label><template v-if="editDialog.type === 'navItem'"><label>名称<input v-model="editDialog.form.name" /></label><label>图标文字 / 图片链接<input v-model="editDialog.form.icon" /></label><label>上传图标图片<input type="file" accept="image/*" @change="uploadIconFile($event, editDialog.form, 'icon')" /></label><label>内网地址<input v-model="editDialog.form.lanUrl" /></label><label>外网地址<input v-model="editDialog.form.wanUrl" /></label><label>打开模式<select v-model="editDialog.form.urlMode"><option value="auto">自动</option><option value="lan">强制内网</option><option value="wan">强制外网</option></select></label><button type="button" @click="fillMetadata(editDialog.form)">{{ metadataLoading ? '抓取中' : '自动抓取标题/图标' }}</button></template><template v-if="editDialog.type === 'bookmark'"><label>标题<input v-model="editDialog.form.title" /></label><label>网址<input v-model="editDialog.form.url" /></label><label>图标<input v-model="editDialog.form.favicon" /></label><label>上传图标图片<input type="file" accept="image/*" @change="uploadIconFile($event, editDialog.form, 'favicon')" /></label><label>备注<input v-model="editDialog.form.note" /></label><button type="button" @click="fillMetadata(editDialog.form)">{{ metadataLoading ? '抓取中' : '自动抓取标题/图标' }}</button></template><footer class="modal-actions"><button type="button" @click="closeEditDialog">取消</button><button type="submit">保存</button></footer></form></section>
-    <div v-if="menu.open" class="context-menu" :style="menuStyle" @click.stop><strong>{{ menu.title }}</strong><button v-for="action in menu.actions" :key="action" type="button">{{ action }}</button></div>
+    <div v-if="menu.open" class="context-menu" :style="menuStyle" @click.stop><strong>{{ menu.title }}</strong><button v-for="action in menu.actions" :key="action.label" type="button" @click="runMenuAction(action)">{{ action.label }}</button></div>
   </main>
 </template>
