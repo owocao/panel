@@ -200,7 +200,7 @@ h1, h2, h3, p { margin: 0; }
   font-weight: 900;
   background: rgba(255,255,255,.08);
 }
-.settings-menu button:first-child,
+.settings-menu button.active,
 .settings-menu button:hover {
   background: rgba(255,255,255,.18);
 }
