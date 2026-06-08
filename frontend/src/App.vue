@@ -556,7 +556,7 @@ function showBookmarkMenu(event, bookmark) { showMenu(event, bookmark.title, ['�
 </script>
 
 <template>
-  <main class="shell" :style="shellStyle" @click="closeMenu">
+  <main class="shell sun-shell" :style="shellStyle" @click="closeMenu(); drawerOpen = false">
     <section v-if="activeView === 'login'" class="auth-screen">
       <div class="auth-box"><div class="logo big"><img v-if="settingsForm.logoUrl" :src="settingsForm.logoUrl" alt="Logo" /><span v-else>B</span></div><span class="eyebrow dark">biu-panel</span><h1>欢迎回来</h1><p>{{ statusText }}</p><form class="form-grid" @submit.prevent="submitLogin"><label>账号<input v-model="loginForm.username" /></label><label>密码<input v-model="loginForm.password" type="password" /></label><label class="check-row"><input v-model="loginForm.remember" type="checkbox" /> 记住登录</label><button type="submit">登录</button></form></div>
     </section>
@@ -566,13 +566,15 @@ function showBookmarkMenu(event, bookmark) { showMenu(event, bookmark.title, ['�
     </section>
 
     <template v-else>
+      <div class="window-bar"><span></span><span></span><span></span><div class="window-title">{{ settingsForm.siteTitle || 'biu-panel' }}</div></div>
+      <button class="bookmark-tab" type="button" @click.stop="openDrawer">收藏夹</button>
       <header class="app-header">
         <div class="brand"><div class="logo"><img v-if="settingsForm.logoUrl" :src="settingsForm.logoUrl" alt="Logo" /><span v-else>B</span></div><div><h1>{{ settingsForm.siteTitle || 'biu-panel' }}</h1><p>{{ statusText }}</p></div></div>
-        <div class="header-actions"><button type="button" @click.stop="openDrawer">收藏夹</button><button type="button" @click="cycleNetworkMode">{{ networkLabel }}</button><button type="button" @click="activeView = activeView === 'settings' ? 'home' : 'settings'">{{ activeView === 'settings' ? '返回首页' : '设置' }}</button></div>
+        <div class="header-actions"><button type="button" @click.stop="cycleNetworkMode">{{ networkLabel }}</button><button type="button" @click.stop="activeView = activeView === 'settings' ? 'home' : 'settings'">{{ activeView === 'settings' ? '返回首页' : '设置' }}</button></div>
       </header>
 
       <aside v-if="drawerOpen" class="bookmark-drawer" aria-label="收藏夹" @click.stop>
-        <div class="drawer-head"><span>收藏夹</span><div class="inline-actions"><button type="button" @click="exportBookmarks">导出</button><label class="file-button">导入<input type="file" accept=".html,.htm,text/html" @change="importBookmarksFile" /></label><button type="button" @click="drawerOpen = false">关闭</button></div></div>
+        <div class="drawer-head"><span>收藏夹</span><div class="inline-actions"><button type="button" @click="exportBookmarks">导出</button><label class="file-button">导入<input type="file" accept=".html,.htm,text/html" @change="importBookmarksFile" /></label></div></div>
         <label class="bookmark-search"><span>搜索收藏</span><input v-model="bookmarkSearch.q" placeholder="输入标题、网址或备注" @keyup.enter="runBookmarkSearch" /></label><div class="inline-actions search-actions"><button type="button" @click="runBookmarkSearch">搜索</button><button type="button" @click="clearBookmarkSearch">清空</button><span v-if="bookmarkSearch.loading">搜索中...</span><span v-else-if="bookmarkSearch.results.length">找到 {{ bookmarkSearch.results.length }} 条</span></div>
         <div class="quick-create"><input v-model="quickBookmark.folderName" placeholder="新文件夹名称" /><button type="button" @click="addFolder">新增文件夹</button></div>
         <section class="bookmark-body"><nav class="folder-tree"><button v-for="folder in folders" :key="folder.id" class="folder" :class="{ active: folder.id === activeFolderId }" draggable="true" @dragstart="startDrag('folder', folder)" @dragover.prevent @drop="dropFolder(folder)" type="button" @click="selectFolder(folder)"><strong>{{ folder.name }}</strong><span>{{ folder.hasChildren ? '可展开子目录' : '当前目录' }}</span><span class="mini-actions"><em @click.stop="editFolder(folder)">编辑</em><em @click.stop="moveFolder(folder, -1)">上移</em><em @click.stop="moveFolder(folder, 1)">下移</em><em @click.stop="removeFolder(folder)">删除</em></span></button><div v-if="!folders.length" class="empty-state">暂无文件夹，先创建一个目录。</div></nav>
@@ -580,8 +582,8 @@ function showBookmarkMenu(event, bookmark) { showMenu(event, bookmark.title, ['�
         </section>
       </aside>
 
-      <section v-if="activeView === 'home'" class="home-panel">
-        <section class="hero-card"><div><span class="eyebrow">Personal dashboard</span><h2>常用入口，一屏直达。</h2><p>收藏夹按需打开，首页保持干净快速。</p></div><button type="button" @click.stop="openDrawer">打开收藏夹</button></section>
+      <section v-if="activeView === 'home'" class="home-panel sun-panel">
+        <section class="hero-card"><div><span class="eyebrow">Personal dashboard</span><h2>{{ settingsForm.siteTitle || 'biu-panel' }} <b>|</b> 一屏直达</h2><p>常用服务放在首页，收藏夹从左侧唤出，点外面自动收回。</p></div><div class="hero-time"><strong>{{ networkLabel }}</strong><span>轻量自用导航</span></div></section>
         <div class="quick-create"><input v-model="quickNav.groupName" placeholder="新分组名称" /><button type="button" @click="addNavGroup">新增分组</button><input v-model="quickNav.cardName" placeholder="新卡片名称" /><input v-model="quickNav.url" placeholder="卡片网址" /><button type="button" @click="fillQuickNavMetadata">{{ metadataLoading ? '抓取中' : '自动抓取' }}</button><button type="button" @click="addNavCard">新增卡片</button></div>
         <section v-for="group in displayGroups" :key="group.id || group.name" class="nav-group" :draggable="!!group.id" @dragstart="group.id && startDrag('navGroup', group)" @dragover.prevent @drop="group.id && dropNavGroup(group)"><header class="group-head" @contextmenu="showGroupMenu($event, group)"><h2>{{ group.name }}</h2><div class="inline-actions"><button v-if="group.id" type="button" @click="editNavGroup(group)">编辑</button><button v-if="group.id" type="button" @click="moveNavGroup(group, -1)">上移</button><button v-if="group.id" type="button" @click="moveNavGroup(group, 1)">下移</button><button v-if="group.id" type="button" @click="removeNavGroup(group)">删除</button></div></header><div class="card-grid"><a v-for="item in group.items" :key="item.id || item.name" class="nav-card" :href="resolveNavUrl(item)" :draggable="!!item.id" @dragstart="item.id && startDrag('navItem', item, group.id)" @dragover.prevent @drop.prevent="item.id && dropNavCard(group, item)" @contextmenu="showCardMenu($event, item)" @touchstart.passive="showCardMenu($event, item)"><span class="card-icon"><img v-if="isImageValue(item.icon)" :src="item.icon" alt="" /><span v-else>{{ (item.icon || item.name).slice(0, 1) }}</span></span><span>{{ item.name }}</span><span v-if="item.id" class="card-actions"><button type="button" @click.prevent="editNavCard(item)">编辑</button><button type="button" @click.prevent="moveNavCard(group, item, -1)">上移</button><button type="button" @click.prevent="moveNavCard(group, item, 1)">下移</button><button type="button" @click.prevent="removeNavCard(item)">删除</button></span></a></div></section>
       </section>
