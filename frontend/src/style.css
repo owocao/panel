@@ -217,3 +217,35 @@ h1, h2, h3, p { margin: 0; }
   .settings-menu { display: flex; gap: 8px; overflow: auto; }
   .settings-menu button { flex: 0 0 auto; width: auto; margin-bottom: 0; white-space: nowrap; }
 }
+
+.settings-message {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: #fff;
+  background: rgba(50, 133, 255, .22);
+}
+.manager-card {
+  min-height: 420px;
+  align-content: start;
+}
+.manager-head,
+.manager-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.manager-row {
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.08);
+}
+.manager-head button,
+.manager-row button {
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(255,255,255,.12);
+  padding: 8px 12px;
+  font-weight: 900;
+}
