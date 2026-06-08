@@ -53,7 +53,7 @@ const dragState = ref({ type: '', groupId: null, item: null })
 const networkMode = ref('auto')
 const now = ref(new Date())
 let clockTimer
-const settingsForm = ref({ siteTitle: 'biu-panel', logoUrl: '', backgroundUrl: '', backgroundColor: '#efe6d3', lanDetectUrl: 'http://192.168.1.1', lanDetectTimeout: '800', autoDetectLan: 'true', s3Endpoint: '', s3Region: 'auto', s3Bucket: '', s3AccessKey: '', s3SecretKey: '', s3Prefix: 'biu-panel/', s3PathStyle: 'true', s3Enabled: 'false', s3PublicBase: '' })
+const settingsForm = ref({ siteTitle: 'biu-panel', logoUrl: '', backgroundUrl: '', backgroundColor: '#02030a', lanDetectUrl: 'http://192.168.1.1', lanDetectTimeout: '800', autoDetectLan: 'true', s3Endpoint: '', s3Region: 'auto', s3Bucket: '', s3AccessKey: '', s3SecretKey: '', s3Prefix: 'biu-panel/', s3PathStyle: 'true', s3Enabled: 'false', s3PublicBase: '' })
 
 const fallbackGroups = [{ name: '常用服务', items: [{ name: 'NAS', icon: 'N', wanUrl: '#' }, { name: 'Home Assistant', icon: 'H', wanUrl: '#' }, { name: '思源笔记', icon: 'S', wanUrl: '#' }, { name: '文件管理', icon: 'F', wanUrl: '#' }] }]
 const displayGroups = computed(() => (navGroups.value.length ? navGroups.value : fallbackGroups))
@@ -63,8 +63,7 @@ const networkLabel = computed(() => ({ auto: '自动内网', lan: '内网优先'
 const displayTime = computed(() => now.value.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }))
 const displayDate = computed(() => now.value.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', weekday: 'long' }).replace('月', '-').replace('日', ''))
 const shellStyle = computed(() => ({
-  '--runtime-bg': settingsForm.value.backgroundColor || '#efe6d3',
-  backgroundImage: settingsForm.value.backgroundUrl ? `linear-gradient(rgba(239, 230, 211, 0.78), rgba(239, 230, 211, 0.78)), url(${settingsForm.value.backgroundUrl})` : '',
+  '--runtime-bg': settingsForm.value.backgroundColor || '#02030a',
 }))
 
 onMounted(async () => {
