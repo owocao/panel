@@ -84,9 +84,11 @@ func (s *Server) withStatic(api http.Handler) http.Handler {
 		}
 		path := filepath.Join(s.cfg.StaticDir, filepath.Clean(r.URL.Path))
 		if info, err := os.Stat(path); err == nil && !info.IsDir() {
+			w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
 			http.ServeFile(w, r, path)
 			return
 		}
+		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
 		http.ServeFile(w, r, filepath.Join(s.cfg.StaticDir, "index.html"))
 	})
 }
