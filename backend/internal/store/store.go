@@ -174,6 +174,13 @@ func (s *Store) ListNavigation() ([]NavGroup, map[int64][]NavItem, error) {
 	}
 	return groups, items, rows.Err()
 }
+
+func (s *Store) NavGroupNameExists(name string, excludeID int64) (bool, error) {
+	var n int
+	err := s.DB.QueryRow(`SELECT COUNT(*) FROM nav_groups WHERE name=? AND id<>?`, name, excludeID).Scan(&n)
+	return n > 0, err
+}
+
 func (s *Store) CreateNavGroup(g NavGroup) (int64, error) {
 	res, err := s.DB.Exec(`INSERT INTO nav_groups(name,sort,collapsed) VALUES(?,?,?)`, g.Name, g.Sort, boolInt(g.Collapsed))
 	if err != nil {

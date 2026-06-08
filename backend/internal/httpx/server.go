@@ -223,8 +223,16 @@ func (s *Server) createNavGroup(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &g) {
 		return
 	}
+	g.Name = strings.TrimSpace(g.Name)
 	if g.Name == "" {
 		writeError(w, 400, "分组名称不能为空")
+		return
+	}
+	if exists, err := s.store.NavGroupNameExists(g.Name, 0); err != nil {
+		writeError(w, 500, err.Error())
+		return
+	} else if exists {
+		writeError(w, 409, "分组名称已存在")
 		return
 	}
 	id, err := s.store.CreateNavGroup(g)
@@ -245,8 +253,16 @@ func (s *Server) updateNavGroup(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &g) {
 		return
 	}
+	g.Name = strings.TrimSpace(g.Name)
 	if g.ID == 0 || g.Name == "" {
 		writeError(w, 400, "分组 ID 和名称必填")
+		return
+	}
+	if exists, err := s.store.NavGroupNameExists(g.Name, g.ID); err != nil {
+		writeError(w, 500, err.Error())
+		return
+	} else if exists {
+		writeError(w, 409, "分组名称已存在")
 		return
 	}
 	if err := s.store.UpdateNavGroup(g); err != nil {
