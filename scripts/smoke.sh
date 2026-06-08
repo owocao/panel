@@ -18,7 +18,7 @@ rm -rf "$DATA_DIR" "$COOKIE_FILE"
   go run ./cmd/server
 ) &
 PID=$!
-trap 'kill "$PID" 2>/dev/null || true' EXIT
+trap 'kill $PID 2>/dev/null || true' EXIT
 
 for _ in $(seq 1 40); do
   if curl -fsS "http://127.0.0.1:$PORT/api/health" >/dev/null; then
