@@ -32,12 +32,12 @@ h1, h2, h3, p { margin: 0; }
 
 .shell { min-height: 100vh; padding: 0; background-color: #02030a; background-size: cover; background-position: center; }
 .sun-shell {
-  position: relative; overflow-x: hidden;
-  background:
+  position: relative; overflow-x: hidden; background-color: #02030a !important;
+  background-image:
     radial-gradient(circle at 15% 82%, rgba(207, 20, 116, .78), transparent 31%),
     radial-gradient(circle at 83% 14%, rgba(64, 132, 232, .76), transparent 37%),
     radial-gradient(circle at 66% 50%, rgba(113, 80, 255, .34), transparent 24%),
-    linear-gradient(135deg, #11002f 0%, #06001f 50%, #1b003d 100%);
+    linear-gradient(135deg, #11002f 0%, #06001f 50%, #1b003d 100%) !important;
 }
 .sun-shell::before {
   content: ''; position: fixed; inset: -80px; pointer-events: none; opacity: .55; filter: blur(42px);

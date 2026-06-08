@@ -563,7 +563,7 @@ function showBookmarkMenu(event, bookmark) { showMenu(event, bookmark.title, ['�
 </script>
 
 <template>
-  <main class="shell sun-shell" :style="shellStyle" @click="closeMenu(); drawerOpen = false">
+  <main class="shell sun-shell" @click="closeMenu(); drawerOpen = false">
     <section v-if="activeView === 'login'" class="auth-screen">
       <div class="auth-box"><div class="logo big"><img v-if="settingsForm.logoUrl" :src="settingsForm.logoUrl" alt="Logo" /><span v-else>B</span></div><span class="eyebrow dark">biu-panel</span><h1>欢迎回来</h1><p>{{ statusText }}</p><form class="form-grid" @submit.prevent="submitLogin"><label>账号<input v-model="loginForm.username" /></label><label>密码<input v-model="loginForm.password" type="password" /></label><label class="check-row"><input v-model="loginForm.remember" type="checkbox" /> 记住登录</label><button type="submit">登录</button></form></div>
     </section>
