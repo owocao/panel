@@ -79,7 +79,7 @@ h1, h2, h3, p { margin: 0; }
 .sun-search em { color: #fff; font-style: normal; font-size: 24px; opacity: .9; }
 .hero-card p { color: rgba(255,255,255,.58); margin-top: -24px; font-size: 13px; }
 
-.admin-create { margin: 0 auto 42px; max-width: 980px; opacity: .72; }
+.admin-create { display: none; }
 .quick-create { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 10px; padding: 10px; border: 1px solid rgba(255,255,255,.13); border-radius: 14px; background: rgba(11, 9, 34, .36); }
 
 .nav-group { margin-top: 48px; }
@@ -99,7 +99,7 @@ h1, h2, h3, p { margin: 0; }
 .nav-card:hover { transform: translateY(-2px); background: var(--card-hover); box-shadow: 0 0 20px 10px rgba(0,0,0,.16); }
 .card-icon { width: 42px; height: 42px; border-radius: 12px; display: inline-grid; place-items: center; flex: 0 0 auto; color: #fff; background: rgba(255,255,255,.10); font-weight: 900; overflow: hidden; }
 .logo img, .favicon img, .card-icon img { width: 100%; height: 100%; object-fit: cover; }
-.card-actions { width: 100%; opacity: .45; }
+.group-head .inline-actions, .card-actions { display: none; }
 .card-actions button, .row-actions button { white-space: nowrap; font-size: 12px; padding: 6px 9px; }
 
 .bookmark-drawer { position: fixed; z-index: 30; inset: 22px auto 22px 22px; width: min(830px, calc(100vw - 44px)); border-radius: 22px; padding: 18px; animation: slideIn .22s ease both; overflow: auto; }
