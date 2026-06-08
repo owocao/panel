@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import {
   backupToS3,
   createBookmark,
@@ -51,6 +51,8 @@ const metadataLoading = ref(false)
 const assetUploading = ref(false)
 const dragState = ref({ type: '', groupId: null, item: null })
 const networkMode = ref('auto')
+const now = ref(new Date())
+let clockTimer
 const settingsForm = ref({ siteTitle: 'biu-panel', logoUrl: '', backgroundUrl: '', backgroundColor: '#efe6d3', lanDetectUrl: 'http://192.168.1.1', lanDetectTimeout: '800', autoDetectLan: 'true', s3Endpoint: '', s3Region: 'auto', s3Bucket: '', s3AccessKey: '', s3SecretKey: '', s3Prefix: 'biu-panel/', s3PathStyle: 'true', s3Enabled: 'false', s3PublicBase: '' })
 
 const fallbackGroups = [{ name: '常用服务', items: [{ name: 'NAS', icon: 'N', wanUrl: '#' }, { name: 'Home Assistant', icon: 'H', wanUrl: '#' }, { name: '思源笔记', icon: 'S', wanUrl: '#' }, { name: '文件管理', icon: 'F', wanUrl: '#' }] }]
@@ -58,17 +60,23 @@ const displayGroups = computed(() => (navGroups.value.length ? navGroups.value :
 const menuStyle = computed(() => ({ left: `${menu.value.x}px`, top: `${menu.value.y}px` }))
 const activeFolder = computed(() => folders.value.find((folder) => folder.id === activeFolderId.value))
 const networkLabel = computed(() => ({ auto: '自动内网', lan: '内网优先', wan: '外网优先' }[networkMode.value]))
+const displayTime = computed(() => now.value.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }))
+const displayDate = computed(() => now.value.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', weekday: 'long' }).replace('月', '-').replace('日', ''))
 const shellStyle = computed(() => ({
   '--runtime-bg': settingsForm.value.backgroundColor || '#efe6d3',
   backgroundImage: settingsForm.value.backgroundUrl ? `linear-gradient(rgba(239, 230, 211, 0.78), rgba(239, 230, 211, 0.78)), url(${settingsForm.value.backgroundUrl})` : '',
 }))
 
 onMounted(async () => {
+  clockTimer = window.setInterval(() => { now.value = new Date() }, 30000)
   networkMode.value = localStorage.getItem('biu-network-mode') || 'auto'
   await refreshBootstrap()
   await loadNavigation()
 })
 
+onUnmounted(() => {
+  if (clockTimer) window.clearInterval(clockTimer)
+})
 
 
 function isImageValue(value) {
@@ -566,12 +574,8 @@ function showBookmarkMenu(event, bookmark) { showMenu(event, bookmark.title, ['�
     </section>
 
     <template v-else>
-      <div class="window-bar"><span></span><span></span><span></span><div class="window-title">{{ settingsForm.siteTitle || 'biu-panel' }}</div></div>
       <button class="bookmark-tab" type="button" @click.stop="openDrawer">收藏夹</button>
-      <header class="app-header">
-        <div class="brand"><div class="logo"><img v-if="settingsForm.logoUrl" :src="settingsForm.logoUrl" alt="Logo" /><span v-else>B</span></div><div><h1>{{ settingsForm.siteTitle || 'biu-panel' }}</h1><p>{{ statusText }}</p></div></div>
-        <div class="header-actions"><button type="button" @click.stop="cycleNetworkMode">{{ networkLabel }}</button><button type="button" @click.stop="activeView = activeView === 'settings' ? 'home' : 'settings'">{{ activeView === 'settings' ? '返回首页' : '设置' }}</button></div>
-      </header>
+      <div class="floating-actions"><button type="button" @click.stop="cycleNetworkMode">{{ networkLabel }}</button><button type="button" @click.stop="activeView = activeView === 'settings' ? 'home' : 'settings'">{{ activeView === 'settings' ? '首页' : '设置' }}</button></div>
 
       <aside v-if="drawerOpen" class="bookmark-drawer" aria-label="收藏夹" @click.stop>
         <div class="drawer-head"><span>收藏夹</span><div class="inline-actions"><button type="button" @click="exportBookmarks">导出</button><label class="file-button">导入<input type="file" accept=".html,.htm,text/html" @change="importBookmarksFile" /></label></div></div>
@@ -583,8 +587,8 @@ function showBookmarkMenu(event, bookmark) { showMenu(event, bookmark.title, ['�
       </aside>
 
       <section v-if="activeView === 'home'" class="home-panel sun-panel">
-        <section class="hero-card"><div><span class="eyebrow">Personal dashboard</span><h2>{{ settingsForm.siteTitle || 'biu-panel' }} <b>|</b> 一屏直达</h2><p>常用服务放在首页，收藏夹从左侧唤出，点外面自动收回。</p></div><div class="hero-time"><strong>{{ networkLabel }}</strong><span>轻量自用导航</span></div></section>
-        <div class="quick-create"><input v-model="quickNav.groupName" placeholder="新分组名称" /><button type="button" @click="addNavGroup">新增分组</button><input v-model="quickNav.cardName" placeholder="新卡片名称" /><input v-model="quickNav.url" placeholder="卡片网址" /><button type="button" @click="fillQuickNavMetadata">{{ metadataLoading ? '抓取中' : '自动抓取' }}</button><button type="button" @click="addNavCard">新增卡片</button></div>
+        <section class="hero-card"><div class="sun-title"><h2>{{ settingsForm.siteTitle || 'biu-panel' }}</h2><b>|</b><div class="clock"><strong>{{ displayTime }}</strong><span>{{ displayDate }}</span></div></div><div class="sun-search"><span>B</span><input placeholder="Enter search content" @keyup.enter="runBookmarkSearch" /><em>⌕</em></div><p>{{ statusText }}</p></section>
+        <div class="quick-create admin-create"><input v-model="quickNav.groupName" placeholder="新分组名称" /><button type="button" @click="addNavGroup">新增分组</button><input v-model="quickNav.cardName" placeholder="新卡片名称" /><input v-model="quickNav.url" placeholder="卡片网址" /><button type="button" @click="fillQuickNavMetadata">{{ metadataLoading ? '抓取中' : '自动抓取' }}</button><button type="button" @click="addNavCard">新增卡片</button></div>
         <section v-for="group in displayGroups" :key="group.id || group.name" class="nav-group" :draggable="!!group.id" @dragstart="group.id && startDrag('navGroup', group)" @dragover.prevent @drop="group.id && dropNavGroup(group)"><header class="group-head" @contextmenu="showGroupMenu($event, group)"><h2>{{ group.name }}</h2><div class="inline-actions"><button v-if="group.id" type="button" @click="editNavGroup(group)">编辑</button><button v-if="group.id" type="button" @click="moveNavGroup(group, -1)">上移</button><button v-if="group.id" type="button" @click="moveNavGroup(group, 1)">下移</button><button v-if="group.id" type="button" @click="removeNavGroup(group)">删除</button></div></header><div class="card-grid"><a v-for="item in group.items" :key="item.id || item.name" class="nav-card" :href="resolveNavUrl(item)" :draggable="!!item.id" @dragstart="item.id && startDrag('navItem', item, group.id)" @dragover.prevent @drop.prevent="item.id && dropNavCard(group, item)" @contextmenu="showCardMenu($event, item)" @touchstart.passive="showCardMenu($event, item)"><span class="card-icon"><img v-if="isImageValue(item.icon)" :src="item.icon" alt="" /><span v-else>{{ (item.icon || item.name).slice(0, 1) }}</span></span><span>{{ item.name }}</span><span v-if="item.id" class="card-actions"><button type="button" @click.prevent="editNavCard(item)">编辑</button><button type="button" @click.prevent="moveNavCard(group, item, -1)">上移</button><button type="button" @click.prevent="moveNavCard(group, item, 1)">下移</button><button type="button" @click.prevent="removeNavCard(item)">删除</button></span></a></div></section>
       </section>
 
