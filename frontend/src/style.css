@@ -29,33 +29,38 @@ h1, h2, h3, p { margin: 0; }
 
 .shell, .sun-shell { min-height: 100vh; background: var(--bg) !important; color: var(--ink); }
 .sun-shell::before { content: none; }
-.home-panel { max-width: 1184px; margin: 0 auto; padding: 24px 24px 56px; }
-.hero-card { display: grid; gap: 16px; margin-bottom: 24px; }
-.topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.home-panel { max-width: 920px; margin: 0 auto; padding: 24px 24px 56px; }
+.hero-card { display: grid; justify-items: center; gap: 16px; margin-bottom: 24px; }
+.topbar { width: 100%; display: flex; align-items: flex-start; justify-content: center; gap: 16px; text-align: center; }
+.home-title { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.home-logo { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; color: #fff; background: #57606a; font-weight: 800; overflow: hidden; }
+.home-logo img { width: 100%; height: 100%; object-fit: cover; }
 .topbar h2 { font-size: 24px; line-height: 32px; font-weight: 800; letter-spacing: -.02em; }
 .topbar p { margin-top: 2px; color: var(--muted); font-size: 13px; }
 .top-meta { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .top-meta span { padding: 5px 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: #fff; font-size: 12px; font-weight: 700; }
 .sun-search {
   display: grid; grid-template-columns: 40px 1fr 40px; align-items: center;
-  width: min(640px, 100%); height: 40px; border: 1px solid var(--line); border-radius: 10px; background: #fff;
+  width: min(520px, 100%); height: 40px; border: 1px solid var(--line); border-radius: 10px; background: #fff;
 }
-.sun-search span, .sun-search em { color: var(--muted); text-align: center; font-style: normal; font-size: 13px; font-weight: 800; }
+.sun-search button { height: 100%; border-radius: 0; color: var(--muted); background: transparent; font-size: 13px; font-weight: 800; }
+.engine-button img { width: 20px; height: 20px; object-fit: contain; }
 .sun-search input { border: 0; padding: 0; box-shadow: none; }
 
 .nav-group { margin-top: 24px; }
-.group-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.group-head { display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
 .group-head h2 { font-size: 14px; line-height: 20px; font-weight: 800; color: var(--muted); }
-.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); gap: 8px; }
+.card-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .nav-card {
-  min-height: 44px; display: flex; align-items: center; gap: 8px; padding: 8px;
-  color: var(--ink); text-decoration: none; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  width: 60px; height: 60px; display: grid; grid-template-rows: 28px 1fr; place-items: center; gap: 4px; padding: 6px;
+  color: var(--ink); text-align: center; text-decoration: none; background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
   transition: background .12s ease, border-color .12s ease, transform .12s ease;
+  font-size: 11px; font-weight: 700; line-height: 13px; overflow: hidden;
 }
 .nav-card:hover { background: #f6f8fa; border-color: #afb8c1; transform: translateY(-1px); }
 .card-icon, .favicon, .logo {
   display: inline-grid; place-items: center; flex: 0 0 auto; overflow: hidden;
-  width: 28px; height: 28px; border-radius: 8px; color: #fff; background: #57606a; font-size: 12px; font-weight: 800;
+  width: 28px; height: 28px; border-radius: 9px; color: #fff; background: #57606a; font-size: 12px; font-weight: 800;
 }
 .logo.big { width: 56px; height: 56px; border-radius: 14px; font-size: 22px; }
 .logo img, .favicon img, .card-icon img { width: 100%; height: 100%; object-fit: cover; }
@@ -132,4 +137,27 @@ h1, h2, h3, p { margin: 0; }
   .settings-center { max-height: calc(100vh - 20px); }
   .settings-menu { display: flex; gap: 6px; overflow: auto; }
   .settings-menu button { flex: 0 0 auto; width: auto; margin-bottom: 0; white-space: nowrap; }
+}
+
+.search-engine-list {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-soft);
+}
+.search-engine-list button {
+  width: fit-content;
+  border-radius: 10px;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  font-weight: 800;
+}
+.search-engine-list p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
