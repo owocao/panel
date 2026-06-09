@@ -62,6 +62,9 @@ const fallbackGroups = [{ name: '常用服务', items: [{ name: 'NAS', icon: 'N'
 const displayGroups = computed(() => (navGroups.value.length ? navGroups.value : fallbackGroups))
 const menuStyle = computed(() => ({ left: `${menu.value.x}px`, top: `${menu.value.y}px` }))
 const activeFolder = computed(() => folders.value.find((folder) => folder.id === activeFolderId.value))
+const bookmarkCount = computed(() => bookmarks.value.length)
+const folderCount = computed(() => folders.value.length)
+const navItemCount = computed(() => navGroups.value.reduce((total, group) => total + (group.items?.length || 0), 0))
 const networkLabel = computed(() => ({ auto: '自动内网', lan: '内网优先', wan: '外网优先' }[networkMode.value]))
 const displayTime = computed(() => now.value.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }))
 const displayDate = computed(() => now.value.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', weekday: 'long' }).replace('月', '-').replace('日', ''))
@@ -658,7 +661,7 @@ function showBookmarkMenu(event, bookmark) {
       <div class="floating-actions"><button type="button" @click.stop="cycleNetworkMode">{{ networkLabel }}</button><button type="button" @click.stop="settingsOpen = true">设置</button></div>
 
       <aside v-if="drawerOpen" class="bookmark-drawer" aria-label="收藏夹" @click.stop>
-        <div class="drawer-head"><span>收藏夹</span><div class="inline-actions"><button type="button" @click="exportBookmarks">导出</button><label class="file-button">导入<input type="file" accept=".html,.htm,text/html" @change="importBookmarksFile" /></label></div></div>
+        <div class="drawer-head"><div><span>收藏夹</span><small>{{ folderCount }} 个分组 · {{ bookmarkCount }} 条收藏</small></div><div class="inline-actions"><button type="button" @click="exportBookmarks">导出</button><label class="file-button">导入<input type="file" accept=".html,.htm,text/html" @change="importBookmarksFile" /></label></div></div>
         <label class="bookmark-search"><span>搜索收藏</span><input v-model="bookmarkSearch.q" placeholder="输入标题、网址或备注" @keyup.enter="runBookmarkSearch" /></label><div class="inline-actions search-actions"><button type="button" @click="runBookmarkSearch">搜索</button><button type="button" @click="clearBookmarkSearch">清空</button><span v-if="bookmarkSearch.loading">搜索中...</span><span v-else-if="bookmarkSearch.results.length">找到 {{ bookmarkSearch.results.length }} 条</span></div>
         <div class="quick-create"><input v-model="quickBookmark.folderName" placeholder="新文件夹名称" /><button type="button" @click="addFolder">新增文件夹</button></div>
         <section class="bookmark-body"><nav class="folder-tree"><button v-for="folder in folders" :key="folder.id" class="folder" :class="{ active: folder.id === activeFolderId }" draggable="true" @dragstart="startDrag('folder', folder)" @dragover.prevent @drop="dropFolder(folder)" type="button" @click="selectFolder(folder)"><strong>{{ folder.name }}</strong><span>{{ folder.hasChildren ? '可展开子目录' : '当前目录' }}</span><span class="mini-actions"><em @click.stop="editFolder(folder)">编辑</em><em @click.stop="moveFolder(folder, -1)">上移</em><em @click.stop="moveFolder(folder, 1)">下移</em><em @click.stop="removeFolder(folder)">删除</em></span></button><div v-if="!folders.length" class="empty-state">暂无文件夹，先创建一个目录。</div></nav>
@@ -667,7 +670,7 @@ function showBookmarkMenu(event, bookmark) {
       </aside>
 
       <section v-if="activeView === 'home'" class="home-panel sun-panel">
-        <section class="hero-card"><div class="sun-title"><h2>{{ settingsForm.siteTitle || 'biu-panel' }}</h2><b>|</b><div class="clock"><strong>{{ displayTime }}</strong><span>{{ displayDate }}</span></div></div><div class="sun-search"><span>B</span><input placeholder="Enter search content" @keyup.enter="runBookmarkSearch" /><em>⌕</em></div><p>{{ statusText }}</p></section>
+        <section class="hero-card"><div class="topbar"><div><h2>{{ settingsForm.siteTitle || 'biu-panel' }}</h2><p>{{ statusText }}</p></div><div class="top-meta"><span>{{ navItemCount }} 个导航</span><span>{{ folderCount }} 个收藏分组</span><span>{{ displayTime }}</span></div></div><div class="sun-search"><span>搜</span><input placeholder="搜索导航或收藏" @keyup.enter="runBookmarkSearch" /><em>⌕</em></div></section>
 
         <section v-for="group in displayGroups" :key="group.id || group.name" class="nav-group" :draggable="!!group.id" @dragstart="group.id && startDrag('navGroup', group)" @dragover.prevent @drop="group.id && dropNavGroup(group)"><header class="group-head" @contextmenu="showGroupMenu($event, group)"><h2>{{ group.name }}</h2></header><div class="card-grid"><a v-for="item in group.items" :key="item.id || item.name" class="nav-card" :href="resolveNavUrl(item)" :draggable="!!item.id" @dragstart="item.id && startDrag('navItem', item, group.id)" @dragover.prevent @drop.prevent="item.id && dropNavCard(group, item)" @contextmenu="showCardMenu($event, item)" @touchstart.passive="showCardMenu($event, item)"><span class="card-icon"><img v-if="isImageValue(item.icon)" :src="item.icon" alt="" /><span v-else>{{ (item.icon || item.name).slice(0, 1) }}</span></span><span>{{ item.name }}</span></a></div></section>
       </section>
