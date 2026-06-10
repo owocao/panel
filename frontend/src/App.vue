@@ -1230,7 +1230,7 @@ function showBookmarkMenu(event, bookmark) {
 
     <div v-if="menu.open" class="context-menu" :class="{ compact: menu.compact }" :style="menuStyle" @click.stop>
       <div v-if="menu.actions.some((action) => action.variant === 'icon')" class="menu-icon-row">
-        <button v-for="action in menu.actions.filter((item) => item.variant === 'icon')" :key="action.label" class="icon-only" type="button" :title="action.label" @click="runMenuAction(action)"><img :src="iconUrl(action.icon)" alt="" /></button>
+        <button v-for="action in menu.actions.filter((item) => item.variant === 'icon')" :key="action.label" class="icon-only" type="button" :title="action.label" @click="runMenuAction(action)"><img :src="iconUrl(action.icon)" alt="" /><span class="visually-hidden">{{ action.label }}</span></button>
       </div>
       <template v-for="(action, index) in menu.actions" :key="action.label || `divider-${index}`">
         <div v-if="action.divider" class="menu-divider"></div>
