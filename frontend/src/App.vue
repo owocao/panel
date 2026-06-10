@@ -62,15 +62,12 @@ const assetUploading = ref(false)
 const dragState = ref({ type: '', groupId: null, item: null, overId: null, saving: false, lastMoveAt: 0, settling: false })
 const navPointerDrag = ref({ active: false, moved: false, groupId: null, item: null, pointerId: null, startX: 0, startY: 0, x: 0, y: 0, offsetX: 0, offsetY: 0, lastMoveAt: 0 })
 const suppressNextNavCardClick = ref(false)
-const networkMode = ref('auto')
-const lanReachable = ref(null)
-const lanDetecting = ref(false)
-const lanDetectError = ref('')
+const networkMode = ref('lan')
 const now = ref(new Date())
 const dateMode = ref('solar')
 let clockTimer
 let toastTimer
-const settingsForm = ref({ siteTitle: 'biu-panel', logoUrl: '', showTitle: 'true', showLogo: 'true', showClock: 'true', showSeconds: 'false', showSearch: 'true', searchEngines: JSON.stringify([{ key: 'google', title: 'Google', icon: 'G', url: 'https://www.google.com/search?q={q}' }, { key: 'baidu', title: '百度', icon: '百', url: 'https://www.baidu.com/s?wd={q}' }, { key: 'bing', title: 'Bing', icon: 'B', url: 'https://www.bing.com/search?q={q}' }]), backgroundUrl: '', backgroundColor: '#02030a', lanDetectUrl: 'http://192.168.1.1', lanDetectTimeout: '800', autoDetectLan: 'true', s3Endpoint: '', s3Region: 'auto', s3Bucket: '', s3AccessKey: '', s3SecretKey: '', s3Prefix: 'biu-panel/', s3PathStyle: 'true', s3Enabled: 'false', s3PublicBase: '' })
+const settingsForm = ref({ siteTitle: 'biu-panel', logoUrl: '', showTitle: 'true', showLogo: 'true', showClock: 'true', showSeconds: 'false', showSearch: 'true', searchEngines: JSON.stringify([{ key: 'google', title: 'Google', icon: 'G', url: 'https://www.google.com/search?q={q}' }, { key: 'baidu', title: '百度', icon: '百', url: 'https://www.baidu.com/s?wd={q}' }, { key: 'bing', title: 'Bing', icon: 'B', url: 'https://www.bing.com/search?q={q}' }]), backgroundUrl: '', backgroundColor: '#02030a', lanDetectUrl: '', lanDetectTimeout: '800', autoDetectLan: 'false', s3Endpoint: '', s3Region: 'auto', s3Bucket: '', s3AccessKey: '', s3SecretKey: '', s3Prefix: 'biu-panel/', s3PathStyle: 'true', s3Enabled: 'false', s3PublicBase: '' })
 
 const fallbackGroups = [{ name: '常用服务', items: [{ name: 'NAS', icon: 'N', wanUrl: '#' }, { name: 'Home Assistant', icon: 'H', wanUrl: '#' }, { name: '思源笔记', icon: 'S', wanUrl: '#' }, { name: '文件管理', icon: 'F', wanUrl: '#' }] }]
 const displayGroups = computed(() => (navGroups.value.length ? navGroups.value : fallbackGroups))
@@ -81,23 +78,8 @@ const folderFlatList = computed(() => flattenFolders(folders.value))
 const folderCount = computed(() => folderFlatList.value.length)
 const navItemCount = computed(() => navGroups.value.reduce((total, group) => total + (group.items?.length || 0), 0))
 const showNetworkSwitcher = computed(() => true)
-const effectiveNetworkMode = computed(() => {
-  if (networkMode.value === 'lan' || networkMode.value === 'wan') return networkMode.value
-  if (settingsForm.value.autoDetectLan !== 'true') return 'lan'
-  return lanReachable.value === true ? 'lan' : 'wan'
-})
-const networkTip = computed(() => {
-  if (networkMode.value === 'lan') return '强制内网'
-  if (networkMode.value === 'wan') return '强制外网'
-  if (lanDetecting.value) return '自动判断中...'
-  if (settingsForm.value.autoDetectLan !== 'true') return '自动判断未启用，当前按内网打开'
-  return lanReachable.value === true ? '自动判断：当前内网' : `自动判断：当前外网${lanDetectError.value ? '，检测失败' : ''}`
-})
-const networkIcon = computed(() => {
-  if (networkMode.value === 'lan') return 'wifi-router'
-  if (networkMode.value === 'wan') return 'globe'
-  return lanDetecting.value ? 'sync' : (effectiveNetworkMode.value === 'lan' ? 'wifi-router' : 'globe')
-})
+const networkTip = computed(() => (networkMode.value === 'lan' ? '优先内网，超时后打开公网' : '优先公网，超时后打开内网'))
+const networkIcon = computed(() => (networkMode.value === 'lan' ? 'wifi-router' : 'globe'))
 const displayTime = computed(() => now.value.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: settingsForm.value.showSeconds === 'true' ? '2-digit' : undefined, hour12: false }))
 const lunarDays = ['', '初一', '初二', '初三', '初四', '初五', '初六', '初七', '初八', '初九', '初十', '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十', '廿一', '廿二', '廿三', '廿四', '廿五', '廿六', '廿七', '廿八', '廿九', '三十']
 const displayDate = computed(() => {
@@ -146,10 +128,9 @@ const shellStyle = computed(() => ({
 
 onMounted(async () => {
   clockTimer = window.setInterval(() => { now.value = new Date() }, 1000)
-  networkMode.value = localStorage.getItem('biu-network-mode') || 'auto'
+  networkMode.value = normalizeNetworkMode(localStorage.getItem('biu-network-mode'))
   await refreshBootstrap()
   await loadNavigation()
-  if (networkMode.value === 'auto') detectLanNetwork({ silent: true })
 })
 
 onUnmounted(() => {
@@ -314,9 +295,65 @@ async function convertBookmarkToNavCard(bookmark) {
   await loadNavigation()
 }
 
+function normalizeNetworkMode(value) {
+  return value === 'wan' ? 'wan' : 'lan'
+}
+
+function navUrlCandidates(item) {
+  const lanUrl = String(item?.lanUrl || '').trim()
+  const wanUrl = String(item?.wanUrl || '').trim()
+  if (networkMode.value === 'lan') return { primary: lanUrl, fallback: wanUrl }
+  return { primary: wanUrl, fallback: lanUrl }
+}
+
 function resolveNavUrl(item) {
-  if (effectiveNetworkMode.value === 'lan') return item.lanUrl || item.wanUrl || '#'
-  return item.wanUrl || item.lanUrl || '#'
+  const { primary, fallback } = navUrlCandidates(item)
+  return primary || fallback || '#'
+}
+
+function openResolvedUrl(url, target = '_self', openedWindow = null) {
+  if (!url || url === '#') return
+  if (target === '_self') {
+    window.location.href = url
+    return
+  }
+  if (openedWindow) {
+    openedWindow.location.href = url
+    return
+  }
+  window.open(url, target, 'noopener,noreferrer')
+}
+
+async function probeUrl(url) {
+  if (!url || url === '#') return false
+  const timeout = Math.max(200, Number(settingsForm.value.lanDetectTimeout || 800) || 800)
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), timeout)
+  try {
+    await fetch(url, { mode: 'no-cors', cache: 'no-store', signal: controller.signal })
+    return true
+  } catch {
+    return false
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
+
+async function openNavItem(item, target = '_self', features = 'noopener,noreferrer') {
+  const { primary, fallback } = navUrlCandidates(item)
+  const firstUrl = primary || fallback
+  if (!firstUrl) return
+  let openedWindow = null
+  if (target !== '_self') openedWindow = window.open('about:blank', target, features)
+  if (!primary || !fallback) {
+    openResolvedUrl(firstUrl, target, openedWindow)
+    return
+  }
+  if (await probeUrl(primary)) {
+    openResolvedUrl(primary, target, openedWindow)
+    return
+  }
+  openResolvedUrl(fallback, target, openedWindow)
 }
 
 function openSettings() {
@@ -334,59 +371,10 @@ function showToast(message) {
   toastTimer = window.setTimeout(() => { toastText.value = '' }, 1800)
 }
 
-function currentNetworkLabel() {
-  if (networkMode.value === 'lan') return '强制内网'
-  if (networkMode.value === 'wan') return '强制外网'
-  return effectiveNetworkMode.value === 'lan' ? '自动判断：内网' : '自动判断：外网'
-}
-
-async function detectLanNetwork(options = {}) {
-  const silent = options.silent === true
-  if (settingsForm.value.autoDetectLan !== 'true') {
-    lanReachable.value = null
-    lanDetectError.value = ''
-    return false
-  }
-  const url = String(settingsForm.value.lanDetectUrl || '').trim()
-  if (!url) {
-    lanReachable.value = false
-    lanDetectError.value = '未配置检测地址'
-    return false
-  }
-  const timeout = Math.max(200, Number(settingsForm.value.lanDetectTimeout || 800) || 800)
-  const controller = new AbortController()
-  const timer = window.setTimeout(() => controller.abort(), timeout)
-  lanDetecting.value = true
-  lanDetectError.value = ''
-  try {
-    await fetch(url, { mode: 'no-cors', cache: 'no-store', signal: controller.signal })
-    lanReachable.value = true
-    if (!silent && networkMode.value === 'auto') showToast('自动判断：当前内网')
-    return true
-  } catch (error) {
-    lanReachable.value = false
-    lanDetectError.value = error.name === 'AbortError' ? '检测超时' : '检测失败'
-    if (!silent && networkMode.value === 'auto') showToast('自动判断：当前外网')
-    return false
-  } finally {
-    window.clearTimeout(timer)
-    lanDetecting.value = false
-  }
-}
-
 function cycleNetworkMode() {
-  const modes = ['auto', 'lan', 'wan']
-  const next = modes[(modes.indexOf(networkMode.value) + 1) % modes.length] || 'auto'
-  networkMode.value = next
+  networkMode.value = networkMode.value === 'lan' ? 'wan' : 'lan'
   localStorage.setItem('biu-network-mode', networkMode.value)
-  if (next === 'auto') {
-    const message = settingsForm.value.autoDetectLan === 'true' ? '已经切换到自动判断' : '已经切换到自动判断（请在设置中启用自动判断）'
-    statusText.value = message
-    showToast(message)
-    detectLanNetwork({ silent: true })
-    return
-  }
-  const message = next === 'lan' ? '已经切换到强制内网' : '已经切换到强制外网'
+  const message = networkMode.value === 'lan' ? '已经切换到优先内网' : '已经切换到优先公网'
   statusText.value = message
   showToast(message)
 }
@@ -437,11 +425,8 @@ async function loadSettings() {
   try {
     const data = await getSettings()
     settingsForm.value = { ...settingsForm.value, ...data }
-    if (!['auto', 'lan', 'wan'].includes(networkMode.value)) {
-      networkMode.value = 'auto'
-      localStorage.setItem('biu-network-mode', networkMode.value)
-    }
-    if (networkMode.value === 'auto') detectLanNetwork({ silent: true })
+    networkMode.value = normalizeNetworkMode(networkMode.value)
+    localStorage.setItem('biu-network-mode', networkMode.value)
     if (settingsForm.value.siteTitle) document.title = settingsForm.value.siteTitle
   } catch {
     // Settings require login; keep defaults for public views.
@@ -493,7 +478,6 @@ async function submitSettings() {
     const data = await saveSettings(settingsForm.value)
     settingsForm.value = { ...settingsForm.value, ...data }
     if (settingsForm.value.siteTitle) document.title = settingsForm.value.siteTitle
-    if (networkMode.value === 'auto') detectLanNetwork({ silent: true })
     statusText.value = '设置已保存'
     settingsMessage.value = `设置已保存：${new Date().toLocaleTimeString('zh-CN', { hour12: false })}`
   } catch (error) {
@@ -719,13 +703,20 @@ function toggleNavGroupEdit(group) {
   editingNavGroupId.value = editingNavGroupId.value === group.id ? null : group.id
 }
 function openCardEditorInGroup(event, group, item) {
-  if (editingNavGroupId.value !== group.id) return
+  if (editingNavGroupId.value !== group.id) return false
   event.preventDefault()
   if (suppressNextNavCardClick.value) {
     suppressNextNavCardClick.value = false
-    return
+    return true
   }
   editNavCard(item)
+  return true
+}
+
+function handleNavCardClick(event, group, item) {
+  if (openCardEditorInGroup(event, group, item)) return
+  event.preventDefault()
+  openNavItem(item)
 }
 
 function handleShellClick(event) {
@@ -1236,8 +1227,8 @@ function showCardMenu(event, item, group = null) {
   }
   const url = resolveNavUrl(item)
   showMenu(event, item.name, [
-    { label: '新标签页打开', icon: 'external-link-alt', variant: 'icon', run: () => window.open(url, '_blank', 'noopener,noreferrer') },
-    { label: '新窗口打开', icon: 'window', variant: 'icon', run: () => window.open(url, '_blank', 'noopener,noreferrer,width=1200,height=800') },
+    { label: '新标签页打开', icon: 'external-link-alt', variant: 'icon', run: () => openNavItem(item, '_blank', 'noopener,noreferrer') },
+    { label: '新窗口打开', icon: 'window', variant: 'icon', run: () => openNavItem(item, '_blank', 'noopener,noreferrer,width=1200,height=800') },
     { divider: true },
     { label: '编辑', icon: 'edit', run: () => editNavCard(item) },
     { label: '删除', icon: 'trash-alt', run: () => removeNavCard(item) },
@@ -1394,7 +1385,7 @@ function showBookmarkMenu(event, bookmark) {
       <section v-if="activeView === 'home'" class="home-panel sun-panel">
         <section class="hero-card"><div class="topbar"><div class="home-title"><span v-if="settingsForm.showLogo === 'true'" class="home-logo"><img v-if="settingsForm.logoUrl" :src="settingsForm.logoUrl" alt="" /><span v-else>B</span></span><h2><span v-if="settingsForm.showTitle === 'true'" class="title-text">{{ settingsForm.siteTitle || 'biu-panel' }}</span><template v-if="settingsForm.showTitle === 'true' && settingsForm.showClock === 'true'"><em>｜</em></template><time v-if="settingsForm.showClock === 'true'" class="time-stack"><strong>{{ displayTime }}</strong><small class="date-toggle" role="button" tabindex="0" :title="dateMode === 'solar' ? '点击切换农历' : '点击切换公历'" @click.stop="toggleDateMode" @keyup.enter="toggleDateMode">{{ displayDate }}</small></time></h2></div></div><form v-if="settingsForm.showSearch === 'true'" class="sun-search" @submit.prevent="runWebSearch"><button class="engine-button" type="button" @click="webSearch.engine = searchEngines[(searchEngines.findIndex((engine) => engine.key === webSearch.engine) + 1) % searchEngines.length]?.key || webSearch.engine"><img v-if="isImageValue(activeSearchEngine?.icon)" :src="activeSearchEngine.icon" alt="" /><span v-else>{{ activeSearchEngine?.icon || 'G' }}</span></button><input v-model="webSearch.q" placeholder="网页搜索" /><button type="submit" title="搜索"><img class="button-icon" :src="iconUrl('search')" alt="" /></button></form></section>
 
-        <section v-for="group in displayGroups" :key="group.id || group.name" class="nav-group" :class="{ editing: editingNavGroupId === group.id, 'drag-saving': dragState.saving && dragState.groupId === group.id, 'dragging-card': navPointerDrag.active && navPointerDrag.groupId === group.id }" :draggable="!!group.id" @dragstart="group.id && startDrag('navGroup', group, null, $event)" @dragend="clearDragState" @dragover.prevent @drop="group.id && dropNavGroup(group)"><header class="group-head" @contextmenu="showGroupMenu($event, group)"><h2>{{ group.name }}<small v-if="editingNavGroupId === group.id">排序模式</small></h2><div class="group-tools"><button type="button" title="新增卡片" @click="addCardFromMenu(group)"><img :src="iconUrl('plus')" alt="" /></button><button type="button" title="编辑分组" @click="toggleNavGroupEdit(group)"><img :src="iconUrl('edit')" alt="" /></button></div></header><TransitionGroup tag="div" class="card-grid" name="nav-card-list"><a v-for="item in group.items" :key="item.id || item.name" class="app-tile" :class="{ dragging: navPointerDrag.active && navPointerDrag.item?.id === item.id }" :data-nav-item-id="item.id" :href="editingNavGroupId === group.id ? '#' : resolveNavUrl(item)" :draggable="false" @pointerdown.stop="startNavPointerSort($event, group, item)" @click="openCardEditorInGroup($event, group, item)" @contextmenu="showCardMenu($event, item, group)"><span class="nav-card"><span v-if="isImageValue(item.icon)" class="card-icon image-icon"><img :src="item.icon" alt="" /></span><span v-else class="card-text-icon" :class="cardTextClass(item.icon || item.name)">{{ limitText(item.icon || item.name, 5) }}</span></span><span class="card-title">{{ limitText(item.name, 10) }}</span></a></TransitionGroup></section>
+        <section v-for="group in displayGroups" :key="group.id || group.name" class="nav-group" :class="{ editing: editingNavGroupId === group.id, 'drag-saving': dragState.saving && dragState.groupId === group.id, 'dragging-card': navPointerDrag.active && navPointerDrag.groupId === group.id }" :draggable="!!group.id" @dragstart="group.id && startDrag('navGroup', group, null, $event)" @dragend="clearDragState" @dragover.prevent @drop="group.id && dropNavGroup(group)"><header class="group-head" @contextmenu="showGroupMenu($event, group)"><h2>{{ group.name }}<small v-if="editingNavGroupId === group.id">排序模式</small></h2><div class="group-tools"><button type="button" title="新增卡片" @click="addCardFromMenu(group)"><img :src="iconUrl('plus')" alt="" /></button><button type="button" title="编辑分组" @click="toggleNavGroupEdit(group)"><img :src="iconUrl('edit')" alt="" /></button></div></header><TransitionGroup tag="div" class="card-grid" name="nav-card-list"><a v-for="item in group.items" :key="item.id || item.name" class="app-tile" :class="{ dragging: navPointerDrag.active && navPointerDrag.item?.id === item.id }" :data-nav-item-id="item.id" :href="editingNavGroupId === group.id ? '#' : resolveNavUrl(item)" :draggable="false" @pointerdown.stop="startNavPointerSort($event, group, item)" @click="handleNavCardClick($event, group, item)" @contextmenu="showCardMenu($event, item, group)"><span class="nav-card"><span v-if="isImageValue(item.icon)" class="card-icon image-icon"><img :src="item.icon" alt="" /></span><span v-else class="card-text-icon" :class="cardTextClass(item.icon || item.name)">{{ limitText(item.icon || item.name, 5) }}</span></span><span class="card-title">{{ limitText(item.name, 10) }}</span></a></TransitionGroup></section>
       </section>
 
       <div v-if="navPointerDrag.active && navPointerDrag.item" class="nav-drag-float" :style="navDragFloatStyle()">
@@ -1402,7 +1393,7 @@ function showBookmarkMenu(event, bookmark) {
         <span class="card-title">{{ limitText(navPointerDrag.item.name, 10) }}</span>
       </div>
 
-      <section v-if="settingsOpen" class="settings-mask" @mousedown.self.stop="closeSettings"><section class="settings-panel settings-center" @click.stop><header class="settings-head"><div><span class="eyebrow dark">设置中心</span><h2>系统设置</h2></div><div class="inline-actions"><button type="button" @click="submitSettings">保存设置</button><button type="button" @click="closeSettings">关闭</button></div></header><p v-if="settingsMessage" class="settings-message">{{ settingsMessage }}</p><div class="settings-layout"><aside class="settings-menu"><button type="button" :class="{ active: activeSettings === '个人信息' }" @click="activeSettings = '个人信息'">个人信息</button><button type="button" :class="{ active: activeSettings === '个性化' }" @click="activeSettings = '个性化'">个性化</button><button type="button" :class="{ active: activeSettings === '导航管理' }" @click="activeSettings = '导航管理'">导航管理</button><button type="button" :class="{ active: activeSettings === '收藏夹' }" @click="activeSettings = '收藏夹'; loadFolders()">收藏夹</button><button type="button" :class="{ active: activeSettings === '导入导出' }" @click="activeSettings = '导入导出'">导入导出</button><button type="button" :class="{ active: activeSettings === '备份恢复' }" @click="activeSettings = '备份恢复'">备份恢复</button><button type="button" :class="{ active: activeSettings === 'S3 存储' }" @click="activeSettings = 'S3 存储'">S3 存储</button><button type="button" :class="{ active: activeSettings === '关于' }" @click="activeSettings = '关于'">关于</button></aside><div class="settings-content"><section v-if="activeSettings === '个人信息'" class="setting-card"><h3>个人信息</h3><p>{{ statusText }}</p></section><section v-if="activeSettings === '导航管理'" class="setting-card manager-card"><header class="manager-head"><h3>导航管理</h3><button type="button" @click="createGroupByPrompt">新增分组</button></header><article v-for="group in navGroups" :key="`manage-${group.id}`" class="manager-row"><strong>{{ group.name }}</strong><div class="inline-actions"><button type="button" @click="addCardFromMenu(group)">新增卡片</button><button type="button" @click="editNavGroup(group)">编辑</button><button type="button" @click="removeNavGroup(group)">删除</button></div></article><div v-if="!navGroups.length" class="empty-state">暂无导航分组</div></section><section v-if="activeSettings === '收藏夹'" class="setting-card manager-card"><header class="manager-head"><h3>收藏夹管理</h3><div class="inline-actions"><button type="button" @click="createFolderByPrompt()">新增文件夹</button><button type="button" @click="createBookmarkByPrompt()">新增收藏</button><button type="button" @click="openDrawer">打开收藏夹</button></div></header><article v-for="folder in folderFlatList" :key="`manage-folder-${folder.id}`" class="manager-row" :style="{ paddingLeft: `${10 + folder.depth * 14}px` }"><strong>{{ folder.name }}</strong><div class="inline-actions"><button type="button" @click="createFolderByPrompt(folder)">新增子目录</button><button type="button" @click="createBookmarkByPrompt(folder)">新增收藏</button><button type="button" @click="editFolder(folder)">编辑</button><button type="button" @click="removeFolder(folder)">删除</button></div></article><div v-if="!folderFlatList.length" class="empty-state">暂无收藏夹文件夹，点击新增文件夹创建。</div></section><section v-if="activeSettings === '导入导出'" class="setting-card"><h3>导入导出</h3><p>收藏夹导入导出现在在左侧收藏夹抽屉顶部；后续会集中到这里。</p></section><section v-if="activeSettings === '关于'" class="setting-card"><h3>关于</h3><p>这是个人自用导航站和网页收藏夹，当前正在按 Sun-Panel 的交互方式重做。</p></section><div class="settings-grid"><section v-show="activeSettings === '个性化'" class="setting-card"><h3>个性化</h3><label class="check-row"><input v-model="settingsForm.showLogo" true-value="true" false-value="false" type="checkbox" /> 显示 Logo</label><label class="check-row"><input v-model="settingsForm.showTitle" true-value="true" false-value="false" type="checkbox" /> 显示标题</label><label>首页文本<input v-model="settingsForm.siteTitle" /></label><label>Logo 图片<input v-model="settingsForm.logoUrl" placeholder="本地上传地址或图片链接" /></label><label>上传 Logo<input type="file" accept="image/*" @change="uploadIconFile($event, settingsForm, 'logoUrl')" /></label><label class="check-row"><input v-model="settingsForm.showClock" true-value="true" false-value="false" type="checkbox" /> 显示时钟</label><label class="check-row"><input v-model="settingsForm.showSeconds" true-value="true" false-value="false" type="checkbox" /> 显示秒</label><label class="check-row"><input v-model="settingsForm.showSearch" true-value="true" false-value="false" type="checkbox" /> 显示搜索栏</label><div class="search-engine-list"><strong>搜索引擎</strong><button type="button" @click="addSearchEngine">添加搜索引擎</button><p v-for="engine in searchEngines" :key="engine.key">{{ engine.icon }} {{ engine.title }} · {{ engine.url }}</p></div></section><section v-show="activeSettings === 'S3 存储'" class="setting-card"><h3>S3 存储</h3><label class="check-row"><input v-model="settingsForm.s3Enabled" true-value="true" false-value="false" type="checkbox" /> 启用 S3 配置</label><label>Endpoint<input v-model="settingsForm.s3Endpoint" placeholder="https://s3.example.com" /></label><label>Region<input v-model="settingsForm.s3Region" placeholder="auto" /></label><label>Bucket<input v-model="settingsForm.s3Bucket" placeholder="biu-panel" /></label><label>Access Key<input v-model="settingsForm.s3AccessKey" /></label><label>Secret Key<input v-model="settingsForm.s3SecretKey" type="password" /></label><label>上传前缀<input v-model="settingsForm.s3Prefix" placeholder="biu-panel/" /></label><label>公开访问域名<input v-model="settingsForm.s3PublicBase" placeholder="https://cdn.example.com/biu-panel" /></label><label class="check-row"><input v-model="settingsForm.s3PathStyle" true-value="true" false-value="false" type="checkbox" /> Path-style 兼容模式</label><div class="inline-actions"><button type="button" @click="submitSettings">保存 S3 配置</button><button type="button" @click="submitTestS3">测试 S3</button></div></section><section v-show="activeSettings === '个性化'" class="setting-card"><h3>内外网判断</h3><label>统一检测地址<input v-model="settingsForm.lanDetectUrl" /></label><label>超时时间 ms<input v-model="settingsForm.lanDetectTimeout" /></label><label class="check-row"><input v-model="settingsForm.autoDetectLan" true-value="true" false-value="false" type="checkbox" /> 启用自动判断</label></section><section v-show="activeSettings === '备份恢复'" class="setting-card"><h3>备份恢复</h3><p>系统备份为 .tar.gz，包含数据库、本地上传文件和版本信息。</p><div class="inline-actions"><button type="button" @click="window.location.href = '/api/backup/download'">下载备份</button><button type="button" @click="submitBackupToS3">备份到 S3</button><label class="file-button">恢复备份<input type="file" accept=".gz,.tgz,application/gzip" @change="restoreBackupFile" /></label></div></section></div></div></div></section></section>
+      <section v-if="settingsOpen" class="settings-mask" @mousedown.self.stop="closeSettings"><section class="settings-panel settings-center" @click.stop><header class="settings-head"><div><span class="eyebrow dark">设置中心</span><h2>系统设置</h2></div><div class="inline-actions"><button type="button" @click="submitSettings">保存设置</button><button type="button" @click="closeSettings">关闭</button></div></header><p v-if="settingsMessage" class="settings-message">{{ settingsMessage }}</p><div class="settings-layout"><aside class="settings-menu"><button type="button" :class="{ active: activeSettings === '个人信息' }" @click="activeSettings = '个人信息'">个人信息</button><button type="button" :class="{ active: activeSettings === '个性化' }" @click="activeSettings = '个性化'">个性化</button><button type="button" :class="{ active: activeSettings === '导航管理' }" @click="activeSettings = '导航管理'">导航管理</button><button type="button" :class="{ active: activeSettings === '收藏夹' }" @click="activeSettings = '收藏夹'; loadFolders()">收藏夹</button><button type="button" :class="{ active: activeSettings === '导入导出' }" @click="activeSettings = '导入导出'">导入导出</button><button type="button" :class="{ active: activeSettings === '备份恢复' }" @click="activeSettings = '备份恢复'">备份恢复</button><button type="button" :class="{ active: activeSettings === 'S3 存储' }" @click="activeSettings = 'S3 存储'">S3 存储</button><button type="button" :class="{ active: activeSettings === '关于' }" @click="activeSettings = '关于'">关于</button></aside><div class="settings-content"><section v-if="activeSettings === '个人信息'" class="setting-card"><h3>个人信息</h3><p>{{ statusText }}</p></section><section v-if="activeSettings === '导航管理'" class="setting-card manager-card"><header class="manager-head"><h3>导航管理</h3><button type="button" @click="createGroupByPrompt">新增分组</button></header><article v-for="group in navGroups" :key="`manage-${group.id}`" class="manager-row"><strong>{{ group.name }}</strong><div class="inline-actions"><button type="button" @click="addCardFromMenu(group)">新增卡片</button><button type="button" @click="editNavGroup(group)">编辑</button><button type="button" @click="removeNavGroup(group)">删除</button></div></article><div v-if="!navGroups.length" class="empty-state">暂无导航分组</div></section><section v-if="activeSettings === '收藏夹'" class="setting-card manager-card"><header class="manager-head"><h3>收藏夹管理</h3><div class="inline-actions"><button type="button" @click="createFolderByPrompt()">新增文件夹</button><button type="button" @click="createBookmarkByPrompt()">新增收藏</button><button type="button" @click="openDrawer">打开收藏夹</button></div></header><article v-for="folder in folderFlatList" :key="`manage-folder-${folder.id}`" class="manager-row" :style="{ paddingLeft: `${10 + folder.depth * 14}px` }"><strong>{{ folder.name }}</strong><div class="inline-actions"><button type="button" @click="createFolderByPrompt(folder)">新增子目录</button><button type="button" @click="createBookmarkByPrompt(folder)">新增收藏</button><button type="button" @click="editFolder(folder)">编辑</button><button type="button" @click="removeFolder(folder)">删除</button></div></article><div v-if="!folderFlatList.length" class="empty-state">暂无收藏夹文件夹，点击新增文件夹创建。</div></section><section v-if="activeSettings === '导入导出'" class="setting-card"><h3>导入导出</h3><p>收藏夹导入导出现在在左侧收藏夹抽屉顶部；后续会集中到这里。</p></section><section v-if="activeSettings === '关于'" class="setting-card"><h3>关于</h3><p>这是个人自用导航站和网页收藏夹，当前正在按 Sun-Panel 的交互方式重做。</p></section><div class="settings-grid"><section v-show="activeSettings === '个性化'" class="setting-card"><h3>个性化</h3><label class="check-row"><input v-model="settingsForm.showLogo" true-value="true" false-value="false" type="checkbox" /> 显示 Logo</label><label class="check-row"><input v-model="settingsForm.showTitle" true-value="true" false-value="false" type="checkbox" /> 显示标题</label><label>首页文本<input v-model="settingsForm.siteTitle" /></label><label>Logo 图片<input v-model="settingsForm.logoUrl" placeholder="本地上传地址或图片链接" /></label><label>上传 Logo<input type="file" accept="image/*" @change="uploadIconFile($event, settingsForm, 'logoUrl')" /></label><label class="check-row"><input v-model="settingsForm.showClock" true-value="true" false-value="false" type="checkbox" /> 显示时钟</label><label class="check-row"><input v-model="settingsForm.showSeconds" true-value="true" false-value="false" type="checkbox" /> 显示秒</label><label class="check-row"><input v-model="settingsForm.showSearch" true-value="true" false-value="false" type="checkbox" /> 显示搜索栏</label><div class="search-engine-list"><strong>搜索引擎</strong><button type="button" @click="addSearchEngine">添加搜索引擎</button><p v-for="engine in searchEngines" :key="engine.key">{{ engine.icon }} {{ engine.title }} · {{ engine.url }}</p></div></section><section v-show="activeSettings === 'S3 存储'" class="setting-card"><h3>S3 存储</h3><label class="check-row"><input v-model="settingsForm.s3Enabled" true-value="true" false-value="false" type="checkbox" /> 启用 S3 配置</label><label>Endpoint<input v-model="settingsForm.s3Endpoint" placeholder="https://s3.example.com" /></label><label>Region<input v-model="settingsForm.s3Region" placeholder="auto" /></label><label>Bucket<input v-model="settingsForm.s3Bucket" placeholder="biu-panel" /></label><label>Access Key<input v-model="settingsForm.s3AccessKey" /></label><label>Secret Key<input v-model="settingsForm.s3SecretKey" type="password" /></label><label>上传前缀<input v-model="settingsForm.s3Prefix" placeholder="biu-panel/" /></label><label>公开访问域名<input v-model="settingsForm.s3PublicBase" placeholder="https://cdn.example.com/biu-panel" /></label><label class="check-row"><input v-model="settingsForm.s3PathStyle" true-value="true" false-value="false" type="checkbox" /> Path-style 兼容模式</label><div class="inline-actions"><button type="button" @click="submitSettings">保存 S3 配置</button><button type="button" @click="submitTestS3">测试 S3</button></div></section><section v-show="activeSettings === '个性化'" class="setting-card"><h3>内外网判断</h3><p>右下角按钮可切换“优先内网 / 优先公网”。打开优先地址超时后自动回退到另一地址。</p><label>超时时间 ms<input v-model="settingsForm.lanDetectTimeout" /></label></section><section v-show="activeSettings === '备份恢复'" class="setting-card"><h3>备份恢复</h3><p>系统备份为 .tar.gz，包含数据库、本地上传文件和版本信息。</p><div class="inline-actions"><button type="button" @click="window.location.href = '/api/backup/download'">下载备份</button><button type="button" @click="submitBackupToS3">备份到 S3</button><label class="file-button">恢复备份<input type="file" accept=".gz,.tgz,application/gzip" @change="restoreBackupFile" /></label></div></section></div></div></div></section></section>
     </template>
 
     <section v-if="editDialog.open" class="modal-mask" @mousedown.self.stop="closeEditDialog">
