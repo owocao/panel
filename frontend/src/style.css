@@ -55,12 +55,14 @@ h1, h2, h3, p { margin: 0; }
 
 .nav-group { margin-top: 24px; }
 .group-head { display: flex; align-items: center; justify-content: flex-start; gap: 8px; margin-bottom: 8px; }
-.group-head h2 { font-size: 14px; line-height: 20px; font-weight: 800; color: var(--muted); }
+.group-head h2 { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; line-height: 20px; font-weight: 800; color: var(--muted); }
+.group-head h2 small { padding: 2px 6px; border-radius: 999px; color: #0969da; background: rgba(9,105,218,.1); font-size: 11px; line-height: 14px; font-weight: 800; }
 .group-tools { display: flex; gap: 6px; opacity: 0; pointer-events: none; transition: opacity .12s ease; }
 .nav-group:hover .group-tools, .nav-group.editing .group-tools { opacity: 1; pointer-events: auto; }
 .group-tools button { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: #fff; font-size: 15px; font-weight: 800; line-height: 1; }
 .group-tools button img, .button-icon { width: 16px; height: 16px; display: block; }
-.nav-group.editing { outline: 1px solid #0969da; outline-offset: 10px; border-radius: 12px; }
+.nav-group.editing { margin: 22px -10px -2px; padding: 10px; border: 1px dashed rgba(9,105,218,.38); border-radius: 14px; background: rgba(221,244,255,.34); }
+.nav-group.drag-saving { border-color: rgba(26,127,55,.45); background: rgba(46,160,67,.08); }
 .card-grid { display: flex; flex-wrap: wrap; justify-content: flex-start; column-gap: 25px; row-gap: 16px; }
 .app-tile {
   width: 60px; display: grid; justify-items: center; gap: 6px; color: var(--ink); text-align: center; text-decoration: none;
@@ -72,6 +74,13 @@ h1, h2, h3, p { margin: 0; }
   overflow: hidden;
 }
 .app-tile:hover .nav-card { background: transparent; transform: translateY(-1px); }
+.nav-group.editing .app-tile { cursor: grab; user-select: none; }
+.nav-group.editing .app-tile:active { cursor: grabbing; }
+.nav-group.editing .nav-card { outline: 1px dashed rgba(9,105,218,.28); outline-offset: -2px; transition: outline-color .12s ease, transform .12s ease, opacity .12s ease, box-shadow .12s ease; }
+.nav-group.editing .app-tile:hover .nav-card { transform: translateY(-2px); outline-color: rgba(9,105,218,.5); box-shadow: 0 8px 20px rgba(9,105,218,.12); }
+.app-tile.dragging { opacity: .34; }
+.app-tile.drop-target .nav-card { transform: translateY(-3px) scale(1.04); outline-color: #0969da; box-shadow: 0 10px 24px rgba(9,105,218,.18); }
+
 .card-title { max-width: 88px; font-size: 12px; font-weight: 700; line-height: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .card-text-icon {
   display: flex; align-items: center; justify-content: center; width: 55px; height: 55px; overflow: hidden;
