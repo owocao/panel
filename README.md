@@ -1,6 +1,6 @@
 # biu-panel
 
-个人轻量导航站 + 网页收藏夹，面向单人自用、Docker 部署、SQLite 本地存储。
+个人轻量导航站 + 网页收藏夹，面向单机本地调试优先，最终交付再用 Docker 部署，SQLite 本地存储。
 
 ## 已支持功能
 
@@ -13,7 +13,31 @@
 - 手动下载 `.tar.gz` 备份、上传备份恢复
 - 站点标题、Logo、背景图、背景色、内网检测配置保存
 
-## Docker 部署
+## 本地调试
+
+先启动后端：
+
+```bash
+cd backend
+BIU_PANEL_DATA_DIR=$(pwd)/../data BIU_PANEL_PORT=55088 go run ./cmd/server
+```
+
+再启动前端：
+
+```bash
+cd frontend
+npm run dev
+```
+
+前端开发服务器已配置 `/api` 与 `/uploads` 代理到本机后端，默认可直接访问：
+
+```text
+http://localhost:5173
+```
+
+如果需要改后端地址，可设置 `VITE_BACKEND_TARGET`。
+
+## 最终 Docker 部署
 
 ```bash
 docker compose up -d --build
@@ -51,7 +75,7 @@ environment:
 
 ```bash
 cd backend
-go run ./cmd/server
+BIU_PANEL_DATA_DIR=$(pwd)/../data BIU_PANEL_PORT=55088 go run ./cmd/server
 ```
 
 前端：
@@ -61,7 +85,7 @@ cd frontend
 npm run dev
 ```
 
-默认后端端口：`55088`。
+默认后端端口：`55088`。前端开发模式会通过 Vite 代理把 `/api` 和 `/uploads` 转到后端。
 
 ## 环境变量
 

@@ -16,7 +16,7 @@ cd /project/panel/frontend
 npm run dev
 ```
 
-前端默认 API 地址为 `http://localhost:55088`，可通过 `VITE_API_BASE` 覆盖。
+前端开发服务器会通过 Vite 代理把 `/api` 和 `/uploads` 转到本机后端；如需切换后端目标，可通过 `VITE_BACKEND_TARGET` 覆盖。
 
 ## 后端当前能力
 
@@ -45,7 +45,7 @@ npm run dev
 - 登录页静态原型。
 - 初始化页静态原型。
 - 设置页静态原型。
-- 右键/长按菜单原型。
+- 右键菜单原型。
 - API 客户端基础封装：`frontend/src/lib/api.js`。
 
 ## 验证命令

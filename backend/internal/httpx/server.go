@@ -517,7 +517,7 @@ func (s *Server) saveSettings(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &values) {
 		return
 	}
-	allowed := map[string]bool{"siteTitle": true, "logoUrl": true, "showLogo": true, "showClock": true, "showSeconds": true, "showSearch": true, "searchEngines": true, "backgroundUrl": true, "backgroundColor": true, "lanDetectUrl": true, "lanDetectTimeout": true, "autoDetectLan": true, "s3Endpoint": true, "s3Region": true, "s3Bucket": true, "s3AccessKey": true, "s3SecretKey": true, "s3Prefix": true, "s3PathStyle": true, "s3Enabled": true, "s3PublicBase": true}
+	allowed := map[string]bool{"siteTitle": true, "logoUrl": true, "showTitle": true, "showLogo": true, "showClock": true, "showSeconds": true, "showSearch": true, "searchEngines": true, "backgroundUrl": true, "backgroundColor": true, "lanDetectUrl": true, "lanDetectTimeout": true, "autoDetectLan": true, "s3Endpoint": true, "s3Region": true, "s3Bucket": true, "s3AccessKey": true, "s3SecretKey": true, "s3Prefix": true, "s3PathStyle": true, "s3Enabled": true, "s3PublicBase": true}
 	clean := map[string]string{}
 	for k, v := range values {
 		if allowed[k] {
