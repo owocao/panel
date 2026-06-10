@@ -61,11 +61,11 @@ h1, h2, h3, p { margin: 0; }
 .nav-group:hover .group-tools, .nav-group.editing .group-tools { opacity: 1; pointer-events: auto; }
 .group-tools button { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: #fff; font-size: 15px; font-weight: 800; line-height: 1; }
 .group-tools button img, .button-icon { width: 16px; height: 16px; display: block; }
-.nav-group.editing { margin: 22px -10px -2px; padding: 10px; border: 1px dashed rgba(9,105,218,.38); border-radius: 14px; background: rgba(221,244,255,.34); }
+.nav-group.editing { outline: 1px dashed rgba(9,105,218,.38); outline-offset: 8px; border-radius: 14px; background: rgba(221,244,255,.18); }
 .nav-group.drag-saving { border-color: rgba(26,127,55,.45); background: rgba(46,160,67,.08); }
 .card-grid { display: flex; flex-wrap: wrap; justify-content: flex-start; column-gap: 25px; row-gap: 16px; }
 .app-tile {
-  width: 60px; display: grid; justify-items: center; gap: 6px; color: var(--ink); text-align: center; text-decoration: none;
+  width: 60px; display: grid; justify-items: center; gap: 6px; color: var(--ink); text-align: center; text-decoration: none; transition: transform .14s ease, opacity .12s ease;
 }
 .nav-card {
   width: 60px; height: 60px; display: grid; place-items: center; padding: 0;
@@ -79,7 +79,6 @@ h1, h2, h3, p { margin: 0; }
 .nav-group.editing .nav-card { transition: transform .12s ease, opacity .12s ease, box-shadow .12s ease; }
 .nav-group.editing .app-tile:hover .nav-card { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(9,105,218,.12); }
 .app-tile.dragging { opacity: .34; }
-.app-tile.drop-target .nav-card { transform: translateY(-3px) scale(1.04); box-shadow: 0 10px 24px rgba(9,105,218,.18); }
 .drag-preview { width: 60px; display: grid; justify-items: center; gap: 6px; color: var(--ink); text-align: center; text-decoration: none; opacity: .92; transform: scale(1.02); }
 
 .card-title { max-width: 88px; font-size: 12px; font-weight: 700; line-height: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
