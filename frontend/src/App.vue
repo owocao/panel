@@ -690,15 +690,17 @@ function clearDragState() {
 function hoverNavCard(group, target) {
   const source = dragState.value.item
   if (dragState.value.type !== 'navItem' || dragState.value.groupId !== group.id || !source || source.id === target.id) return
-  const now = Date.now()
-  if (dragState.value.overId === target.id || now - (dragState.value.lastMoveAt || 0) < 320) return
   const list = [...(group.items || [])]
   const sourceIndex = list.findIndex((item) => item.id === source.id)
   const targetIndex = list.findIndex((item) => item.id === target.id)
   if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return
+  const now = Date.now()
+  const isReturningOverSameTarget = dragState.value.overId === target.id
+  if (!isReturningOverSameTarget && now - (dragState.value.lastMoveAt || 0) < 320) return
   const [moved] = list.splice(sourceIndex, 1)
   list.splice(targetIndex, 0, moved)
   group.items = list.map((item, index) => ({ ...item, sort: index + 1 }))
+  dragState.value.item = moved
   dragState.value.overId = target.id
   dragState.value.lastMoveAt = now
 }
