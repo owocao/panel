@@ -82,7 +82,7 @@ h1, h2, h3, p { margin: 0; }
 .nav-group.dragging-card .app-tile:not(.dragging):hover .nav-card { transform: none; box-shadow: none; }
 .nav-group.dragging-card .app-tile:not(.dragging) .nav-card { box-shadow: none; }
 
-.nav-card-list-move { transition: transform .24s cubic-bezier(.22,1,.36,1); }
+.nav-card-list-move { transition: transform .42s cubic-bezier(.22,1,.36,1); }
 .drag-preview { width: 60px; display: grid; justify-items: center; gap: 6px; color: var(--ink); text-align: center; text-decoration: none; opacity: .92; transform: scale(1.02); }
 
 .card-title { max-width: 88px; font-size: 12px; font-weight: 700; line-height: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

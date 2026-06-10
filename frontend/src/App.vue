@@ -695,7 +695,7 @@ function hoverNavCard(group, target, event = null) {
   const targetIndex = list.findIndex((item) => item.id === target.id)
   if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return
   const now = Date.now()
-  if (now - (dragState.value.lastMoveAt || 0) < 80) return
+  if (now - (dragState.value.lastMoveAt || 0) < 220) return
   const [moved] = list.splice(sourceIndex, 1)
   list.splice(targetIndex, 0, moved)
   group.items = list.map((item, index) => ({ ...item, sort: index + 1 }))
