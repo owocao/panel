@@ -59,7 +59,7 @@ const editDialog = ref({ open: false, type: '', title: '', form: {} })
 const editingNavGroupId = ref(null)
 const metadataLoading = ref(false)
 const assetUploading = ref(false)
-const dragState = ref({ type: '', groupId: null, item: null, overId: null, saving: false, lastMoveAt: 0 })
+const dragState = ref({ type: '', groupId: null, item: null, overId: null, saving: false, lastMoveAt: 0, settling: false })
 const networkMode = ref('auto')
 const now = ref(new Date())
 const dateMode = ref('solar')
@@ -664,7 +664,7 @@ function handleShellClick(event) {
 }
 
 function startDrag(type, item, groupId = null, event = null) {
-  dragState.value = { type, item, groupId, overId: null, saving: false, lastMoveAt: 0 }
+  dragState.value = { type, item, groupId, overId: null, saving: false, lastMoveAt: 0, settling: false }
   if (event?.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move'
     try {
@@ -684,12 +684,12 @@ function startDrag(type, item, groupId = null, event = null) {
 }
 
 function clearDragState() {
-  dragState.value = { type: '', groupId: null, item: null, overId: null, saving: false, lastMoveAt: 0 }
+  dragState.value = { type: '', groupId: null, item: null, overId: null, saving: false, lastMoveAt: 0, settling: false }
 }
 
 function hoverNavCard(group, target, event = null) {
   const source = dragState.value.item
-  if (dragState.value.type !== 'navItem' || dragState.value.groupId !== group.id || !source || source.id === target.id) return
+  if (dragState.value.settling || dragState.value.type !== 'navItem' || dragState.value.groupId !== group.id || !source || source.id === target.id) return
   const list = [...(group.items || [])]
   const sourceIndex = list.findIndex((item) => item.id === source.id)
   const targetIndex = list.findIndex((item) => item.id === target.id)
@@ -702,6 +702,10 @@ function hoverNavCard(group, target, event = null) {
   dragState.value.item = moved
   dragState.value.overId = target.id
   dragState.value.lastMoveAt = now
+  dragState.value.settling = true
+  window.setTimeout(() => {
+    if (dragState.value.type === 'navItem') dragState.value.settling = false
+  }, 260)
 }
 
 async function dropNavGroup(target) {
