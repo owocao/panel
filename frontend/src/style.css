@@ -165,6 +165,7 @@ h1, h2, h3, p { margin: 0; }
 .modal-mask { position: fixed; z-index: 35; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(31,35,40,.36); }
 .edit-modal { width: min(520px, 100%); max-height: calc(100vh - 36px); overflow: auto; padding: 16px; border-radius: 16px; }
 .context-menu { position: fixed; z-index: 40; display: grid; gap: 3px; width: 220px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow: auto; padding: 6px; border-radius: 12px; }
+.context-menu.compact { width: 128px; }
 .context-menu strong { padding: 6px 8px; font-size: 13px; }
 .context-menu button { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 30px; padding: 6px 8px; text-align: left; border: 0; background: transparent; }
 .context-menu button img { width: 16px; height: 16px; flex: none; display: block; }

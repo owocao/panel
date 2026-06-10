@@ -37,7 +37,7 @@ const drawerOpen = ref(false)
 const settingsOpen = ref(false)
 const activeSettings = ref('个性化')
 const settingsMessage = ref('')
-const menu = ref({ open: false, x: 0, y: 0, title: '', actions: [] })
+const menu = ref({ open: false, x: 0, y: 0, title: '', actions: [], compact: false })
 const statusText = ref('正在连接后端...')
 const toastText = ref('')
 const user = ref(null)
@@ -928,12 +928,13 @@ async function saveEditDialog() {
   }
 }
 
-function showMenu(event, title, actions) {
+function showMenu(event, title, actions, options = {}) {
   event.preventDefault()
   const point = event.touches?.[0] || event
-  const x = Math.min(point.clientX, window.innerWidth - 228)
+  const menuWidth = options.compact ? 128 : 220
+  const x = Math.min(point.clientX, window.innerWidth - menuWidth - 8)
   const y = Math.min(point.clientY, window.innerHeight - 360)
-  menu.value = { open: true, x: Math.max(8, x), y: Math.max(8, y), title, actions }
+  menu.value = { open: true, x: Math.max(8, x), y: Math.max(8, y), title, actions, compact: Boolean(options.compact) }
 }
 function closeMenu() { menu.value.open = false }
 async function runMenuAction(action) {
@@ -1004,7 +1005,7 @@ function showCardMenu(event, item) {
     { divider: true },
     { label: '编辑', icon: 'edit', run: () => editNavCard(item) },
     { label: '删除', icon: 'trash-alt', run: () => removeNavCard(item) },
-  ])
+  ], { compact: true })
 }
 function showGroupMenu(event, group) {
   showMenu(event, group.name, [
@@ -1227,7 +1228,7 @@ function showBookmarkMenu(event, bookmark) {
       </div>
     </section>
 
-    <div v-if="menu.open" class="context-menu" :style="menuStyle" @click.stop>
+    <div v-if="menu.open" class="context-menu" :class="{ compact: menu.compact }" :style="menuStyle" @click.stop>
       <div v-if="menu.actions.some((action) => action.variant === 'icon')" class="menu-icon-row">
         <button v-for="action in menu.actions.filter((item) => item.variant === 'icon')" :key="action.label" class="icon-only" type="button" :title="action.label" @click="runMenuAction(action)"><img :src="iconUrl(action.icon)" alt="" /></button>
       </div>
