@@ -694,13 +694,6 @@ function hoverNavCard(group, target, event = null) {
   const sourceIndex = list.findIndex((item) => item.id === source.id)
   const targetIndex = list.findIndex((item) => item.id === target.id)
   if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return
-  if (event?.currentTarget) {
-    const rect = event.currentTarget.getBoundingClientRect()
-    const pointerX = event.clientX || 0
-    const midpoint = rect.left + rect.width / 2
-    if (sourceIndex < targetIndex && pointerX < midpoint) return
-    if (sourceIndex > targetIndex && pointerX > midpoint) return
-  }
   const now = Date.now()
   if (now - (dragState.value.lastMoveAt || 0) < 220) return
   const [moved] = list.splice(sourceIndex, 1)
