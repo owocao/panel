@@ -97,7 +97,7 @@ h1, h2, h3, p { margin: 0; }
 .floating-actions button, .header-actions button, .inline-actions button, .drawer-head button, .form-grid button, .settings-head button, .open-link, .file-button, .context-menu button, .quick-create button, .bookmark-row button, .nav-card button, .modal-head button, .modal-actions button, .edit-modal > button, .manager-head button, .manager-row button {
   border-radius: 10px; color: var(--ink); background: #fff; border: 1px solid var(--line); padding: 8px 10px; font-size: 13px; font-weight: 800; text-decoration: none;
 }
-.floating-actions button:hover, .inline-actions button:hover, .context-menu button:hover { background: #f6f8fa; }
+.floating-actions button:hover, .inline-actions button:hover, .context-menu button:hover:not(.icon-only) { background: #f6f8fa; }
 .floating-actions button { width: 38px; height: 38px; padding: 0; display: inline-grid; place-items: center; }
 .floating-actions button img { width: 18px; height: 18px; display: block; }
 .toast-message { position: fixed; left: 50%; bottom: 24px; z-index: 41; transform: translateX(-50%); padding: 9px 14px; border-radius: 999px; background: rgba(31,35,40,.88); color: #fff; font-size: 13px; font-weight: 800; box-shadow: var(--shadow); }
@@ -164,14 +164,16 @@ h1, h2, h3, p { margin: 0; }
 
 .modal-mask { position: fixed; z-index: 35; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(31,35,40,.36); }
 .edit-modal { width: min(520px, 100%); max-height: calc(100vh - 36px); overflow: auto; padding: 16px; border-radius: 16px; }
-.context-menu { position: fixed; z-index: 40; display: grid; gap: 3px; width: 220px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow: auto; padding: 6px; border-radius: 12px; }
+.context-menu { position: fixed; z-index: 40; display: grid; gap: 3px; width: 220px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow-x: hidden; overflow-y: auto; padding: 6px; border-radius: 12px; }
 .context-menu.compact { width: 80px; }
 .context-menu strong { padding: 6px 8px; font-size: 13px; }
 .context-menu button { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 30px; padding: 6px 8px; text-align: left; border: 0; background: transparent; }
 .context-menu button img { width: 16px; height: 16px; flex: none; display: block; }
-.menu-icon-row { display: flex; align-items: center; justify-content: flex-start; gap: 0; padding: 0 8px 5px; }
-.context-menu .icon-only { width: 30px; min-height: 30px; padding: 6px; justify-content: center; border-radius: 8px; }
-.context-menu .icon-only img { width: 18px; height: 18px; }
+.menu-icon-row { display: flex; align-items: center; justify-content: flex-start; gap: 12px; padding: 0 8px 5px; }
+.context-menu .icon-only { position: relative; isolation: isolate; overflow: visible; width: 18px; min-height: 30px; padding: 6px 0; justify-content: center; border-radius: 0; }
+.context-menu .icon-only::before { content: ""; position: absolute; left: 50%; top: 50%; z-index: -1; width: 28px; height: 28px; border-radius: 8px; transform: translate(-50%, -50%); }
+.context-menu .icon-only:hover::before { background: #f6f8fa; }
+.context-menu .icon-only img { position: relative; z-index: 1; width: 18px; height: 18px; }
 .menu-divider { height: 1px; margin: 1px 0 3px; background: #eaeef2; }
 .move-hint { color: var(--muted); font-size: 13px; line-height: 1.5; }
 .file-button { position: relative; overflow: hidden; }
