@@ -303,7 +303,17 @@ func (s *Store) ListAllBookmarks() ([]Bookmark, error) {
 
 func (s *Store) SearchBookmarks(q string) ([]Bookmark, error) {
 	like := "%" + q + "%"
-	rows, err := s.DB.Query(`SELECT b.id,b.folder_id,b.title,b.url,COALESCE(b.favicon,''),COALESCE(b.note,''),b.sort,f.name FROM bookmarks b JOIN bookmark_folders f ON f.id=b.folder_id WHERE b.title LIKE ? OR b.url LIKE ? OR b.note LIKE ? ORDER BY b.title LIMIT 100`, like, like, like)
+	rows, err := s.DB.Query(`WITH RECURSIVE folder_paths(id, path) AS (
+		SELECT id, name FROM bookmark_folders WHERE parent_id IS NULL
+		UNION ALL
+		SELECT f.id, folder_paths.path || '/' || f.name FROM bookmark_folders f JOIN folder_paths ON f.parent_id = folder_paths.id
+	)
+	SELECT b.id,b.folder_id,b.title,b.url,COALESCE(b.favicon,''),COALESCE(b.note,''),b.sort,COALESCE(folder_paths.path, f.name)
+	FROM bookmarks b
+	JOIN bookmark_folders f ON f.id=b.folder_id
+	LEFT JOIN folder_paths ON folder_paths.id=f.id
+	WHERE b.title LIKE ? OR b.url LIKE ? OR b.note LIKE ?
+	ORDER BY b.title LIMIT 100`, like, like, like)
 	if err != nil {
 		return nil, err
 	}

@@ -111,17 +111,31 @@ h1, h2, h3, p { margin: 0; }
 .drawer-head small { color: var(--muted); font-size: 12px; }
 .bookmark-search { display: grid; gap: 6px; margin: 16px 0 8px; color: var(--muted); font-size: 13px; font-weight: 800; }
 .quick-create { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin: 8px 0 12px; }
-.bookmark-body { display: grid; grid-template-columns: 232px 1fr; gap: 12px; }
+.bookmark-body { display: grid; grid-template-columns: 272px 1fr; gap: 12px; }
 .folder-tree, .bookmark-list { min-width: 0; display: grid; align-content: start; gap: 8px; }
-.folder { width: 100%; display: grid; gap: 4px; padding: 10px; border-radius: 10px; color: var(--muted); text-align: left; background: transparent; }
-.folder.active { color: var(--ink); background: var(--panel-soft); }
+.folder-tree-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.folder-tree-head strong { font-size: 14px; font-weight: 800; }
+.bookmark-toolbar { display: grid; gap: 10px; }
+.selection-bar { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.selection-bar strong { font-size: 13px; }
+.tree-node { display: grid; gap: 6px; }
+.tree-folder { width: 100%; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 10px 12px; padding-left: calc(12px + var(--tree-depth, 0) * 14px); border-radius: 10px; color: var(--muted); text-align: left; background: transparent; }
+.tree-folder.active { color: var(--ink); background: var(--panel-soft); }
+.folder-toggle { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 6px; color: var(--accent); font-size: 12px; font-weight: 800; }
+.folder-toggle.expanded { background: rgba(9,105,218,.08); }
+.tree-folder strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree-folder small { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.tree-children { display: grid; gap: 6px; }
 .folder em { color: var(--accent); font-style: normal; font-size: 12px; font-weight: 800; }
+.bookmark-select { display: inline-grid; place-items: center; flex: 0 0 auto; width: 18px; height: 18px; }
+.bookmark-select input { width: 16px; height: 16px; }
 .bookmark-row { display: flex; align-items: center; gap: 8px; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
 .bookmark-row h3 { font-size: 14px; }
 .bookmark-row p, .bookmark-row small, .auth-box p, .setting-card p { color: var(--muted); font-size: 12px; }
 .bookmark-row p { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row-actions, .open-link { margin-left: auto; }
 .empty-state { padding: 12px; border: 1px dashed var(--line); border-radius: var(--radius); color: var(--muted); background: #fff; }
+.empty-actions { margin-top: 10px; }
 
 .auth-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
 .auth-box { width: min(440px, 100%); padding: 24px; border-radius: 16px; }
@@ -150,14 +164,15 @@ h1, h2, h3, p { margin: 0; }
 
 .modal-mask { position: fixed; z-index: 35; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(31,35,40,.36); }
 .edit-modal { width: min(520px, 100%); max-height: calc(100vh - 36px); overflow: auto; padding: 16px; border-radius: 16px; }
-.context-menu { position: fixed; z-index: 40; display: grid; gap: 3px; width: 74px; padding: 6px; border-radius: 12px; }
+.context-menu { position: fixed; z-index: 40; display: grid; gap: 3px; width: 260px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow: auto; padding: 6px; border-radius: 12px; }
 .context-menu strong { padding: 6px 8px; font-size: 13px; }
-.context-menu button { display: flex; align-items: center; gap: 6px; width: 100%; height: 30px; padding: 0 6px; text-align: left; border: 0; background: transparent; }
+.context-menu button { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 30px; padding: 6px 8px; text-align: left; border: 0; background: transparent; }
 .context-menu button img { width: 16px; height: 16px; flex: none; display: block; }
 .menu-icon-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; padding: 0 0 5px; }
 .context-menu .icon-only { width: 100%; height: 30px; padding: 0; justify-content: center; border-radius: 9px; }
 .context-menu .icon-only img { width: 18px; height: 18px; }
 .menu-divider { height: 1px; margin: 1px 0 3px; background: #eaeef2; }
+.move-hint { color: var(--muted); font-size: 13px; line-height: 1.5; }
 .file-button { position: relative; overflow: hidden; }
 .file-button input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .required { color: #cf222e; font-style: normal; }
