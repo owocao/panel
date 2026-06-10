@@ -63,6 +63,9 @@ const dragState = ref({ type: '', groupId: null, item: null, overId: null, savin
 const navPointerDrag = ref({ active: false, moved: false, groupId: null, item: null, pointerId: null, startX: 0, startY: 0, x: 0, y: 0, offsetX: 0, offsetY: 0, lastMoveAt: 0 })
 const suppressNextNavCardClick = ref(false)
 const networkMode = ref('auto')
+const lanReachable = ref(null)
+const lanDetecting = ref(false)
+const lanDetectError = ref('')
 const now = ref(new Date())
 const dateMode = ref('solar')
 let clockTimer
@@ -77,9 +80,24 @@ const bookmarkCount = computed(() => bookmarks.value.length)
 const folderFlatList = computed(() => flattenFolders(folders.value))
 const folderCount = computed(() => folderFlatList.value.length)
 const navItemCount = computed(() => navGroups.value.reduce((total, group) => total + (group.items?.length || 0), 0))
-const showNetworkSwitcher = computed(() => settingsForm.value.autoDetectLan !== 'true')
-const networkTip = computed(() => (networkMode.value === 'lan' ? '内网优先' : '外网优先'))
-const networkIcon = computed(() => (networkMode.value === 'lan' ? 'wifi-router' : 'globe'))
+const showNetworkSwitcher = computed(() => true)
+const effectiveNetworkMode = computed(() => {
+  if (networkMode.value === 'lan' || networkMode.value === 'wan') return networkMode.value
+  if (settingsForm.value.autoDetectLan !== 'true') return 'lan'
+  return lanReachable.value === true ? 'lan' : 'wan'
+})
+const networkTip = computed(() => {
+  if (networkMode.value === 'lan') return '强制内网'
+  if (networkMode.value === 'wan') return '强制外网'
+  if (lanDetecting.value) return '自动判断中...'
+  if (settingsForm.value.autoDetectLan !== 'true') return '自动判断未启用，当前按内网打开'
+  return lanReachable.value === true ? '自动判断：当前内网' : `自动判断：当前外网${lanDetectError.value ? '，检测失败' : ''}`
+})
+const networkIcon = computed(() => {
+  if (networkMode.value === 'lan') return 'wifi-router'
+  if (networkMode.value === 'wan') return 'globe'
+  return lanDetecting.value ? 'sync' : (effectiveNetworkMode.value === 'lan' ? 'wifi-router' : 'globe')
+})
 const displayTime = computed(() => now.value.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: settingsForm.value.showSeconds === 'true' ? '2-digit' : undefined, hour12: false }))
 const lunarDays = ['', '初一', '初二', '初三', '初四', '初五', '初六', '初七', '初八', '初九', '初十', '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十', '廿一', '廿二', '廿三', '廿四', '廿五', '廿六', '廿七', '廿八', '廿九', '三十']
 const displayDate = computed(() => {
@@ -131,6 +149,7 @@ onMounted(async () => {
   networkMode.value = localStorage.getItem('biu-network-mode') || 'auto'
   await refreshBootstrap()
   await loadNavigation()
+  if (networkMode.value === 'auto') detectLanNetwork({ silent: true })
 })
 
 onUnmounted(() => {
@@ -296,12 +315,8 @@ async function convertBookmarkToNavCard(bookmark) {
 }
 
 function resolveNavUrl(item) {
-  const mode = item.urlMode || networkMode.value
-  if (mode === 'lan') return item.lanUrl || item.wanUrl || '#'
-  if (mode === 'wan') return item.wanUrl || item.lanUrl || '#'
-  if (networkMode.value === 'lan') return item.lanUrl || item.wanUrl || '#'
-  if (networkMode.value === 'wan') return item.wanUrl || item.lanUrl || '#'
-  return item.lanUrl || item.wanUrl || '#'
+  if (effectiveNetworkMode.value === 'lan') return item.lanUrl || item.wanUrl || '#'
+  return item.wanUrl || item.lanUrl || '#'
 }
 
 function openSettings() {
@@ -319,10 +334,59 @@ function showToast(message) {
   toastTimer = window.setTimeout(() => { toastText.value = '' }, 1800)
 }
 
+function currentNetworkLabel() {
+  if (networkMode.value === 'lan') return '强制内网'
+  if (networkMode.value === 'wan') return '强制外网'
+  return effectiveNetworkMode.value === 'lan' ? '自动判断：内网' : '自动判断：外网'
+}
+
+async function detectLanNetwork(options = {}) {
+  const silent = options.silent === true
+  if (settingsForm.value.autoDetectLan !== 'true') {
+    lanReachable.value = null
+    lanDetectError.value = ''
+    return false
+  }
+  const url = String(settingsForm.value.lanDetectUrl || '').trim()
+  if (!url) {
+    lanReachable.value = false
+    lanDetectError.value = '未配置检测地址'
+    return false
+  }
+  const timeout = Math.max(200, Number(settingsForm.value.lanDetectTimeout || 800) || 800)
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), timeout)
+  lanDetecting.value = true
+  lanDetectError.value = ''
+  try {
+    await fetch(url, { mode: 'no-cors', cache: 'no-store', signal: controller.signal })
+    lanReachable.value = true
+    if (!silent && networkMode.value === 'auto') showToast('自动判断：当前内网')
+    return true
+  } catch (error) {
+    lanReachable.value = false
+    lanDetectError.value = error.name === 'AbortError' ? '检测超时' : '检测失败'
+    if (!silent && networkMode.value === 'auto') showToast('自动判断：当前外网')
+    return false
+  } finally {
+    window.clearTimeout(timer)
+    lanDetecting.value = false
+  }
+}
+
 function cycleNetworkMode() {
-  networkMode.value = networkMode.value === 'lan' ? 'wan' : 'lan'
+  const modes = ['auto', 'lan', 'wan']
+  const next = modes[(modes.indexOf(networkMode.value) + 1) % modes.length] || 'auto'
+  networkMode.value = next
   localStorage.setItem('biu-network-mode', networkMode.value)
-  const message = networkMode.value === 'lan' ? '已经切换到内网环境' : '已经切换到公网环境'
+  if (next === 'auto') {
+    const message = settingsForm.value.autoDetectLan === 'true' ? '已经切换到自动判断' : '已经切换到自动判断（请在设置中启用自动判断）'
+    statusText.value = message
+    showToast(message)
+    detectLanNetwork({ silent: true })
+    return
+  }
+  const message = next === 'lan' ? '已经切换到强制内网' : '已经切换到强制外网'
   statusText.value = message
   showToast(message)
 }
@@ -373,10 +437,11 @@ async function loadSettings() {
   try {
     const data = await getSettings()
     settingsForm.value = { ...settingsForm.value, ...data }
-    if (settingsForm.value.autoDetectLan !== 'true' && !['lan', 'wan'].includes(networkMode.value)) {
-      networkMode.value = 'lan'
+    if (!['auto', 'lan', 'wan'].includes(networkMode.value)) {
+      networkMode.value = 'auto'
       localStorage.setItem('biu-network-mode', networkMode.value)
     }
+    if (networkMode.value === 'auto') detectLanNetwork({ silent: true })
     if (settingsForm.value.siteTitle) document.title = settingsForm.value.siteTitle
   } catch {
     // Settings require login; keep defaults for public views.
@@ -428,6 +493,7 @@ async function submitSettings() {
     const data = await saveSettings(settingsForm.value)
     settingsForm.value = { ...settingsForm.value, ...data }
     if (settingsForm.value.siteTitle) document.title = settingsForm.value.siteTitle
+    if (networkMode.value === 'auto') detectLanNetwork({ silent: true })
     statusText.value = '设置已保存'
     settingsMessage.value = `设置已保存：${new Date().toLocaleTimeString('zh-CN', { hour12: false })}`
   } catch (error) {
@@ -1071,7 +1137,7 @@ async function saveEditDialog() {
         statusText.value = '文本内容最多 5 个字'
         return
       }
-      const payload = { groupId: form.groupId, name, icon, lanUrl: form.lanUrl || '', wanUrl: form.wanUrl || '', urlMode: form.urlMode || 'auto', sort: form.sort || 0 }
+      const payload = { groupId: form.groupId, name, icon, lanUrl: form.lanUrl || '', wanUrl: form.wanUrl || '', urlMode: 'auto', sort: form.sort || 0 }
       if (type === 'navItemCreate') await createNavItem(payload)
       else await updateNavItem({ id: form.id, ...payload })
       await loadNavigation()
@@ -1362,7 +1428,6 @@ function showBookmarkMenu(event, bookmark) {
             <span class="label-line"><span>公网地址 <em class="required">*</em></span><button class="field-action" type="button" @click="fillMetadataFromField(editDialog.form, 'wanUrl')">{{ metadataLoading ? '抓取中' : '自动抓取标题/图标' }}</button></span>
             <input v-model="editDialog.form.wanUrl" required placeholder="https://example.com" />
           </label>
-          <label>打开模式<select v-model="editDialog.form.urlMode"><option value="auto">自动</option><option value="lan">强制内网</option><option value="wan">强制公网</option></select></label>
           <div class="icon-mode-block">
             <div class="segmented">
               <button type="button" :class="{ active: editDialog.form.iconMode !== 'image' }" @click="setNavIconMode(editDialog.form, 'text')">文字</button>
