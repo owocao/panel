@@ -79,6 +79,7 @@ h1, h2, h3, p { margin: 0; }
 .nav-group.editing .nav-card { transition: transform .24s cubic-bezier(.2,.8,.2,1), opacity .16s ease, box-shadow .18s ease; }
 .nav-group.editing .app-tile:hover .nav-card { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(9,105,218,.12); }
 .app-tile.dragging { opacity: .34; }
+.nav-card-list-move { transition: transform .32s cubic-bezier(.2,.8,.2,1); }
 .drag-preview { width: 60px; display: grid; justify-items: center; gap: 6px; color: var(--ink); text-align: center; text-decoration: none; opacity: .92; transform: scale(1.02); }
 
 .card-title { max-width: 88px; font-size: 12px; font-weight: 700; line-height: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
