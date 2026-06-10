@@ -999,10 +999,9 @@ async function createBookmarkByPrompt(folder = activeFolder.value || folders.val
 function showCardMenu(event, item) {
   const url = resolveNavUrl(item)
   showMenu(event, item.name, [
-    { label: '新标签页打开', variant: 'quick', run: () => window.open(url, '_blank', 'noopener,noreferrer') },
-    { label: '新窗口打开', variant: 'quick', run: () => window.open(url, '_blank', 'noopener,noreferrer,width=1200,height=800') },
+    { label: '新标签页打开', icon: 'external-link-alt', variant: 'icon', run: () => window.open(url, '_blank', 'noopener,noreferrer') },
+    { label: '新窗口打开', icon: 'window', variant: 'icon', run: () => window.open(url, '_blank', 'noopener,noreferrer,width=1200,height=800') },
     { divider: true },
-    { label: '打开', icon: 'external-link-alt', run: () => { window.location.href = url } },
     { label: '编辑', icon: 'edit', run: () => editNavCard(item) },
     { label: '删除', icon: 'trash-alt', run: () => removeNavCard(item) },
   ])
@@ -1229,15 +1228,12 @@ function showBookmarkMenu(event, bookmark) {
     </section>
 
     <div v-if="menu.open" class="context-menu" :style="menuStyle" @click.stop>
-      <div v-if="menu.actions.some((action) => action.variant === 'quick')" class="menu-quick-row">
-        <button v-for="action in menu.actions.filter((item) => item.variant === 'quick')" :key="action.label" class="quick-action" type="button" @click="runMenuAction(action)">{{ action.label }}</button>
-      </div>
       <div v-if="menu.actions.some((action) => action.variant === 'icon')" class="menu-icon-row">
         <button v-for="action in menu.actions.filter((item) => item.variant === 'icon')" :key="action.label" class="icon-only" type="button" :title="action.label" @click="runMenuAction(action)"><img :src="iconUrl(action.icon)" alt="" /></button>
       </div>
       <template v-for="(action, index) in menu.actions" :key="action.label || `divider-${index}`">
         <div v-if="action.divider" class="menu-divider"></div>
-        <button v-else-if="!['icon', 'quick'].includes(action.variant)" type="button" @click="runMenuAction(action)"><img v-if="action.icon" :src="iconUrl(action.icon)" alt="" /><span>{{ action.label }}</span></button>
+        <button v-else-if="action.variant !== 'icon'" type="button" @click="runMenuAction(action)"><img v-if="action.icon" :src="iconUrl(action.icon)" alt="" /><span>{{ action.label }}</span></button>
       </template>
     </div>
   </main>
