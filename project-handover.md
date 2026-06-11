@@ -1,5 +1,69 @@
 # Biu-Panel 项目交接文档
 
+## 0. 新服务器迁移与环境初始化指南
+
+如果需要将项目迁移到全新的服务器，请在进行任何开发前完成以下环境依赖的安装与配置：
+
+### 0.1 安装系统基础依赖
+```bash
+# 更新软件包列表
+sudo apt update
+
+# 安装基础构建工具和版本控制
+sudo apt install -y build-essential git curl wget systemd
+```
+
+### 0.2 安装 Go 运行环境 (后端)
+本项目后端由 Go 语言编写，需要安装 Go：
+```bash
+# 可以通过 apt 安装或者从官方下载最新版本
+sudo apt install -y golang-go
+
+# 验证安装
+go version
+```
+
+### 0.3 安装 Node.js 与 npm (前端)
+本项目前端使用 Vue 3 + Vite 构建，使用 npm 管理包：
+```bash
+# 推荐使用 Node.js 18.x 或 20.x 版本
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# 验证安装
+node -v
+npm -v
+```
+
+### 0.4 拉取代码与编译
+```bash
+# 克隆仓库包 (替换为实际的仓库地址)
+git clone <repository_url> /project/panel
+cd /project/panel
+
+# 编译后端
+cd backend
+go build -o bin/biu-panel ./cmd/server
+
+# 编译前端
+cd ../frontend
+npm install
+npm run build
+```
+
+### 0.5 配置 systemd 守护进程
+新服务器上需要重新配置 systemd 服务以便后台运行：
+```bash
+# 将项目 deploy 目录下的 service 文件软链接或复制到 systemd 目录
+# 示例：
+sudo cp /project/panel/deploy/biu-panel-dev.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable biu-panel-dev.service
+sudo systemctl start biu-panel-dev.service
+```
+----------------------------------------------------------------------
+
+
 ## 1. 项目基本信息
 - **项目名称**: `biu-panel`
 - **定位**: 个人轻量级 Web 导航面板 + 收藏夹管理器
