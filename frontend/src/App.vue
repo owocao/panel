@@ -36,6 +36,7 @@ const activeView = ref('home')
 const drawerOpen = ref(false)
 const settingsOpen = ref(false)
 const activeSettings = ref('个性化')
+const settingsMenuCollapsed = ref(false)
 const settingsMessage = ref('')
 const menu = ref({ open: false, x: 0, y: 0, title: '', actions: [], compact: false })
 const statusText = ref('正在连接后端...')
@@ -54,23 +55,33 @@ const setupForm = ref({ username: 'admin', password: '', confirm: '' })
 const quickNav = ref({ groupName: '', cardName: '', url: '' })
 const quickBookmark = ref({ folderName: '', title: '', url: '', note: '', favicon: '' })
 const webSearch = ref({ q: '', engine: 'google' })
+const searchPickerOpen = ref(false)
 const bookmarkSearch = ref({ q: '', loading: false, results: [] })
 const editDialog = ref({ open: false, type: '', title: '', form: {} })
+const groupSelectOpen = ref(false)
 const editingNavGroupId = ref(null)
 const metadataLoading = ref(false)
 const assetUploading = ref(false)
 const dragState = ref({ type: '', groupId: null, item: null, overId: null, saving: false, lastMoveAt: 0, settling: false })
-const navPointerDrag = ref({ active: false, moved: false, groupId: null, item: null, pointerId: null, startX: 0, startY: 0, x: 0, y: 0, offsetX: 0, offsetY: 0, lastMoveAt: 0 })
+const navPointerDrag = ref({ active: false, moved: false, groupId: null, item: null, pointerId: null, startX: 0, startY: 0, x: 0, y: 0, offsetX: 0, offsetY: 0, lastMoveAt: 0, lastTargetId: '' })
 const suppressNextNavCardClick = ref(false)
 const networkMode = ref('lan')
 const now = ref(new Date())
 const dateMode = ref('solar')
 let clockTimer
 let toastTimer
+let navLongPressTimer
 const settingsForm = ref({ siteTitle: 'biu-panel', logoUrl: '', showTitle: 'true', showLogo: 'true', showClock: 'true', showSeconds: 'false', showSearch: 'true', searchEngines: JSON.stringify([{ key: 'google', title: 'Google', icon: 'G', url: 'https://www.google.com/search?q={q}' }, { key: 'baidu', title: '百度', icon: '百', url: 'https://www.baidu.com/s?wd={q}' }, { key: 'bing', title: 'Bing', icon: 'B', url: 'https://www.bing.com/search?q={q}' }]), backgroundUrl: '', backgroundColor: '#02030a', lanDetectUrl: '', lanDetectTimeout: '800', autoDetectLan: 'false', s3Endpoint: '', s3Region: 'auto', s3Bucket: '', s3AccessKey: '', s3SecretKey: '', s3Prefix: 'biu-panel/', s3PathStyle: 'true', s3Enabled: 'false', s3PublicBase: '' })
+const settingsDraft = ref({ ...settingsForm.value })
+const navGroupsDraft = ref([])
 
-const fallbackGroups = [{ name: '常用服务', items: [{ name: 'NAS', icon: 'N', wanUrl: '#' }, { name: 'Home Assistant', icon: 'H', wanUrl: '#' }, { name: '思源笔记', icon: 'S', wanUrl: '#' }, { name: '文件管理', icon: 'F', wanUrl: '#' }] }]
-const displayGroups = computed(() => (navGroups.value.length ? navGroups.value : fallbackGroups))
+const fallbackGroups = ref([
+  { id: 'demo-core', name: '常用服务', items: [{ id: 'demo-nas', name: 'NAS', icon: 'N', wanUrl: '#' }, { id: 'demo-ha', name: 'Home Assistant', icon: 'H', wanUrl: '#' }, { id: 'demo-siyuan', name: '思源笔记', icon: '思', wanUrl: '#' }, { id: 'demo-files', name: '文件管理', icon: '文', wanUrl: '#' }, { id: 'demo-router', name: '路由器', icon: '路', wanUrl: '#' }, { id: 'demo-photo', name: '相册', icon: '相', wanUrl: '#' }, { id: 'demo-download', name: '下载器', icon: '下', wanUrl: '#' }, { id: 'demo-monitor', name: '监控', icon: '监', wanUrl: '#' }, { id: 'demo-note', name: '备忘录', icon: '记', wanUrl: '#' }, { id: 'demo-docs', name: '文档库', icon: '档', wanUrl: '#' }, { id: 'demo-git', name: '代码仓库', icon: 'Git', wanUrl: '#' }, { id: 'demo-media', name: '影音中心', icon: '影', wanUrl: '#' }] },
+  { id: 'demo-dev', name: '开发工具', items: [{ id: 'demo-vscode', name: 'VS Code', icon: 'VS', wanUrl: '#' }, { id: 'demo-api', name: 'API 调试', icon: 'API', wanUrl: '#' }, { id: 'demo-db', name: '数据库', icon: 'DB', wanUrl: '#' }, { id: 'demo-ci', name: '构建服务', icon: 'CI', wanUrl: '#' }, { id: 'demo-log', name: '日志平台', icon: 'Log', wanUrl: '#' }, { id: 'demo-wiki', name: '项目 Wiki', icon: 'W', wanUrl: '#' }, { id: 'demo-design', name: '设计稿', icon: '设', wanUrl: '#' }, { id: 'demo-test', name: '测试环境', icon: '测', wanUrl: '#' }] },
+  { id: 'demo-life', name: '生活收藏', items: [{ id: 'demo-mail', name: '邮箱', icon: '邮', wanUrl: '#' }, { id: 'demo-calendar', name: '日历', icon: '日', wanUrl: '#' }, { id: 'demo-cloud', name: '网盘', icon: '云', wanUrl: '#' }, { id: 'demo-music', name: '音乐', icon: '音', wanUrl: '#' }, { id: 'demo-read', name: '阅读', icon: '读', wanUrl: '#' }, { id: 'demo-map', name: '地图', icon: '图', wanUrl: '#' }] },
+])
+const displayGroups = computed(() => (navGroups.value.length ? navGroups.value : fallbackGroups.value))
+const navGroupOptions = computed(() => (navGroups.value.length ? navGroups.value : fallbackGroups.value))
 const menuStyle = computed(() => ({ left: `${menu.value.x}px`, top: `${menu.value.y}px` }))
 const activeFolder = computed(() => findFolderById(folders.value, activeFolderId.value))
 const bookmarkCount = computed(() => bookmarks.value.length)
@@ -106,6 +117,14 @@ const searchEngines = computed(() => {
     return []
   }
 })
+const settingsSearchEngines = computed(() => {
+  try {
+    const engines = JSON.parse(settingsDraft.value.searchEngines || '[]')
+    return Array.isArray(engines) && engines.length ? engines : []
+  } catch {
+    return []
+  }
+})
 const activeSearchEngine = computed(() => searchEngines.value.find((engine) => engine.key === webSearch.value.engine) || searchEngines.value[0])
 const iconUrl = (name) => `https://api.iconify.design/uil/${name}.svg?color=%2368707a`
 
@@ -136,6 +155,7 @@ onMounted(async () => {
 onUnmounted(() => {
   if (clockTimer) window.clearInterval(clockTimer)
   if (toastTimer) window.clearTimeout(toastTimer)
+  clearNavLongPressTimer()
   stopNavPointerListeners()
 })
 
@@ -358,6 +378,8 @@ async function openNavItem(item, target = '_self', features = 'noopener,noreferr
 
 function openSettings() {
   settingsMessage.value = ''
+  settingsDraft.value = { ...settingsForm.value }
+  navGroupsDraft.value = displayGroups.value.map((group) => ({ ...group, items: [...(group.items || [])] }))
   settingsOpen.value = true
 }
 function closeSettings() {
@@ -387,14 +409,55 @@ function runWebSearch() {
   if (url) window.open(url, '_blank')
 }
 
+function selectSearchEngine(engine) {
+  webSearch.value.engine = engine.key
+  searchPickerOpen.value = false
+}
+
+function writeSearchEngines(engines) {
+  if (settingsOpen.value) settingsDraft.value.searchEngines = JSON.stringify(engines)
+  else settingsForm.value.searchEngines = JSON.stringify(engines)
+}
+
 function addSearchEngine() {
-  const title = prompt('搜索引擎名称')
-  if (!title?.trim()) return
-  const url = prompt('搜索 URL，用 {q} 代表搜索词')
-  if (!url?.trim()) return
-  const icon = prompt('图标文字或图片 URL，可不填') || title.trim().slice(0, 1)
-  const engines = [...searchEngines.value, { key: `custom-${Date.now()}`, title: title.trim(), icon: icon.trim(), url: url.trim() }]
-  settingsForm.value.searchEngines = JSON.stringify(engines)
+  editDialog.value = { open: true, type: 'searchEngineCreate', title: '增加搜索引擎', form: { key: `custom-${Date.now()}`, title: '', url: '', icon: '', iconMode: 'text' } }
+}
+
+function editSearchEngine(engine) {
+  editDialog.value = { open: true, type: 'searchEngine', title: '编辑搜索引擎', form: { ...engine, iconMode: isImageValue(engine.icon) ? 'image' : 'text' } }
+}
+
+function removeSearchEngine(engine) {
+  if (!confirm(`确认删除搜索引擎「${engine.title}」？`)) return
+  const engines = settingsSearchEngines.value.filter((item) => item.key !== engine.key)
+  writeSearchEngines(engines)
+  if (webSearch.value.engine === engine.key) webSearch.value.engine = engines[0]?.key || ''
+}
+
+function moveSearchEngine(engine, offset) {
+  const engines = [...settingsSearchEngines.value]
+  const index = engines.findIndex((item) => item.key === engine.key)
+  const targetIndex = index + offset
+  if (index < 0 || targetIndex < 0 || targetIndex >= engines.length) return
+  const target = engines[targetIndex]
+  engines[targetIndex] = engine
+  engines[index] = target
+  writeSearchEngines(engines)
+}
+
+async function uploadSearchEngineIcon(event, engine) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  assetUploading.value = true
+  try {
+    const result = await uploadAsset(file)
+    writeSearchEngines(settingsSearchEngines.value.map((item) => item.key === engine.key ? { ...item, icon: result.url } : item))
+  } catch (error) {
+    statusText.value = error.message
+  } finally {
+    assetUploading.value = false
+    event.target.value = ''
+  }
 }
 
 async function refreshBootstrap() {
@@ -425,6 +488,7 @@ async function loadSettings() {
   try {
     const data = await getSettings()
     settingsForm.value = { ...settingsForm.value, ...data }
+    settingsDraft.value = { ...settingsForm.value }
     networkMode.value = normalizeNetworkMode(networkMode.value)
     localStorage.setItem('biu-network-mode', networkMode.value)
     if (settingsForm.value.siteTitle) document.title = settingsForm.value.siteTitle
@@ -475,15 +539,28 @@ async function restoreBackupFile(event) {
 
 async function submitSettings() {
   try {
-    const data = await saveSettings(settingsForm.value)
+    const source = settingsOpen.value ? settingsDraft.value : settingsForm.value
+    const data = await saveSettings(source)
+    if (settingsOpen.value) await saveNavGroupDraftOrder()
     settingsForm.value = { ...settingsForm.value, ...data }
+    settingsDraft.value = { ...settingsForm.value }
     if (settingsForm.value.siteTitle) document.title = settingsForm.value.siteTitle
     statusText.value = '设置已保存'
     settingsMessage.value = `设置已保存：${new Date().toLocaleTimeString('zh-CN', { hour12: false })}`
+    settingsOpen.value = false
   } catch (error) {
     statusText.value = error.message
     settingsMessage.value = `保存失败：${error.message}`
   }
+}
+
+async function saveNavGroupDraftOrder() {
+  if (!navGroups.value.length) {
+    fallbackGroups.value = navGroupsDraft.value.map((group) => ({ ...group, items: [...(group.items || [])] }))
+    return
+  }
+  await Promise.all(navGroupsDraft.value.map((group, index) => updateNavGroup({ ...group, sort: index + 1 })))
+  await loadNavigation()
 }
 
 async function loadNavigation() {
@@ -709,7 +786,7 @@ function openCardEditorInGroup(event, group, item) {
     suppressNextNavCardClick.value = false
     return true
   }
-  editNavCard(item)
+  editNavCard(item, group)
   return true
 }
 
@@ -786,12 +863,21 @@ function stopNavPointerListeners() {
   window.removeEventListener('pointercancel', handleNavPointerCancel)
 }
 
+function clearNavLongPressTimer() {
+  if (navLongPressTimer) {
+    window.clearTimeout(navLongPressTimer)
+    navLongPressTimer = null
+  }
+}
+
 function startNavPointerSort(event, group, item) {
   if (editingNavGroupId.value !== group.id || !item.id) return
   if (event.button != null && event.button !== 0) return
   event.preventDefault()
   closeMenu()
   const rect = event.currentTarget.getBoundingClientRect()
+  clearNavLongPressTimer()
+  event.currentTarget.setPointerCapture?.(event.pointerId)
   navPointerDrag.value = {
     active: true,
     moved: false,
@@ -805,6 +891,7 @@ function startNavPointerSort(event, group, item) {
     offsetX: event.clientX - rect.left,
     offsetY: event.clientY - rect.top,
     lastMoveAt: 0,
+    lastTargetId: '',
   }
   window.addEventListener('pointermove', handleNavPointerMove, { passive: false })
   window.addEventListener('pointerup', handleNavPointerUp)
@@ -821,29 +908,37 @@ function handleNavPointerMove(event) {
   state.x = event.clientX - state.offsetX
   state.y = event.clientY - state.offsetY
   if (!state.moved) return
-  const group = navGroups.value.find((entry) => entry.id === state.groupId)
+  const group = displayGroups.value.find((entry) => entry.id === state.groupId)
   if (!group) return
+  const groupNode = document.querySelector(`[data-nav-group-id="${CSS.escape(String(state.groupId))}"]`)
   const targetTile = document.elementFromPoint(event.clientX, event.clientY)?.closest?.('[data-nav-item-id]')
-  const targetId = Number(targetTile?.dataset?.navItemId || 0)
-  if (!targetId || targetId === state.item?.id) return
+  if (!targetTile || !groupNode?.contains(targetTile)) {
+    state.lastTargetId = ''
+    return
+  }
+  const targetId = targetTile?.dataset?.navItemId || ''
+  if (!targetId || targetId === String(state.item?.id)) return
+  if (state.lastTargetId === targetId) return
   const now = Date.now()
-  if (now - (state.lastMoveAt || 0) < 120) return
+  if (now - (state.lastMoveAt || 0) < 110) return
   const list = [...(group.items || [])]
-  const sourceIndex = list.findIndex((entry) => entry.id === state.item.id)
-  const targetIndex = list.findIndex((entry) => entry.id === targetId)
+  const sourceIndex = list.findIndex((entry) => String(entry.id) === String(state.item.id))
+  const targetIndex = list.findIndex((entry) => String(entry.id) === targetId)
   if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return
   const [moved] = list.splice(sourceIndex, 1)
   list.splice(targetIndex, 0, moved)
   group.items = list.map((entry, index) => ({ ...entry, sort: index + 1 }))
   state.item = moved
+  state.lastTargetId = targetId
   state.lastMoveAt = now
 }
 
 function resetNavPointerDrag() {
-  navPointerDrag.value = { active: false, moved: false, groupId: null, item: null, pointerId: null, startX: 0, startY: 0, x: 0, y: 0, offsetX: 0, offsetY: 0, lastMoveAt: 0 }
+  navPointerDrag.value = { active: false, moved: false, groupId: null, item: null, pointerId: null, startX: 0, startY: 0, x: 0, y: 0, offsetX: 0, offsetY: 0, lastMoveAt: 0, lastTargetId: '' }
 }
 
 function handleNavPointerCancel() {
+  clearNavLongPressTimer()
   stopNavPointerListeners()
   resetNavPointerDrag()
 }
@@ -852,7 +947,7 @@ async function handleNavPointerUp(event) {
   const state = navPointerDrag.value
   if (!state.active || event.pointerId !== state.pointerId) return
   stopNavPointerListeners()
-  const group = navGroups.value.find((entry) => entry.id === state.groupId)
+  const group = displayGroups.value.find((entry) => entry.id === state.groupId)
   const moved = state.moved
   const item = state.item
   resetNavPointerDrag()
@@ -867,12 +962,14 @@ async function handleNavPointerUp(event) {
   window.setTimeout(() => { suppressNextNavCardClick.value = false }, 0)
   const reordered = [...(group.items || [])].map((entry, index) => ({ ...entry, sort: index + 1 }))
   group.items = reordered
-  try {
-    await Promise.all(reordered.map((entry) => updateNavItem(entry)))
-    statusText.value = '卡片排序已保存'
-  } catch (error) {
-    statusText.value = `排序保存失败：${error.message}`
-    await loadNavigation()
+  if (typeof group.id === 'number') {
+    try {
+      await Promise.all(reordered.map((entry) => updateNavItem(entry)))
+      statusText.value = '卡片排序已保存'
+    } catch (error) {
+      statusText.value = `排序保存失败：${error.message}`
+      await loadNavigation()
+    }
   }
 }
 
@@ -934,9 +1031,31 @@ async function swapSort(source, target, updater, refresh) {
 }
 
 async function moveNavGroup(group, offset) {
+  if (settingsOpen.value) {
+    const list = [...navGroupsDraft.value]
+    const index = list.findIndex((item) => item.id === group.id)
+    const targetIndex = index + offset
+    if (index < 0 || targetIndex < 0 || targetIndex >= list.length) return
+    const target = list[targetIndex]
+    list[targetIndex] = group
+    list[index] = target
+    navGroupsDraft.value = list
+    return
+  }
   const list = [...navGroups.value]
   const index = list.findIndex((item) => item.id === group.id)
   const targetIndex = index + offset
+  if (!navGroups.value.length) {
+    const demoIndex = fallbackGroups.value.findIndex((item) => item.id === group.id)
+    const demoTargetIndex = demoIndex + offset
+    if (demoIndex < 0 || demoTargetIndex < 0 || demoTargetIndex >= fallbackGroups.value.length) return
+    const next = [...fallbackGroups.value]
+    const target = next[demoTargetIndex]
+    next[demoTargetIndex] = group
+    next[demoIndex] = target
+    fallbackGroups.value = next
+    return
+  }
   if (index < 0 || targetIndex < 0 || targetIndex >= list.length) return
   const target = list[targetIndex]
   const groupSort = group.sort || index + 1
@@ -952,8 +1071,9 @@ async function removeNavGroup(group) {
   await loadNavigation()
 }
 
-function editNavCard(item) {
-  editDialog.value = { open: true, type: 'navItem', title: '编辑导航卡片', form: { ...item, iconMode: isImageValue(item.icon) ? 'image' : 'text', __originalName: item.name, __originalIcon: item.icon } }
+function editNavCard(item, group = null) {
+  const groupId = item.groupId ?? group?.id ?? navGroupOptions.value[0]?.id ?? null
+  editDialog.value = { open: true, type: 'navItem', title: '编辑导航卡片', form: { ...item, groupId, iconMode: isImageValue(item.icon) ? 'image' : 'text', __originalName: item.name, __originalIcon: item.icon } }
 }
 
 async function moveNavCard(group, item, offset) {
@@ -973,6 +1093,18 @@ async function removeNavCard(item) {
   if (!item.id || !confirm(`确认删除卡片「${item.name}」？`)) return
   await deleteNavItem(item.id)
   await loadNavigation()
+}
+
+async function deleteEditingNavCard() {
+  const item = editDialog.value.form
+  if (!item?.id || !confirm(`确认删除卡片「${item.name}」？`)) return
+  try {
+    await deleteNavItem(item.id)
+    await loadNavigation()
+    closeEditDialog()
+  } catch (error) {
+    statusText.value = error.message
+  }
 }
 
 async function addFolder() {
@@ -1093,7 +1225,18 @@ async function batchSelectBookmark(bookmark) {
 
 
 function closeEditDialog() {
+  groupSelectOpen.value = false
   editDialog.value = { open: false, type: '', title: '', form: {} }
+}
+
+function getEditGroupName() {
+  return navGroupOptions.value.find((group) => group.id === editDialog.value.form.groupId)?.name || '请选择分组'
+}
+
+function selectEditGroup(group) {
+  editDialog.value.form.groupId = group.id
+  groupSelectOpen.value = false
+  window.setTimeout(() => { groupSelectOpen.value = false }, 0)
 }
 
 async function saveEditDialog() {
@@ -1118,8 +1261,8 @@ async function saveEditDialog() {
         return
       }
       const name = form.name.trim()
-      if (name.length > 10) {
-        statusText.value = '标题最多 10 个字'
+      if (name.length > 15) {
+        statusText.value = '标题最多 15 个字'
         return
       }
       const iconMode = form.iconMode || (isImageValue(form.icon) ? 'image' : 'text')
@@ -1143,6 +1286,16 @@ async function saveEditDialog() {
       await updateBookmark({ ...form, title: form.title.trim(), url: form.url.trim(), note: form.note || '', favicon: form.favicon || '' })
       if (activeFolder.value) await selectFolder(activeFolder.value)
       if (bookmarkSearch.value.q.trim()) await runBookmarkSearch()
+    }
+    if (type === 'searchEngine' || type === 'searchEngineCreate') {
+      if (!form.title?.trim() || !form.url?.trim()) {
+        statusText.value = '请填写搜索引擎标题和 URL'
+        return
+      }
+      const next = { key: form.key || `custom-${Date.now()}`, title: form.title.trim(), url: form.url.trim(), icon: form.icon || form.title.trim().slice(0, 1) }
+      const engines = type === 'searchEngineCreate' ? [...settingsSearchEngines.value, next] : settingsSearchEngines.value.map((item) => item.key === next.key ? next : item)
+      writeSearchEngines(engines)
+      if (!webSearch.value.engine) webSearch.value.engine = next.key
     }
     closeEditDialog()
   } catch (error) {
@@ -1230,11 +1383,16 @@ function showCardMenu(event, item, group = null) {
     { label: '新标签页打开', icon: 'external-link-alt', variant: 'icon', run: () => openNavItem(item, '_blank', 'noopener,noreferrer') },
     { label: '新窗口打开', icon: 'window', variant: 'icon', run: () => openNavItem(item, '_blank', 'noopener,noreferrer,width=1200,height=800') },
     { divider: true },
-    { label: '编辑', icon: 'edit', run: () => editNavCard(item) },
+    { label: '编辑', icon: 'edit', run: () => editNavCard(item, group) },
     { label: '删除', icon: 'trash-alt', run: () => removeNavCard(item) },
   ], { compact: true })
 }
 function showGroupMenu(event, group) {
+  if (editingNavGroupId.value === group.id) {
+    event.preventDefault()
+    closeMenu()
+    return
+  }
   showMenu(event, group.name, [
     { label: '新增卡片', icon: 'plus', run: () => addCardFromMenu(group) },
     { label: '编辑分组', icon: 'edit', run: () => editNavGroup(group) },
@@ -1383,9 +1541,9 @@ function showBookmarkMenu(event, bookmark) {
       </aside>
 
       <section v-if="activeView === 'home'" class="home-panel sun-panel">
-        <section class="hero-card"><div class="topbar"><div class="home-title"><span v-if="settingsForm.showLogo === 'true'" class="home-logo"><img v-if="settingsForm.logoUrl" :src="settingsForm.logoUrl" alt="" /><span v-else>B</span></span><h2><span v-if="settingsForm.showTitle === 'true'" class="title-text">{{ settingsForm.siteTitle || 'biu-panel' }}</span><template v-if="settingsForm.showTitle === 'true' && settingsForm.showClock === 'true'"><em>｜</em></template><time v-if="settingsForm.showClock === 'true'" class="time-stack"><strong>{{ displayTime }}</strong><small class="date-toggle" role="button" tabindex="0" :title="dateMode === 'solar' ? '点击切换农历' : '点击切换公历'" @click.stop="toggleDateMode" @keyup.enter="toggleDateMode">{{ displayDate }}</small></time></h2></div></div><form v-if="settingsForm.showSearch === 'true'" class="sun-search" @submit.prevent="runWebSearch"><button class="engine-button" type="button" @click="webSearch.engine = searchEngines[(searchEngines.findIndex((engine) => engine.key === webSearch.engine) + 1) % searchEngines.length]?.key || webSearch.engine"><img v-if="isImageValue(activeSearchEngine?.icon)" :src="activeSearchEngine.icon" alt="" /><span v-else>{{ activeSearchEngine?.icon || 'G' }}</span></button><input v-model="webSearch.q" placeholder="网页搜索" /><button type="submit" title="搜索"><img class="button-icon" :src="iconUrl('search')" alt="" /></button></form></section>
+        <section class="hero-card"><div class="topbar"><div class="home-title"><h2><span v-if="settingsForm.showTitle === 'true'" class="title-text">{{ settingsForm.siteTitle || 'biu-panel' }}</span><template v-if="settingsForm.showTitle === 'true' && settingsForm.showClock === 'true'"><em>｜</em></template><time v-if="settingsForm.showClock === 'true'" class="time-stack"><strong>{{ displayTime }}</strong><small class="date-toggle" role="button" tabindex="0" :title="dateMode === 'solar' ? '点击切换农历' : '点击切换公历'" @click.stop="toggleDateMode" @keyup.enter="toggleDateMode">{{ displayDate }}</small></time></h2></div></div><div v-if="settingsForm.showSearch === 'true'" class="search-wrap"><form class="sun-search" @submit.prevent="runWebSearch"><button class="engine-button" type="button" @click="searchPickerOpen = !searchPickerOpen"><img v-if="isImageValue(activeSearchEngine?.icon)" :src="activeSearchEngine.icon" alt="" /><span v-else>{{ activeSearchEngine?.icon || 'G' }}</span></button><input v-model="webSearch.q" placeholder="网页搜索" /><button type="submit" title="搜索"><img class="button-icon" :src="iconUrl('search')" alt="" /></button></form><div v-if="searchPickerOpen" class="search-engine-picker"><button v-for="engine in searchEngines" :key="`picker-${engine.key}`" type="button" :title="engine.title" :class="{ active: engine.key === webSearch.engine }" @click="selectSearchEngine(engine)"><img v-if="isImageValue(engine.icon)" :src="engine.icon" alt="" /><span v-else>{{ engine.icon || engine.title.slice(0, 1) }}</span></button></div></div></section>
 
-        <section v-for="group in displayGroups" :key="group.id || group.name" class="nav-group" :class="{ editing: editingNavGroupId === group.id, 'drag-saving': dragState.saving && dragState.groupId === group.id, 'dragging-card': navPointerDrag.active && navPointerDrag.groupId === group.id }" :draggable="!!group.id" @dragstart="group.id && startDrag('navGroup', group, null, $event)" @dragend="clearDragState" @dragover.prevent @drop="group.id && dropNavGroup(group)"><header class="group-head" @contextmenu="showGroupMenu($event, group)"><h2>{{ group.name }}<small v-if="editingNavGroupId === group.id">排序模式</small></h2><div class="group-tools"><button type="button" title="新增卡片" @click="addCardFromMenu(group)"><img :src="iconUrl('plus')" alt="" /></button><button type="button" title="编辑分组" @click="toggleNavGroupEdit(group)"><img :src="iconUrl('edit')" alt="" /></button></div></header><TransitionGroup tag="div" class="card-grid" name="nav-card-list"><a v-for="item in group.items" :key="item.id || item.name" class="app-tile" :class="{ dragging: navPointerDrag.active && navPointerDrag.item?.id === item.id }" :data-nav-item-id="item.id" :href="editingNavGroupId === group.id ? '#' : resolveNavUrl(item)" :draggable="false" @pointerdown.stop="startNavPointerSort($event, group, item)" @click="handleNavCardClick($event, group, item)" @contextmenu="showCardMenu($event, item, group)"><span class="nav-card"><span v-if="isImageValue(item.icon)" class="card-icon image-icon"><img :src="item.icon" alt="" /></span><span v-else class="card-text-icon" :class="cardTextClass(item.icon || item.name)">{{ limitText(item.icon || item.name, 5) }}</span></span><span class="card-title">{{ limitText(item.name, 10) }}</span></a></TransitionGroup></section>
+        <section v-for="group in displayGroups" :key="group.id || group.name" class="nav-group" :class="{ editing: editingNavGroupId === group.id, 'drag-saving': dragState.saving && dragState.groupId === group.id, 'dragging-card': navPointerDrag.active && navPointerDrag.groupId === group.id }" :data-nav-group-id="group.id" :draggable="typeof group.id === 'number'" @dragstart="typeof group.id === 'number' && startDrag('navGroup', group, null, $event)" @dragend="clearDragState" @dragover.prevent @drop="typeof group.id === 'number' && dropNavGroup(group)"><header class="group-head" @contextmenu="showGroupMenu($event, group)"><h2>{{ group.name }}</h2><div class="group-tools"><button type="button" title="新增卡片" @click="addCardFromMenu(group)"><img :src="iconUrl('plus')" alt="" /></button><button type="button" title="编辑分组" @click="toggleNavGroupEdit(group)"><img :src="iconUrl('edit')" alt="" /></button></div></header><TransitionGroup tag="div" class="card-grid" name="nav-card-list"><a v-for="item in group.items" :key="item.id || item.name" class="app-tile" :class="{ dragging: navPointerDrag.active && navPointerDrag.item?.id === item.id }" :data-nav-item-id="item.id" :href="editingNavGroupId === group.id ? '#' : resolveNavUrl(item)" :draggable="false" @pointerdown.stop="startNavPointerSort($event, group, item)" @click="handleNavCardClick($event, group, item)" @contextmenu="showCardMenu($event, item, group)"><span class="nav-card"><span v-if="isImageValue(item.icon)" class="card-icon image-icon"><img :src="item.icon" alt="" /></span><span v-else class="card-text-icon" :class="cardTextClass(item.icon || item.name)">{{ limitText(item.icon || item.name, 5) }}</span></span><span class="card-title">{{ limitText(item.name, 10) }}</span></a></TransitionGroup></section>
       </section>
 
       <div v-if="navPointerDrag.active && navPointerDrag.item" class="nav-drag-float" :style="navDragFloatStyle()">
@@ -1393,7 +1551,31 @@ function showBookmarkMenu(event, bookmark) {
         <span class="card-title">{{ limitText(navPointerDrag.item.name, 10) }}</span>
       </div>
 
-      <section v-if="settingsOpen" class="settings-mask" @mousedown.self.stop="closeSettings"><section class="settings-panel settings-center" @click.stop><header class="settings-head"><div><span class="eyebrow dark">设置中心</span><h2>系统设置</h2></div><div class="inline-actions"><button type="button" @click="submitSettings">保存设置</button><button type="button" @click="closeSettings">关闭</button></div></header><p v-if="settingsMessage" class="settings-message">{{ settingsMessage }}</p><div class="settings-layout"><aside class="settings-menu"><button type="button" :class="{ active: activeSettings === '个人信息' }" @click="activeSettings = '个人信息'">个人信息</button><button type="button" :class="{ active: activeSettings === '个性化' }" @click="activeSettings = '个性化'">个性化</button><button type="button" :class="{ active: activeSettings === '导航管理' }" @click="activeSettings = '导航管理'">导航管理</button><button type="button" :class="{ active: activeSettings === '收藏夹' }" @click="activeSettings = '收藏夹'; loadFolders()">收藏夹</button><button type="button" :class="{ active: activeSettings === '导入导出' }" @click="activeSettings = '导入导出'">导入导出</button><button type="button" :class="{ active: activeSettings === '备份恢复' }" @click="activeSettings = '备份恢复'">备份恢复</button><button type="button" :class="{ active: activeSettings === 'S3 存储' }" @click="activeSettings = 'S3 存储'">S3 存储</button><button type="button" :class="{ active: activeSettings === '关于' }" @click="activeSettings = '关于'">关于</button></aside><div class="settings-content"><section v-if="activeSettings === '个人信息'" class="setting-card"><h3>个人信息</h3><p>{{ statusText }}</p></section><section v-if="activeSettings === '导航管理'" class="setting-card manager-card"><header class="manager-head"><h3>导航管理</h3><button type="button" @click="createGroupByPrompt">新增分组</button></header><article v-for="group in navGroups" :key="`manage-${group.id}`" class="manager-row"><strong>{{ group.name }}</strong><div class="inline-actions"><button type="button" @click="addCardFromMenu(group)">新增卡片</button><button type="button" @click="editNavGroup(group)">编辑</button><button type="button" @click="removeNavGroup(group)">删除</button></div></article><div v-if="!navGroups.length" class="empty-state">暂无导航分组</div></section><section v-if="activeSettings === '收藏夹'" class="setting-card manager-card"><header class="manager-head"><h3>收藏夹管理</h3><div class="inline-actions"><button type="button" @click="createFolderByPrompt()">新增文件夹</button><button type="button" @click="createBookmarkByPrompt()">新增收藏</button><button type="button" @click="openDrawer">打开收藏夹</button></div></header><article v-for="folder in folderFlatList" :key="`manage-folder-${folder.id}`" class="manager-row" :style="{ paddingLeft: `${10 + folder.depth * 14}px` }"><strong>{{ folder.name }}</strong><div class="inline-actions"><button type="button" @click="createFolderByPrompt(folder)">新增子目录</button><button type="button" @click="createBookmarkByPrompt(folder)">新增收藏</button><button type="button" @click="editFolder(folder)">编辑</button><button type="button" @click="removeFolder(folder)">删除</button></div></article><div v-if="!folderFlatList.length" class="empty-state">暂无收藏夹文件夹，点击新增文件夹创建。</div></section><section v-if="activeSettings === '导入导出'" class="setting-card"><h3>导入导出</h3><p>收藏夹导入导出现在在左侧收藏夹抽屉顶部；后续会集中到这里。</p></section><section v-if="activeSettings === '关于'" class="setting-card"><h3>关于</h3><p>这是个人自用导航站和网页收藏夹，当前正在按 Sun-Panel 的交互方式重做。</p></section><div class="settings-grid"><section v-show="activeSettings === '个性化'" class="setting-card"><h3>个性化</h3><label class="check-row"><input v-model="settingsForm.showLogo" true-value="true" false-value="false" type="checkbox" /> 显示 Logo</label><label class="check-row"><input v-model="settingsForm.showTitle" true-value="true" false-value="false" type="checkbox" /> 显示标题</label><label>首页文本<input v-model="settingsForm.siteTitle" /></label><label>Logo 图片<input v-model="settingsForm.logoUrl" placeholder="本地上传地址或图片链接" /></label><label>上传 Logo<input type="file" accept="image/*" @change="uploadIconFile($event, settingsForm, 'logoUrl')" /></label><label class="check-row"><input v-model="settingsForm.showClock" true-value="true" false-value="false" type="checkbox" /> 显示时钟</label><label class="check-row"><input v-model="settingsForm.showSeconds" true-value="true" false-value="false" type="checkbox" /> 显示秒</label><label class="check-row"><input v-model="settingsForm.showSearch" true-value="true" false-value="false" type="checkbox" /> 显示搜索栏</label><div class="search-engine-list"><strong>搜索引擎</strong><button type="button" @click="addSearchEngine">添加搜索引擎</button><p v-for="engine in searchEngines" :key="engine.key">{{ engine.icon }} {{ engine.title }} · {{ engine.url }}</p></div></section><section v-show="activeSettings === 'S3 存储'" class="setting-card"><h3>S3 存储</h3><label class="check-row"><input v-model="settingsForm.s3Enabled" true-value="true" false-value="false" type="checkbox" /> 启用 S3 配置</label><label>Endpoint<input v-model="settingsForm.s3Endpoint" placeholder="https://s3.example.com" /></label><label>Region<input v-model="settingsForm.s3Region" placeholder="auto" /></label><label>Bucket<input v-model="settingsForm.s3Bucket" placeholder="biu-panel" /></label><label>Access Key<input v-model="settingsForm.s3AccessKey" /></label><label>Secret Key<input v-model="settingsForm.s3SecretKey" type="password" /></label><label>上传前缀<input v-model="settingsForm.s3Prefix" placeholder="biu-panel/" /></label><label>公开访问域名<input v-model="settingsForm.s3PublicBase" placeholder="https://cdn.example.com/biu-panel" /></label><label class="check-row"><input v-model="settingsForm.s3PathStyle" true-value="true" false-value="false" type="checkbox" /> Path-style 兼容模式</label><div class="inline-actions"><button type="button" @click="submitSettings">保存 S3 配置</button><button type="button" @click="submitTestS3">测试 S3</button></div></section><section v-show="activeSettings === '个性化'" class="setting-card"><h3>内外网判断</h3><p>右下角按钮可切换“优先内网 / 优先公网”。打开优先地址超时后自动回退到另一地址。</p><label>超时时间 ms<input v-model="settingsForm.lanDetectTimeout" /></label></section><section v-show="activeSettings === '备份恢复'" class="setting-card"><h3>备份恢复</h3><p>系统备份为 .tar.gz，包含数据库、本地上传文件和版本信息。</p><div class="inline-actions"><button type="button" @click="window.location.href = '/api/backup/download'">下载备份</button><button type="button" @click="submitBackupToS3">备份到 S3</button><label class="file-button">恢复备份<input type="file" accept=".gz,.tgz,application/gzip" @change="restoreBackupFile" /></label></div></section></div></div></div></section></section>
+      <section v-if="settingsOpen" class="settings-mask" @mousedown.self.stop="closeSettings">
+        <section class="settings-panel settings-center" @click.stop>
+          <header class="settings-head"><div><h2>系统设置</h2></div><div class="inline-actions"><button type="button" @click="submitSettings">保存</button><button type="button" @click="closeSettings">关闭</button></div></header>
+          <p v-if="settingsMessage" class="settings-message">{{ settingsMessage }}</p>
+          <div class="settings-layout" :class="{ collapsed: settingsMenuCollapsed }">
+            <button class="menu-collapse" type="button" :title="settingsMenuCollapsed ? '展开菜单' : '收起菜单'" @click="settingsMenuCollapsed = !settingsMenuCollapsed">{{ settingsMenuCollapsed ? '›' : '‹' }}</button>
+            <aside v-if="!settingsMenuCollapsed" class="settings-menu">
+              <button type="button" :class="{ active: activeSettings === '个性化' }" @click="activeSettings = '个性化'">个性化</button>
+              <button type="button" :class="{ active: activeSettings === '搜索引擎' }" @click="activeSettings = '搜索引擎'">搜索引擎</button>
+              <button type="button" :class="{ active: activeSettings === '导航管理' }" @click="activeSettings = '导航管理'">导航管理</button>
+              <button type="button" :class="{ active: activeSettings === '收藏夹' }" @click="activeSettings = '收藏夹'; loadFolders()">收藏夹</button>
+              <button type="button" :class="{ active: activeSettings === '备份恢复' }" @click="activeSettings = '备份恢复'">备份恢复</button>
+              <button type="button" :class="{ active: activeSettings === 'S3 存储' }" @click="activeSettings = 'S3 存储'">S3 存储</button>
+              <button type="button" :class="{ active: activeSettings === '关于' }" @click="activeSettings = '关于'">关于</button>
+            </aside>
+            <div class="settings-content">
+              <section v-if="activeSettings === '导航管理'" class="setting-card manager-card"><header class="manager-head"><h3>导航管理</h3><button type="button" @click="createGroupByPrompt">新增分组</button></header><article v-for="group in navGroupsDraft" :key="`manage-${group.id}`" class="manager-row"><div><strong>{{ group.name }}</strong><p>{{ group.items?.length || 0 }} 张卡片</p></div><div class="inline-actions"><button type="button" @click="addCardFromMenu(group)">新增卡片</button><button type="button" @click="editNavGroup(group)">编辑</button><button type="button" @click="moveNavGroup(group, -1)">上移</button><button type="button" @click="moveNavGroup(group, 1)">下移</button><button type="button" @click="removeNavGroup(group)">删除</button></div></article><div v-if="!navGroupsDraft.length" class="empty-state">暂无导航分组</div></section>
+              <section v-if="activeSettings === '收藏夹'" class="setting-card manager-card"><header class="manager-head"><h3>收藏夹管理</h3><div class="inline-actions"><button type="button" @click="createFolderByPrompt()">新增文件夹</button><button type="button" @click="createBookmarkByPrompt()">新增收藏</button><button type="button" @click="openDrawer">打开收藏夹</button></div></header><article v-for="folder in folderFlatList" :key="`manage-folder-${folder.id}`" class="manager-row" :style="{ paddingLeft: `${10 + folder.depth * 14}px` }"><strong>{{ folder.name }}</strong><div class="inline-actions"><button type="button" @click="createFolderByPrompt(folder)">新增子目录</button><button type="button" @click="createBookmarkByPrompt(folder)">新增收藏</button><button type="button" @click="editFolder(folder)">编辑</button><button type="button" @click="removeFolder(folder)">删除</button></div></article><div v-if="!folderFlatList.length" class="empty-state">暂无收藏夹文件夹，点击新增文件夹创建。</div></section>
+              <section v-if="activeSettings === '搜索引擎'" class="setting-card manager-card"><header class="manager-head"><h3>搜索引擎</h3><button type="button" @click="addSearchEngine">增加</button></header><article v-for="engine in settingsSearchEngines" :key="`search-manage-${engine.key}`" class="manager-row search-engine-row"><span class="engine-mark"><img v-if="isImageValue(engine.icon)" :src="engine.icon" alt="" /><span v-else>{{ engine.icon || engine.title.slice(0, 1) }}</span></span><div><strong>{{ engine.title }}</strong><p>{{ engine.url }}</p></div><div class="inline-actions"><button type="button" @click="editSearchEngine(engine)">编辑</button><button type="button" @click="moveSearchEngine(engine, -1)">上移</button><button type="button" @click="moveSearchEngine(engine, 1)">下移</button><button type="button" @click="removeSearchEngine(engine)">删除</button></div></article><div v-if="!settingsSearchEngines.length" class="empty-state">暂无搜索引擎，点击增加创建。</div></section>
+              <section v-if="activeSettings === '关于'" class="setting-card"><h3>关于</h3><p>这是个人自用导航站和网页收藏夹，当前正在按 Sun-Panel 的交互方式重做。</p></section>
+              <div class="settings-grid"><section v-show="activeSettings === '个性化'" class="setting-card"><h3>个性化</h3><p>{{ statusText }}</p><label class="check-row"><input v-model="settingsDraft.showTitle" true-value="true" false-value="false" type="checkbox" /> 显示标题</label><label>首页文本<input v-model="settingsDraft.siteTitle" /></label><label class="check-row"><input v-model="settingsDraft.showClock" true-value="true" false-value="false" type="checkbox" /> 显示时钟</label><label class="check-row"><input v-model="settingsDraft.showSeconds" true-value="true" false-value="false" type="checkbox" /> 显示秒</label><label class="check-row"><input v-model="settingsDraft.showSearch" true-value="true" false-value="false" type="checkbox" /> 显示搜索栏</label><label>内外网超时时间 ms<input v-model="settingsDraft.lanDetectTimeout" /></label></section><section v-show="activeSettings === 'S3 存储'" class="setting-card"><h3>S3 存储</h3><label class="check-row"><input v-model="settingsDraft.s3Enabled" true-value="true" false-value="false" type="checkbox" /> 启用 S3 配置</label><label>Endpoint<input v-model="settingsDraft.s3Endpoint" placeholder="https://s3.example.com" /></label><label>Region<input v-model="settingsDraft.s3Region" placeholder="auto" /></label><label>Bucket<input v-model="settingsDraft.s3Bucket" placeholder="biu-panel" /></label><label>Access Key<input v-model="settingsDraft.s3AccessKey" /></label><label>Secret Key<input v-model="settingsDraft.s3SecretKey" type="password" /></label><label>上传前缀<input v-model="settingsDraft.s3Prefix" placeholder="biu-panel/" /></label><label>公开访问域名<input v-model="settingsDraft.s3PublicBase" placeholder="https://cdn.example.com/biu-panel" /></label><label class="check-row"><input v-model="settingsDraft.s3PathStyle" true-value="true" false-value="false" type="checkbox" /> Path-style 兼容模式</label><div class="inline-actions"><button type="button" @click="submitSettings">保存 S3 配置</button><button type="button" @click="submitTestS3">测试 S3</button></div></section><section v-show="activeSettings === '备份恢复'" class="setting-card backup-card"><h3>备份恢复</h3><div class="backup-zone"><h4>全部备份</h4><p>全局备份包含导航页和收藏夹；恢复时按备份包内容恢复对应数据。</p><div class="inline-actions backup-actions"><button type="button" @click="window.location.href = '/api/backup/download'">全局备份</button><label class="file-button">全局恢复<input type="file" accept=".gz,.tgz,application/gzip" @change="restoreBackupFile" /></label></div></div><div class="backup-zone"><h4>导航页</h4><p>导航页数据包含分组、卡片和排序。</p><div class="inline-actions backup-actions"><button type="button" @click="window.location.href = '/api/backup/download'">备份</button><label class="file-button">恢复<input type="file" accept=".gz,.tgz,application/gzip" @change="restoreBackupFile" /></label></div></div><div class="backup-zone"><h4>收藏夹</h4><p>收藏夹导入导出集中在这里。</p><div class="inline-actions backup-actions"><button type="button" @click="exportBookmarks">导出</button><label class="file-button">导入<input type="file" accept=".html,.htm,text/html" @change="importBookmarksFile" /></label></div></div></section></div>
+            </div>
+          </div>
+        </section>
+      </section>
     </template>
 
     <section v-if="editDialog.open" class="modal-mask" @mousedown.self.stop="closeEditDialog">
@@ -1402,24 +1584,11 @@ function showBookmarkMenu(event, bookmark) {
         <label v-if="editDialog.type === 'navGroup' || editDialog.type === 'folder'">名称<input v-model="editDialog.form.name" /></label>
         <template v-if="editDialog.type === 'navItem' || editDialog.type === 'navItemCreate'">
           <label>
-            <span class="label-line"><span>标题 <em class="required">*</em></span><small>{{ String(editDialog.form.name || '').length }}/10</small></span>
-            <input v-model="editDialog.form.name" maxlength="10" required placeholder="请输入标题" @input="clampEditField('name', 10)" />
-          </label>
-          <label>
-            <span class="label-line"><span>分组 <em class="required">*</em></span></span>
-            <select v-model="editDialog.form.groupId" required>
-              <option v-for="group in navGroups" :key="`edit-group-${group.id}`" :value="group.id">{{ group.name }}</option>
-            </select>
-          </label>
-          <label>
-            <span class="label-line"><span>内网地址</span><button class="field-action" type="button" @click="fillMetadataFromField(editDialog.form, 'lanUrl')">{{ metadataLoading ? '抓取中' : '自动抓取标题/图标' }}</button></span>
-            <input v-model="editDialog.form.lanUrl" placeholder="http://192.168.x.x" />
-          </label>
-          <label>
-            <span class="label-line"><span>公网地址 <em class="required">*</em></span><button class="field-action" type="button" @click="fillMetadataFromField(editDialog.form, 'wanUrl')">{{ metadataLoading ? '抓取中' : '自动抓取标题/图标' }}</button></span>
-            <input v-model="editDialog.form.wanUrl" required placeholder="https://example.com" />
+            <span class="label-line"><span>标题 <em class="required">*</em></span><small>{{ String(editDialog.form.name || '').length }}/15</small></span>
+            <input v-model="editDialog.form.name" maxlength="15" required placeholder="请输入标题" @input="clampEditField('name', 15)" />
           </label>
           <div class="icon-mode-block">
+            <span class="icon-mode-title">图标风格</span>
             <div class="segmented">
               <button type="button" :class="{ active: editDialog.form.iconMode !== 'image' }" @click="setNavIconMode(editDialog.form, 'text')">文字</button>
               <button type="button" :class="{ active: editDialog.form.iconMode === 'image' }" @click="setNavIconMode(editDialog.form, 'image')">图片</button>
@@ -1432,9 +1601,40 @@ function showBookmarkMenu(event, bookmark) {
               </span>
             </label>
           </div>
+          <label>
+            <span class="label-line"><span>分组 <em class="required">*</em></span></span>
+            <div class="select-popover" :class="{ open: groupSelectOpen }">
+              <button type="button" class="select-trigger" @click="groupSelectOpen = !groupSelectOpen">
+                <span>{{ getEditGroupName() }}</span>
+                <span class="select-arrow">⌄</span>
+              </button>
+              <div v-if="groupSelectOpen" class="select-options">
+                <button v-for="group in navGroupOptions" :key="`edit-group-${group.id}`" type="button" :class="{ active: group.id === editDialog.form.groupId }" @click.stop="selectEditGroup(group)">{{ group.name }}</button>
+              </div>
+            </div>
+          </label>
+          <label>
+            <span class="label-line"><span>公网地址 <em class="required">*</em></span></span>
+            <span class="input-with-button metadata-inline">
+              <input v-model="editDialog.form.wanUrl" required placeholder="https://example.com" />
+              <button class="field-action" type="button" @click="fillMetadataFromField(editDialog.form, 'wanUrl')">{{ metadataLoading ? '抓取中' : '自动抓取标题/图标' }}</button>
+            </span>
+          </label>
+          <label>
+            <span class="label-line"><span>内网地址</span></span>
+            <span class="input-with-button metadata-inline">
+              <input v-model="editDialog.form.lanUrl" placeholder="http://192.168.x.x" />
+              <button class="field-action" type="button" @click="fillMetadataFromField(editDialog.form, 'lanUrl')">{{ metadataLoading ? '抓取中' : '自动抓取标题/图标' }}</button>
+            </span>
+          </label>
         </template>
         <template v-if="editDialog.type === 'bookmark'"><label>标题<input v-model="editDialog.form.title" /></label><label>网址<input v-model="editDialog.form.url" /></label><label>图标<input v-model="editDialog.form.favicon" /></label><label>上传图标图片<input type="file" accept="image/*" @change="uploadIconFile($event, editDialog.form, 'favicon')" /></label><label>备注<input v-model="editDialog.form.note" /></label><button type="button" @click="fillMetadata(editDialog.form)">{{ metadataLoading ? '抓取中' : '自动抓取标题/图标' }}</button></template>
-        <footer class="modal-actions"><button type="button" @click="closeEditDialog">取消</button><button type="submit">保存</button></footer>
+        <template v-if="editDialog.type === 'searchEngine' || editDialog.type === 'searchEngineCreate'"><label>标题<input v-model="editDialog.form.title" placeholder="例如 Google" /></label><label>URL<input v-model="editDialog.form.url" placeholder="https://example.com/search?q={q}" /></label><div class="icon-mode-block"><span class="icon-mode-title">图标风格</span><div class="segmented"><button type="button" :class="{ active: editDialog.form.iconMode !== 'image' }" @click="setNavIconMode(editDialog.form, 'text')">文字</button><button type="button" :class="{ active: editDialog.form.iconMode === 'image' }" @click="setNavIconMode(editDialog.form, 'image')">图片</button></div><label><span class="label-line"><span>{{ editDialog.form.iconMode === 'image' ? '图片地址' : '文本内容' }}</span></span><span class="input-with-button"><input v-model="editDialog.form.icon" :placeholder="editDialog.form.iconMode === 'image' ? '输入图标地址或上传' : '请输入文本内容'" /><label v-if="editDialog.form.iconMode === 'image'" class="upload-inline">上传<input type="file" accept="image/*" @change="uploadIconFile($event, editDialog.form, 'icon')" /></label></span></label></div></template>
+        <footer class="modal-actions">
+          <button v-if="editDialog.type === 'navItem'" class="danger" type="button" @click="deleteEditingNavCard">删除</button>
+          <button v-else-if="editDialog.type !== 'navItemCreate'" type="button" @click="closeEditDialog">取消</button>
+          <button type="submit">保存</button>
+        </footer>
       </form>
     </section>
 

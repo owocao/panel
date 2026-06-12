@@ -1,6 +1,10 @@
 # dependencies
 node_modules/
 
+# local project tools/cache
+.tools/
+.cache/
+
 # frontend build
 frontend/dist/
 frontend/.vite/
