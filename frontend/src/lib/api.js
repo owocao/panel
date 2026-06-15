@@ -43,6 +43,22 @@ export const getSettings = () => api('/api/settings')
 export const saveSettings = (payload) => api('/api/settings', jsonRequest('PUT', payload))
 export const backupToS3 = () => api('/api/backup/s3', { method: 'POST' })
 export const testS3 = () => api('/api/s3/test', { method: 'POST' })
+export async function downloadFile(path) {
+  const response = await fetch(`${API_BASE}${path}`, { credentials: 'include' })
+  if (!response.ok) throw new Error(`下载失败：${response.status}`)
+  const blob = await response.blob()
+  const disposition = response.headers.get('Content-Disposition') || ''
+  const match = disposition.match(/filename="?([^";]+)"?/i)
+  const fileName = match?.[1] || 'download'
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
 export async function uploadAsset(file) {
   const form = new FormData()
   form.append('file', file)
@@ -65,5 +81,13 @@ export async function restoreBackup(file) {
   const response = await fetch(`${API_BASE}/api/backup/restore`, { method: 'POST', credentials: 'include', body: form })
   const body = await response.json().catch(() => ({}))
   if (!response.ok || body.success === false) throw new Error(body.error || `恢复失败：${response.status}`)
+  return body.data
+}
+export async function restoreNavigationBackup(file) {
+  const form = new FormData()
+  form.append('file', file)
+  const response = await fetch(`${API_BASE}/api/navigation/restore`, { method: 'POST', credentials: 'include', body: form })
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok || body.success === false) throw new Error(body.error || `导航恢复失败：${response.status}`)
   return body.data
 }

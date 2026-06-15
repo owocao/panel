@@ -25,8 +25,8 @@ const emit = defineEmits(['close', 'confirm', 'update:targetFolderId'])
         </select>
       </label>
       <footer class="modal-actions">
-        <button type="button" @click="emit('close')">取消</button>
         <button type="button" @click="emit('confirm')">确认移动</button>
+        <button type="button" @click="emit('close')">取消</button>
       </footer>
     </div>
   </section>

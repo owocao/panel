@@ -27,6 +27,8 @@
 
 当前阶段更接近 **V1.0 功能迭代/打磨阶段**，不是纯原型阶段。核心功能已实现，但仍存在不少功能缺口、技术债务和体验问题，详见后文“当前未完成功能”和“已知问题”。
 
+截至 2026-06-15，导航页相关功能已进入用户确认可用状态：导航分组和卡片的新增、编辑、删除、排序、系统设置草稿保存、内外网手动优先级切换、右键菜单打开、导航页单独备份和恢复均已完成阶段性验证。
+
 ### 是否有版本管理
 
 有 Git 仓库。
@@ -36,27 +38,14 @@
 最近 5 个提交：
 
 ```text
+47de4cf Split frontend display components
 30fa80e Stabilize navigation persistence flow
 551bc22 Refine navigation and settings UI
 7f928d7 Add personalized search dashboard
 f9a66af Redesign for efficient neutral dashboard
-8bde5f1 Improve settings management interactions
 ```
 
-当前工作区存在未提交修改：
-
-```text
-M frontend/src/App.vue
-?? frontend/src/components/BookmarkRow.vue
-?? frontend/src/components/ContextMenu.vue
-?? frontend/src/components/FloatingActions.vue
-?? frontend/src/components/HomeHero.vue
-?? frontend/src/components/MoveDialog.vue
-?? frontend/src/components/NavDragFloat.vue
-?? frontend/src/components/SettingsMenu.vue
-```
-
-说明：以上修改是当前保守组件拆分工作的一部分。新的 AI 接手前应先阅读这些文件和 `git diff`，不要随意回滚。
+当前工作区存在导航页备份恢复、设置页样式和右键打开修复相关的未提交修改。新的 AI 接手前应先阅读 `git diff`，不要随意回滚。
 
 ## 2. 技术架构
 
@@ -287,6 +276,9 @@ BIU_PANEL_PORT=55088
 - 卡片支持：标题、图标/文本、内网地址、公网地址、打开模式、所属分组、排序。
 - 系统设置中的导航管理已经统一为草稿模式：分组和卡片的新增、编辑、删除、排序都先写入草稿，点击系统设置保存后才批量写入后端。
 - 导航真实接口闭环已验证：分组和卡片的新增、编辑、删除、排序刷新后保持。
+- 导航页整体已由用户确认处于可用状态。
+- 导航页单独备份和恢复已接入真实接口并由用户验证可用。
+- 右键菜单“新标签页打开 / 新窗口打开”已修复，不再额外打开 `about:blank` 或错误打开前端站点地址。
 - 新增/编辑卡片弹窗近期已调整：
   - 登录页默认账号不再预填 `admin`。
   - “名称”改为“标题”。
@@ -300,6 +292,7 @@ BIU_PANEL_PORT=55088
 - 卡片右键菜单包含打开、编辑、删除等。
 - 右下角网络切换按钮：当未开启自动检测时显示“内网优先 / 外网优先”。
 - 内外网前端切换使用右下角“内网优先 / 外网优先”按钮，点击卡片时按优先级选择内网或公网地址，并在地址未填写协议时自动补全 `http://`。
+- 内外网切换前端页面已由用户确认可用，自动检测地址和自动检测开关方向已取消。
 
 ### 收藏夹
 
@@ -371,10 +364,14 @@ BIU_PANEL_PORT=55088
 
 - 下载备份：`GET /api/backup/download`
 - 恢复备份：`POST /api/backup/restore`
+- 导航页备份：`GET /api/navigation/backup`
+- 导航页恢复：`POST /api/navigation/restore`
 - S3 备份：`POST /api/backup/s3`
 - S3 测试：`POST /api/s3/test`
 - 备份格式为 `.tar.gz`，包含 `data/` 下文件。
 - 恢复会将备份包中 `data/` 前缀下的文件写回数据目录。
+- 导航页备份格式为 JSON，包含 `version`、`createdAt`、`groups`、`items`，只导出真实后端导航数据，不包含前端演示数据。
+- 导航页恢复会替换当前全部导航分组和卡片，前端恢复前有二次确认，恢复后刷新首页导航和设置页导航草稿。
 
 ### Docker 与验证
 
@@ -400,8 +397,8 @@ curl -fsS http://127.0.0.1:55088/api/health
 
 ### 首页导航相关
 
-- 分组折叠/展开字段存在于数据库 `nav_groups.collapsed`，但前端未看到完整折叠/展开交互落地。
-- 自动判断内外网的 `lanDetectUrl` 和 `autoDetectLan` 方向已经取消，当前保留手动切换“内网优先 / 外网优先”和点击卡片时的前端优先级判断。
+- 分组折叠/展开字段存在于数据库 `nav_groups.collapsed`，但用户已明确当前不需要分组折叠/展开功能。
+- 自动判断内外网的 `lanDetectUrl` 和 `autoDetectLan` 方向已经取消，当前保留手动切换“内网优先 / 外网优先”和点击卡片时的前端优先级判断，该前端页面已验证可用。
 - 单卡片独立检测地址未实现；当前 NavItem 只有 `lanUrl`、`wanUrl`、`urlMode`。
 - 后端未强制校验导航卡片公网地址必填；目前主要是前端校验。
 - 收藏夹部分近期暂不作为主线，主页卡片“从收藏夹设为首页卡片”后续再继续完善。
@@ -463,10 +460,10 @@ curl -fsS http://127.0.0.1:55088/api/health
 
 ### 功能缺陷/设计债
 
-- 自动内网检测设置存在，但实际自动探测逻辑不足。
+- 自动内网检测设置方向已取消，不应再恢复 `lanDetectUrl` 和 `autoDetectLan` 配置入口。
 - 收藏夹无限层级的后端结构存在，前端树形交互不足。
 - 书签导入解析使用正则，面对复杂浏览器导出 HTML 可能不够稳健。
-- 备份恢复会直接覆盖数据目录文件，前端是否有二次确认待确认；后端没有版本兼容检查。
+- 全局备份恢复会直接覆盖数据目录文件，后端版本兼容检查仍需继续完善；导航页单独恢复已加入前端二次确认和备份版本校验。
 - 后端导航卡片接口报错文案仍使用“卡片名称”，前端已改为“标题”，文案不一致。
 - 前端新增/编辑卡片要求公网地址必填，但后端没有同步强约束，API 直接调用可绕过；当前真实接口闭环验证已通过，后续仍建议补齐后端校验。
 

@@ -18,6 +18,7 @@ import {
   deleteBookmarkFolder,
   deleteNavGroup,
   deleteNavItem,
+  downloadFile,
   fetchMetadata,
   getBookmarkFolders,
   getBookmarks,
@@ -27,6 +28,7 @@ import {
   importBookmarkHTML,
   login,
   restoreBackup,
+  restoreNavigationBackup,
   setup,
   searchBookmarks,
   saveSettings,
@@ -361,6 +363,12 @@ function openResolvedUrl(url, target = '_self', openedWindow = null) {
   window.open(url, target, 'noopener,noreferrer')
 }
 
+function openNavItemFromMenu(item, target = '_blank', features = 'noopener,noreferrer') {
+  const url = resolveNavUrl(item)
+  if (!url || url === '#') return
+  window.open(url, target, features)
+}
+
 async function probeUrl(url) {
   if (!url || url === '#') return false
   const timeout = Math.max(200, Number(settingsForm.value.lanDetectTimeout || 800) || 800)
@@ -599,6 +607,36 @@ async function restoreBackupFile(event) {
     if (drawerOpen.value) await loadFolders()
   } catch (error) {
     statusText.value = error.message
+  } finally {
+    event.target.value = ''
+  }
+}
+
+async function downloadNavigationBackup() {
+  try {
+    await downloadFile('/api/navigation/backup')
+  } catch (error) {
+    statusText.value = error.message
+    settingsMessage.value = error.message
+  }
+}
+
+async function restoreNavigationBackupFile(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  if (!confirm('恢复导航页备份会替换当前全部导航分组和卡片，确认继续？')) {
+    event.target.value = ''
+    return
+  }
+  try {
+    const data = await restoreNavigationBackup(file)
+    statusText.value = `导航恢复完成：${data.groups} 个分组，${data.items} 张卡片`
+    settingsMessage.value = statusText.value
+    await loadNavigation()
+    if (settingsOpen.value) navGroupsDraft.value = displayGroups.value.map((group) => ({ ...group, items: [...(group.items || [])] }))
+  } catch (error) {
+    statusText.value = error.message
+    settingsMessage.value = error.message
   } finally {
     event.target.value = ''
   }
@@ -1525,10 +1563,9 @@ function showCardMenu(event, item, group = null) {
     closeMenu()
     return
   }
-  const url = resolveNavUrl(item)
   showMenu(event, item.name, [
-    { label: '新标签页打开', icon: 'external-link-alt', variant: 'icon', run: () => openNavItem(item, '_blank', 'noopener,noreferrer') },
-    { label: '新窗口打开', icon: 'window', variant: 'icon', run: () => openNavItem(item, '_blank', 'noopener,noreferrer,width=1200,height=800') },
+    { label: '新标签页打开', icon: 'external-link-alt', variant: 'icon', run: () => openNavItemFromMenu(item, '_blank', 'noopener,noreferrer') },
+    { label: '新窗口打开', icon: 'window', variant: 'icon', run: () => openNavItemFromMenu(item, `biu-nav-window-${item.id || Date.now()}`, 'popup=yes,width=1200,height=800') },
     { divider: true },
     { label: '编辑', icon: 'edit', run: () => editNavCard(item, group) },
     { label: '删除', icon: 'trash-alt', run: () => removeNavCard(item) },
@@ -1681,7 +1718,7 @@ function showBookmarkMenu(event, bookmark) {
               <section v-if="activeSettings === '收藏夹'" class="setting-card manager-card"><header class="manager-head"><h3>收藏夹管理</h3><div class="inline-actions"><button type="button" @click="createFolderByPrompt()">新增文件夹</button><button type="button" @click="createBookmarkByPrompt()">新增收藏</button><button type="button" @click="openDrawer">打开收藏夹</button></div></header><article v-for="folder in folderFlatList" :key="`manage-folder-${folder.id}`" class="manager-row" :style="{ paddingLeft: `${10 + folder.depth * 14}px` }"><strong>{{ folder.name }}</strong><div class="inline-actions"><button type="button" @click="createFolderByPrompt(folder)">新增子目录</button><button type="button" @click="createBookmarkByPrompt(folder)">新增收藏</button><button type="button" @click="editFolder(folder)">编辑</button><button type="button" @click="removeFolder(folder)">删除</button></div></article><div v-if="!folderFlatList.length" class="empty-state">暂无收藏夹文件夹，点击新增文件夹创建。</div></section>
               <section v-if="activeSettings === '搜索引擎'" class="setting-card manager-card"><header class="manager-head"><h3>搜索引擎</h3><button type="button" @click="addSearchEngine">增加</button></header><article v-for="engine in settingsSearchEngines" :key="`search-manage-${engine.key}`" class="manager-row search-engine-row"><span class="engine-mark"><img v-if="isImageValue(engine.icon)" :src="engine.icon" alt="" /><span v-else>{{ engine.icon || engine.title.slice(0, 1) }}</span></span><div><strong>{{ engine.title }}</strong><p>{{ engine.url }}</p></div><div class="inline-actions"><button type="button" @click="editSearchEngine(engine)">编辑</button><button type="button" @click="moveSearchEngine(engine, -1)">上移</button><button type="button" @click="moveSearchEngine(engine, 1)">下移</button><button type="button" @click="removeSearchEngine(engine)">删除</button></div></article><div v-if="!settingsSearchEngines.length" class="empty-state">暂无搜索引擎，点击增加创建。</div></section>
               <section v-if="activeSettings === '关于'" class="setting-card"><h3>关于</h3><p>这是个人自用导航站和网页收藏夹，当前正在按 Sun-Panel 的交互方式重做。</p></section>
-              <div class="settings-grid"><section v-show="activeSettings === '个性化'" class="setting-card"><h3>个性化</h3><p>{{ statusText }}</p><label class="check-row"><input v-model="settingsDraft.showTitle" true-value="true" false-value="false" type="checkbox" /> 显示标题</label><label>首页文本<input v-model="settingsDraft.siteTitle" /></label><label class="check-row"><input v-model="settingsDraft.showClock" true-value="true" false-value="false" type="checkbox" /> 显示时钟</label><label class="check-row"><input v-model="settingsDraft.showSeconds" true-value="true" false-value="false" type="checkbox" /> 显示秒</label><label class="check-row"><input v-model="settingsDraft.showSearch" true-value="true" false-value="false" type="checkbox" /> 显示搜索栏</label><label>内外网超时时间 ms<input v-model="settingsDraft.lanDetectTimeout" /></label></section><section v-show="activeSettings === 'S3 存储'" class="setting-card"><h3>S3 存储</h3><label class="check-row"><input v-model="settingsDraft.s3Enabled" true-value="true" false-value="false" type="checkbox" /> 启用 S3 配置</label><label>Endpoint<input v-model="settingsDraft.s3Endpoint" placeholder="https://s3.example.com" /></label><label>Region<input v-model="settingsDraft.s3Region" placeholder="auto" /></label><label>Bucket<input v-model="settingsDraft.s3Bucket" placeholder="biu-panel" /></label><label>Access Key<input v-model="settingsDraft.s3AccessKey" /></label><label>Secret Key<input v-model="settingsDraft.s3SecretKey" type="password" /></label><label>上传前缀<input v-model="settingsDraft.s3Prefix" placeholder="biu-panel/" /></label><label>公开访问域名<input v-model="settingsDraft.s3PublicBase" placeholder="https://cdn.example.com/biu-panel" /></label><label class="check-row"><input v-model="settingsDraft.s3PathStyle" true-value="true" false-value="false" type="checkbox" /> Path-style 兼容模式</label><div class="inline-actions"><button type="button" @click="submitSettings">保存 S3 配置</button><button type="button" @click="submitTestS3">测试 S3</button></div></section><section v-show="activeSettings === '备份恢复'" class="setting-card backup-card"><h3>备份恢复</h3><div class="backup-zone"><h4>全部备份</h4><p>全局备份包含导航页和收藏夹；恢复时按备份包内容恢复对应数据。</p><div class="inline-actions backup-actions"><button type="button" @click="window.location.href = '/api/backup/download'">全局备份</button><label class="file-button">全局恢复<input type="file" accept=".gz,.tgz,application/gzip" @change="restoreBackupFile" /></label></div></div><div class="backup-zone"><h4>导航页</h4><p>导航页数据包含分组、卡片和排序。</p><div class="inline-actions backup-actions"><button type="button" @click="window.location.href = '/api/backup/download'">备份</button><label class="file-button">恢复<input type="file" accept=".gz,.tgz,application/gzip" @change="restoreBackupFile" /></label></div></div><div class="backup-zone"><h4>收藏夹</h4><p>收藏夹导入导出集中在这里。</p><div class="inline-actions backup-actions"><button type="button" @click="exportBookmarks">导出</button><label class="file-button">导入<input type="file" accept=".html,.htm,text/html" @change="importBookmarksFile" /></label></div></div></section></div>
+              <div class="settings-grid"><section v-show="activeSettings === '个性化'" class="setting-card settings-card-wide"><h3>个性化</h3><p>{{ statusText }}</p><label class="check-row"><input v-model="settingsDraft.showTitle" true-value="true" false-value="false" type="checkbox" /> 显示标题</label><label>首页文本<input v-model="settingsDraft.siteTitle" /></label><label class="check-row"><input v-model="settingsDraft.showClock" true-value="true" false-value="false" type="checkbox" /> 显示时钟</label><label class="check-row"><input v-model="settingsDraft.showSeconds" true-value="true" false-value="false" type="checkbox" /> 显示秒</label><label class="check-row"><input v-model="settingsDraft.showSearch" true-value="true" false-value="false" type="checkbox" /> 显示搜索栏</label><label>内外网超时时间 ms<input v-model="settingsDraft.lanDetectTimeout" /></label></section><section v-show="activeSettings === 'S3 存储'" class="setting-card settings-card-wide"><h3>S3 存储</h3><label class="check-row"><input v-model="settingsDraft.s3Enabled" true-value="true" false-value="false" type="checkbox" /> 启用 S3 配置</label><label>Endpoint<input v-model="settingsDraft.s3Endpoint" placeholder="https://s3.example.com" /></label><label>Region<input v-model="settingsDraft.s3Region" placeholder="auto" /></label><label>Bucket<input v-model="settingsDraft.s3Bucket" placeholder="biu-panel" /></label><label>Access Key<input v-model="settingsDraft.s3AccessKey" /></label><label>Secret Key<input v-model="settingsDraft.s3SecretKey" type="password" /></label><label>上传前缀<input v-model="settingsDraft.s3Prefix" placeholder="biu-panel/" /></label><label>公开访问域名<input v-model="settingsDraft.s3PublicBase" placeholder="https://cdn.example.com/biu-panel" /></label><label class="check-row"><input v-model="settingsDraft.s3PathStyle" true-value="true" false-value="false" type="checkbox" /> Path-style 兼容模式</label><div class="inline-actions"><button type="button" @click="submitSettings">保存 S3 配置</button><button type="button" @click="submitTestS3">测试 S3</button></div></section><section v-show="activeSettings === '备份恢复'" class="setting-card backup-card settings-card-wide"><h3>备份恢复</h3><div class="backup-zone"><h4>全部备份</h4><p>全局备份包含导航页和收藏夹；恢复时按备份包内容恢复对应数据。</p><div class="inline-actions backup-actions"><button type="button" @click="window.location.href = '/api/backup/download'">全局备份</button><label class="file-button">全局恢复<input type="file" accept=".gz,.tgz,application/gzip" @change="restoreBackupFile" /></label></div></div><div class="backup-zone"><h4>导航页</h4><p>导航页数据包含分组、卡片和排序。</p><div class="inline-actions backup-actions"><button type="button" @click="downloadNavigationBackup">备份</button><label class="file-button">恢复<input type="file" accept=".json,application/json" @change="restoreNavigationBackupFile" /></label></div></div><div class="backup-zone"><h4>收藏夹</h4><p>收藏夹导入导出集中在这里。</p><div class="inline-actions backup-actions"><button type="button" @click="exportBookmarks">导出</button><label class="file-button">导入<input type="file" accept=".html,.htm,text/html" @change="importBookmarksFile" /></label></div></div></section></div>
             </div>
           </div>
         </section>
@@ -1741,9 +1778,9 @@ function showBookmarkMenu(event, bookmark) {
         <template v-if="editDialog.type === 'bookmark'"><label>标题<input v-model="editDialog.form.title" /></label><label>网址<input v-model="editDialog.form.url" /></label><label>图标<input v-model="editDialog.form.favicon" /></label><label>上传图标图片<input type="file" accept="image/*" @change="uploadIconFile($event, editDialog.form, 'favicon')" /></label><label>备注<input v-model="editDialog.form.note" /></label><button type="button" @click="fillMetadata(editDialog.form)">{{ metadataLoading ? '抓取中' : '自动抓取标题/图标' }}</button></template>
         <template v-if="editDialog.type === 'searchEngine' || editDialog.type === 'searchEngineCreate'"><label>标题<input v-model="editDialog.form.title" placeholder="例如 Google" /></label><label>URL<input v-model="editDialog.form.url" placeholder="https://example.com/search?q={q}" /></label><div class="icon-mode-block"><span class="icon-mode-title">图标风格</span><div class="segmented"><button type="button" :class="{ active: editDialog.form.iconMode !== 'image' }" @click="setNavIconMode(editDialog.form, 'text')">文字</button><button type="button" :class="{ active: editDialog.form.iconMode === 'image' }" @click="setNavIconMode(editDialog.form, 'image')">图片</button></div><label><span class="label-line"><span>{{ editDialog.form.iconMode === 'image' ? '图片地址' : '文本内容' }}</span></span><span class="input-with-button"><input v-model="editDialog.form.icon" :placeholder="editDialog.form.iconMode === 'image' ? '输入图标地址或上传' : '请输入文本内容'" /><label v-if="editDialog.form.iconMode === 'image'" class="upload-inline">上传<input type="file" accept="image/*" @change="uploadIconFile($event, editDialog.form, 'icon')" /></label></span></label></div></template>
         <footer class="modal-actions">
-          <button v-if="editDialog.type === 'navItem'" class="danger" type="button" @click="deleteEditingNavCard">删除</button>
-          <button v-else-if="editDialog.type !== 'navItemCreate' && editDialog.type !== 'navGroupCreate' && editDialog.type !== 'searchEngineCreate'" type="button" @click="closeEditDialog">取消</button>
           <button type="submit">保存</button>
+          <button v-if="editDialog.type !== 'navItemCreate' && editDialog.type !== 'navGroupCreate' && editDialog.type !== 'searchEngineCreate'" type="button" @click="closeEditDialog">取消</button>
+          <button v-if="editDialog.type === 'navItem'" class="danger" type="button" @click="deleteEditingNavCard">删除</button>
         </footer>
       </form>
     </section>

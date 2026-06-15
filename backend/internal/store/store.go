@@ -196,6 +196,48 @@ func (s *Store) CreateNavItem(it NavItem) (int64, error) {
 	return res.LastInsertId()
 }
 
+func (s *Store) ReplaceNavigation(groups []NavGroup, items map[int64][]NavItem) error {
+	tx, err := s.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`DELETE FROM nav_items`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM nav_groups`); err != nil {
+		return err
+	}
+	for index, group := range groups {
+		sort := group.Sort
+		if sort == 0 {
+			sort = index + 1
+		}
+		res, err := tx.Exec(`INSERT INTO nav_groups(name,sort,collapsed) VALUES(?,?,?)`, group.Name, sort, boolInt(group.Collapsed))
+		if err != nil {
+			return err
+		}
+		id, err := res.LastInsertId()
+		if err != nil {
+			return err
+		}
+		for itemIndex, item := range items[group.ID] {
+			itemSort := item.Sort
+			if itemSort == 0 {
+				itemSort = itemIndex + 1
+			}
+			urlMode := item.URLMode
+			if urlMode == "" {
+				urlMode = "auto"
+			}
+			if _, err := tx.Exec(`INSERT INTO nav_items(group_id,name,icon,lan_url,wan_url,url_mode,sort) VALUES(?,?,?,?,?,?,?)`, id, item.Name, item.Icon, item.LANURL, item.WANURL, urlMode, itemSort); err != nil {
+				return err
+			}
+		}
+	}
+	return tx.Commit()
+}
+
 func (s *Store) ListFolders(parent *int64) ([]Folder, error) {
 	var rows *sql.Rows
 	var err error
