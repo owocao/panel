@@ -70,7 +70,7 @@ func (s *Store) Migrate() error {
 		`CREATE TABLE IF NOT EXISTS login_logs (id INTEGER PRIMARY KEY, username TEXT NOT NULL, success INTEGER NOT NULL, ip TEXT, message TEXT, created_at TEXT NOT NULL);`,
 		`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);`,
 		`CREATE TABLE IF NOT EXISTS nav_groups (id INTEGER PRIMARY KEY, name TEXT NOT NULL, sort INTEGER NOT NULL DEFAULT 0, collapsed INTEGER NOT NULL DEFAULT 0);`,
-		`CREATE TABLE IF NOT EXISTS nav_items (id INTEGER PRIMARY KEY, group_id INTEGER NOT NULL, name TEXT NOT NULL, icon TEXT, lan_url TEXT, wan_url TEXT, url_mode TEXT NOT NULL DEFAULT 'auto', sort INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(group_id) REFERENCES nav_groups(id) ON DELETE CASCADE);`,
+		`CREATE TABLE IF NOT EXISTS nav_items (id INTEGER PRIMARY KEY, group_id INTEGER NOT NULL, name TEXT NOT NULL, icon TEXT, lan_url TEXT, wan_url TEXT, url_mode TEXT NOT NULL DEFAULT 'wan', sort INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(group_id) REFERENCES nav_groups(id) ON DELETE CASCADE);`,
 		`CREATE TABLE IF NOT EXISTS bookmark_folders (id INTEGER PRIMARY KEY, parent_id INTEGER, name TEXT NOT NULL, sort INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(parent_id) REFERENCES bookmark_folders(id) ON DELETE CASCADE);`,
 		`CREATE TABLE IF NOT EXISTS bookmarks (id INTEGER PRIMARY KEY, folder_id INTEGER NOT NULL, title TEXT NOT NULL, url TEXT NOT NULL, favicon TEXT, note TEXT, sort INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(folder_id) REFERENCES bookmark_folders(id) ON DELETE CASCADE);`,
 		`CREATE TABLE IF NOT EXISTS assets (id INTEGER PRIMARY KEY, name TEXT, source TEXT NOT NULL, path TEXT NOT NULL, mime TEXT, size INTEGER, created_at TEXT NOT NULL);`,
@@ -81,6 +81,9 @@ func (s *Store) Migrate() error {
 		if _, err := s.DB.Exec(stmt); err != nil {
 			return err
 		}
+	}
+	if _, err := s.DB.Exec(`UPDATE nav_items SET url_mode='wan' WHERE url_mode='' OR url_mode='auto'`); err != nil {
+		return err
 	}
 	return nil
 }
@@ -181,6 +184,18 @@ func (s *Store) NavGroupNameExists(name string, excludeID int64) (bool, error) {
 	return n > 0, err
 }
 
+func (s *Store) NavGroupExists(id int64) (bool, error) {
+	var n int
+	err := s.DB.QueryRow(`SELECT COUNT(*) FROM nav_groups WHERE id=?`, id).Scan(&n)
+	return n > 0, err
+}
+
+func (s *Store) NavItemExists(id int64) (bool, error) {
+	var n int
+	err := s.DB.QueryRow(`SELECT COUNT(*) FROM nav_items WHERE id=?`, id).Scan(&n)
+	return n > 0, err
+}
+
 func (s *Store) CreateNavGroup(g NavGroup) (int64, error) {
 	res, err := s.DB.Exec(`INSERT INTO nav_groups(name,sort,collapsed) VALUES(?,?,?)`, g.Name, g.Sort, boolInt(g.Collapsed))
 	if err != nil {
@@ -227,8 +242,8 @@ func (s *Store) ReplaceNavigation(groups []NavGroup, items map[int64][]NavItem) 
 				itemSort = itemIndex + 1
 			}
 			urlMode := item.URLMode
-			if urlMode == "" {
-				urlMode = "auto"
+			if urlMode == "" || urlMode == "auto" {
+				urlMode = "wan"
 			}
 			if _, err := tx.Exec(`INSERT INTO nav_items(group_id,name,icon,lan_url,wan_url,url_mode,sort) VALUES(?,?,?,?,?,?,?)`, id, item.Name, item.Icon, item.LANURL, item.WANURL, urlMode, itemSort); err != nil {
 				return err

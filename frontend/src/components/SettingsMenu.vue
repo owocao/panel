@@ -6,7 +6,7 @@ defineProps({
 
 const emit = defineEmits(['toggle-collapse', 'select'])
 
-const items = ['个性化', '搜索引擎', '导航管理', '收藏夹', '备份恢复', 'S3 存储', '关于']
+const items = ['个性化', '搜索引擎', '分组管理', '收藏夹', '备份恢复', 'S3 存储', '关于']
 </script>
 
 <template>

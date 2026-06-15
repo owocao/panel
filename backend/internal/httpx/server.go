@@ -33,6 +33,12 @@ type Server struct {
 	store *store.Store
 }
 
+const (
+	maxNavGroupNameLength = 10
+	maxNavItemTitleLength = 15
+	maxNavURLLength       = 2048
+)
+
 func New(cfg config.Config, st *store.Store) *Server { return &Server{cfg: cfg, store: st} }
 
 func (s *Server) Routes() http.Handler {
@@ -232,6 +238,13 @@ func (s *Server) createNavGroup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "分组名称不能为空")
 		return
 	}
+	if len([]rune(g.Name)) > maxNavGroupNameLength {
+		writeError(w, 400, "分组名称不能超过 10 个字")
+		return
+	}
+	if g.Sort < 0 {
+		g.Sort = 0
+	}
 	if exists, err := s.store.NavGroupNameExists(g.Name, 0); err != nil {
 		writeError(w, 500, err.Error())
 		return
@@ -258,9 +271,27 @@ func (s *Server) updateNavGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	g.Name = strings.TrimSpace(g.Name)
-	if g.ID == 0 || g.Name == "" {
-		writeError(w, 400, "分组 ID 和名称必填")
+	if g.ID == 0 {
+		writeError(w, 400, "分组 ID 必填")
 		return
+	}
+	if g.Name == "" {
+		writeError(w, 400, "分组名称不能为空")
+		return
+	}
+	if len([]rune(g.Name)) > maxNavGroupNameLength {
+		writeError(w, 400, "分组名称不能超过 10 个字")
+		return
+	}
+	if exists, err := s.store.NavGroupExists(g.ID); err != nil {
+		writeError(w, 500, err.Error())
+		return
+	} else if !exists {
+		writeError(w, 404, "分组不存在")
+		return
+	}
+	if g.Sort < 0 {
+		g.Sort = 0
 	}
 	if exists, err := s.store.NavGroupNameExists(g.Name, g.ID); err != nil {
 		writeError(w, 500, err.Error())
@@ -285,6 +316,13 @@ func (s *Server) deleteNavGroup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "id 必填")
 		return
 	}
+	if exists, err := s.store.NavGroupExists(id); err != nil {
+		writeError(w, 500, err.Error())
+		return
+	} else if !exists {
+		writeError(w, 404, "分组不存在")
+		return
+	}
 	if err := s.store.DeleteNavGroup(id); err != nil {
 		writeError(w, 500, err.Error())
 		return
@@ -301,12 +339,8 @@ func (s *Server) createNavItem(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &it) {
 		return
 	}
-	if it.Name == "" || it.GroupID == 0 {
-		writeError(w, 400, "卡片名称和分组必填")
+	if !s.validateNavItem(w, &it, false) {
 		return
-	}
-	if it.URLMode == "" {
-		it.URLMode = "auto"
 	}
 	id, err := s.store.CreateNavItem(it)
 	if err != nil {
@@ -326,12 +360,8 @@ func (s *Server) updateNavItem(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &it) {
 		return
 	}
-	if it.ID == 0 || it.Name == "" || it.GroupID == 0 {
-		writeError(w, 400, "卡片 ID、名称和分组必填")
+	if !s.validateNavItem(w, &it, true) {
 		return
-	}
-	if it.URLMode == "" {
-		it.URLMode = "auto"
 	}
 	if err := s.store.UpdateNavItem(it); err != nil {
 		writeError(w, 500, err.Error())
@@ -349,11 +379,76 @@ func (s *Server) deleteNavItem(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "id 必填")
 		return
 	}
+	if exists, err := s.store.NavItemExists(id); err != nil {
+		writeError(w, 500, err.Error())
+		return
+	} else if !exists {
+		writeError(w, 404, "卡片不存在")
+		return
+	}
 	if err := s.store.DeleteNavItem(id); err != nil {
 		writeError(w, 500, err.Error())
 		return
 	}
 	writeJSON(w, 200, map[string]bool{"ok": true})
+}
+
+func (s *Server) validateNavItem(w http.ResponseWriter, it *store.NavItem, requireID bool) bool {
+	it.Name = strings.TrimSpace(it.Name)
+	it.LANURL = strings.TrimSpace(it.LANURL)
+	it.WANURL = strings.TrimSpace(it.WANURL)
+	it.URLMode = strings.TrimSpace(it.URLMode)
+	if requireID && it.ID == 0 {
+		writeError(w, 400, "卡片 ID 必填")
+		return false
+	}
+	if it.Name == "" {
+		writeError(w, 400, "卡片标题不能为空")
+		return false
+	}
+	if len([]rune(it.Name)) > maxNavItemTitleLength {
+		writeError(w, 400, "卡片标题不能超过 15 个字")
+		return false
+	}
+	if it.GroupID == 0 {
+		writeError(w, 400, "卡片分组必填")
+		return false
+	}
+	if it.WANURL == "" {
+		writeError(w, 400, "公网地址不能为空")
+		return false
+	}
+	if len(it.LANURL) > maxNavURLLength || len(it.WANURL) > maxNavURLLength {
+		writeError(w, 400, "卡片地址不能超过 2048 个字符")
+		return false
+	}
+	if it.URLMode == "" {
+		it.URLMode = "wan"
+	}
+	if it.URLMode != "lan" && it.URLMode != "wan" {
+		writeError(w, 400, "打开方式不支持")
+		return false
+	}
+	if it.Sort < 0 {
+		it.Sort = 0
+	}
+	if exists, err := s.store.NavGroupExists(it.GroupID); err != nil {
+		writeError(w, 500, err.Error())
+		return false
+	} else if !exists {
+		writeError(w, 400, "卡片分组不存在")
+		return false
+	}
+	if requireID {
+		if exists, err := s.store.NavItemExists(it.ID); err != nil {
+			writeError(w, 500, err.Error())
+			return false
+		} else if !exists {
+			writeError(w, 404, "卡片不存在")
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Server) bookmarkFolders(w http.ResponseWriter, r *http.Request) {
@@ -1091,31 +1186,66 @@ func (s *Server) restoreNavigationBackup(w http.ResponseWriter, r *http.Request)
 	}
 	groupNames := map[string]bool{}
 	groupItems := map[int64][]store.NavItem{}
-	for _, group := range backup.Groups {
+	for index := range backup.Groups {
+		group := backup.Groups[index]
 		group.Name = strings.TrimSpace(group.Name)
+		if group.ID == 0 {
+			writeError(w, 400, "导航分组 ID 必填")
+			return
+		}
 		if group.Name == "" {
 			writeError(w, 400, "导航分组名称不能为空")
 			return
+		}
+		if len([]rune(group.Name)) > maxNavGroupNameLength {
+			writeError(w, 400, "导航分组名称不能超过 10 个字")
+			return
+		}
+		if group.Sort < 0 {
+			group.Sort = 0
 		}
 		if groupNames[group.Name] {
 			writeError(w, 400, "导航分组名称重复")
 			return
 		}
+		backup.Groups[index] = group
 		groupNames[group.Name] = true
 		groupItems[group.ID] = []store.NavItem{}
 	}
 	for _, item := range backup.Items {
 		item.Name = strings.TrimSpace(item.Name)
+		item.LANURL = strings.TrimSpace(item.LANURL)
+		item.WANURL = strings.TrimSpace(item.WANURL)
+		item.URLMode = strings.TrimSpace(item.URLMode)
 		if item.Name == "" || item.GroupID == 0 {
 			writeError(w, 400, "导航卡片标题和分组必填")
+			return
+		}
+		if len([]rune(item.Name)) > maxNavItemTitleLength {
+			writeError(w, 400, "导航卡片标题不能超过 15 个字")
+			return
+		}
+		if item.WANURL == "" {
+			writeError(w, 400, "导航卡片公网地址不能为空")
+			return
+		}
+		if len(item.LANURL) > maxNavURLLength || len(item.WANURL) > maxNavURLLength {
+			writeError(w, 400, "导航卡片地址不能超过 2048 个字符")
 			return
 		}
 		if _, ok := groupItems[item.GroupID]; !ok {
 			writeError(w, 400, "导航卡片引用了不存在的分组")
 			return
 		}
-		if item.URLMode == "" {
-			item.URLMode = "auto"
+		if item.URLMode == "" || item.URLMode == "auto" {
+			item.URLMode = "wan"
+		}
+		if item.URLMode != "lan" && item.URLMode != "wan" {
+			writeError(w, 400, "导航卡片打开方式不支持")
+			return
+		}
+		if item.Sort < 0 {
+			item.Sort = 0
 		}
 		groupItems[item.GroupID] = append(groupItems[item.GroupID], item)
 	}

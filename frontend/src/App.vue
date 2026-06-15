@@ -318,7 +318,7 @@ async function convertBookmarkToNavCard(bookmark) {
     icon: bookmark.favicon || bookmark.title.slice(0, 1),
     lanUrl: bookmark.url,
     wanUrl: bookmark.url,
-    urlMode: 'auto',
+    urlMode: 'wan',
     sort: (navGroups.value.find((item) => item.id === group.id)?.items?.length || 0) + 1,
   })
   statusText.value = `已设为首页卡片：${bookmark.title}`
@@ -688,7 +688,7 @@ async function saveNavGroupDraftOrder() {
     const groupId = createdGroupIds.get(group.id)
     for (let itemIndex = 0; itemIndex < (group.items || []).length; itemIndex += 1) {
       const item = group.items[itemIndex]
-      const payload = { groupId, name: item.name, icon: item.icon || '', lanUrl: item.lanUrl || '', wanUrl: item.wanUrl || '', urlMode: item.urlMode || 'auto', sort: itemIndex + 1 }
+      const payload = { groupId, name: item.name, icon: item.icon || '', lanUrl: item.lanUrl || '', wanUrl: item.wanUrl || '', urlMode: item.urlMode === 'lan' ? 'lan' : 'wan', sort: itemIndex + 1 }
       if (typeof item.id === 'number' && originalItemIds.includes(item.id)) await updateNavItem({ id: item.id, ...payload })
       else await createNavItem(payload)
     }
@@ -900,7 +900,7 @@ async function addNavCard() {
     statusText.value = '请先创建分组，并填写卡片名称和网址'
     return
   }
-  await createNavItem({ groupId: group.id, name: quickNav.value.cardName.trim(), icon: quickNav.value.cardName.trim().slice(0, 1), lanUrl: quickNav.value.url.trim(), wanUrl: quickNav.value.url.trim(), urlMode: 'auto', sort: (group.items || []).length + 1 })
+  await createNavItem({ groupId: group.id, name: quickNav.value.cardName.trim(), icon: quickNav.value.cardName.trim().slice(0, 1), lanUrl: quickNav.value.url.trim(), wanUrl: quickNav.value.url.trim(), urlMode: 'wan', sort: (group.items || []).length + 1 })
   quickNav.value.cardName = ''
   quickNav.value.url = ''
   await loadNavigation()
@@ -1409,6 +1409,10 @@ async function saveEditDialog() {
   try {
     if (type === 'navGroup' || type === 'navGroupCreate') {
       if (!form.name?.trim()) return
+      if (form.name.trim().length > 10) {
+        statusText.value = '分组名称最多 10 个字'
+        return
+      }
       if (settingsOpen.value) {
         if (type === 'navGroupCreate') navGroupsDraft.value = [...navGroupsDraft.value, { id: createDraftId('draft-group'), name: form.name.trim(), sort: navGroupsDraft.value.length + 1, collapsed: false, items: [] }]
         else updateNavDraftGroup(form.id, (group) => ({ ...group, name: form.name.trim() }))
@@ -1449,7 +1453,7 @@ async function saveEditDialog() {
         statusText.value = '文本内容最多 5 个字'
         return
       }
-      const payload = { groupId: form.groupId, name, icon, lanUrl: form.lanUrl || '', wanUrl: form.wanUrl || '', urlMode: 'auto', sort: form.sort || 0 }
+      const payload = { groupId: form.groupId, name, icon, lanUrl: form.lanUrl || '', wanUrl: form.wanUrl || '', urlMode: 'wan', sort: form.sort || 0 }
       if (settingsOpen.value) {
         upsertNavDraftItem({ id: form.id || createDraftId('draft-card'), ...payload })
         closeEditDialog()
@@ -1524,7 +1528,7 @@ async function addCardFromMenu(group) {
     open: true,
     type: 'navItemCreate',
     title: `新增卡片 · ${group.name}`,
-    form: { groupId: group.id, name: '', iconMode: 'text', icon: '', lanUrl: '', wanUrl: '', urlMode: 'auto', sort: (group.items?.length || 0) + 1 },
+    form: { groupId: group.id, name: '', iconMode: 'text', icon: '', lanUrl: '', wanUrl: '', urlMode: 'wan', sort: (group.items?.length || 0) + 1 },
   }
 }
 async function createFolderByPrompt(parent = null) {
@@ -1714,7 +1718,7 @@ function showBookmarkMenu(event, bookmark) {
           <div class="settings-layout" :class="{ collapsed: settingsMenuCollapsed }">
             <SettingsMenu :collapsed="settingsMenuCollapsed" :active="activeSettings" @toggle-collapse="settingsMenuCollapsed = !settingsMenuCollapsed" @select="selectSettingsMenu" />
             <div class="settings-content">
-              <section v-if="activeSettings === '导航管理'" class="setting-card manager-card"><header class="manager-head"><h3>导航管理</h3><button type="button" @click="createGroupByPrompt">新增分组</button></header><article v-for="group in navGroupsDraft" :key="`manage-${group.id}`" class="manager-row"><div><strong>{{ group.name }}</strong><p>{{ group.items?.length || 0 }} 张卡片</p></div><div class="inline-actions"><button type="button" @click="addCardFromMenu(group)">新增卡片</button><button type="button" @click="editNavGroup(group)">编辑</button><button type="button" @click="moveNavGroup(group, -1)">上移</button><button type="button" @click="moveNavGroup(group, 1)">下移</button><button type="button" @click="removeNavGroup(group, true)">删除</button></div></article><div v-if="!navGroupsDraft.length" class="empty-state">暂无导航分组</div></section>
+              <section v-if="activeSettings === '分组管理'" class="setting-card manager-card"><header class="manager-head"><h3>分组管理</h3><button type="button" @click="createGroupByPrompt">新增分组</button></header><article v-for="group in navGroupsDraft" :key="`manage-${group.id}`" class="manager-row"><div><strong>{{ group.name }}</strong><p>{{ group.items?.length || 0 }} 张卡片</p></div><div class="inline-actions"><button type="button" @click="addCardFromMenu(group)">新增卡片</button><button type="button" @click="editNavGroup(group)">编辑</button><button type="button" @click="moveNavGroup(group, -1)">上移</button><button type="button" @click="moveNavGroup(group, 1)">下移</button><button type="button" @click="removeNavGroup(group, true)">删除</button></div></article><div v-if="!navGroupsDraft.length" class="empty-state">暂无导航分组</div></section>
               <section v-if="activeSettings === '收藏夹'" class="setting-card manager-card"><header class="manager-head"><h3>收藏夹管理</h3><div class="inline-actions"><button type="button" @click="createFolderByPrompt()">新增文件夹</button><button type="button" @click="createBookmarkByPrompt()">新增收藏</button><button type="button" @click="openDrawer">打开收藏夹</button></div></header><article v-for="folder in folderFlatList" :key="`manage-folder-${folder.id}`" class="manager-row" :style="{ paddingLeft: `${10 + folder.depth * 14}px` }"><strong>{{ folder.name }}</strong><div class="inline-actions"><button type="button" @click="createFolderByPrompt(folder)">新增子目录</button><button type="button" @click="createBookmarkByPrompt(folder)">新增收藏</button><button type="button" @click="editFolder(folder)">编辑</button><button type="button" @click="removeFolder(folder)">删除</button></div></article><div v-if="!folderFlatList.length" class="empty-state">暂无收藏夹文件夹，点击新增文件夹创建。</div></section>
               <section v-if="activeSettings === '搜索引擎'" class="setting-card manager-card"><header class="manager-head"><h3>搜索引擎</h3><button type="button" @click="addSearchEngine">增加</button></header><article v-for="engine in settingsSearchEngines" :key="`search-manage-${engine.key}`" class="manager-row search-engine-row"><span class="engine-mark"><img v-if="isImageValue(engine.icon)" :src="engine.icon" alt="" /><span v-else>{{ engine.icon || engine.title.slice(0, 1) }}</span></span><div><strong>{{ engine.title }}</strong><p>{{ engine.url }}</p></div><div class="inline-actions"><button type="button" @click="editSearchEngine(engine)">编辑</button><button type="button" @click="moveSearchEngine(engine, -1)">上移</button><button type="button" @click="moveSearchEngine(engine, 1)">下移</button><button type="button" @click="removeSearchEngine(engine)">删除</button></div></article><div v-if="!settingsSearchEngines.length" class="empty-state">暂无搜索引擎，点击增加创建。</div></section>
               <section v-if="activeSettings === '关于'" class="setting-card"><h3>关于</h3><p>这是个人自用导航站和网页收藏夹，当前正在按 Sun-Panel 的交互方式重做。</p></section>
@@ -1728,7 +1732,8 @@ function showBookmarkMenu(event, bookmark) {
     <section v-if="editDialog.open" class="modal-mask" @mousedown.self.stop="closeEditDialog">
       <form class="edit-modal" @click.stop @submit.prevent="saveEditDialog">
         <header class="modal-head"><h2>{{ editDialog.title }}</h2><button type="button" @click="closeEditDialog">关闭</button></header>
-        <label v-if="editDialog.type === 'navGroup' || editDialog.type === 'navGroupCreate' || editDialog.type === 'folder'">名称<input v-model="editDialog.form.name" placeholder="请输入分组名称" /></label>
+        <label v-if="editDialog.type === 'navGroup' || editDialog.type === 'navGroupCreate'">名称<span class="label-line"><small>{{ String(editDialog.form.name || '').length }}/10</small></span><input v-model="editDialog.form.name" maxlength="10" placeholder="请输入分组名称" @input="clampEditField('name', 10)" /></label>
+        <label v-if="editDialog.type === 'folder'">名称<input v-model="editDialog.form.name" placeholder="请输入分组名称" /></label>
         <template v-if="editDialog.type === 'navItem' || editDialog.type === 'navItemCreate'">
           <label>
             <span class="label-line"><span>标题 <em class="required">*</em></span><small>{{ String(editDialog.form.name || '').length }}/15</small></span>
