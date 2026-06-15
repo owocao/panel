@@ -1,6 +1,13 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import BookmarkFolderTreeNode from './components/BookmarkFolderTreeNode.vue'
+import BookmarkRow from './components/BookmarkRow.vue'
+import ContextMenu from './components/ContextMenu.vue'
+import FloatingActions from './components/FloatingActions.vue'
+import HomeHero from './components/HomeHero.vue'
+import MoveDialog from './components/MoveDialog.vue'
+import NavDragFloat from './components/NavDragFloat.vue'
+import SettingsMenu from './components/SettingsMenu.vue'
 import {
   backupToS3,
   createBookmark,
@@ -395,6 +402,11 @@ function openSettings() {
 function closeSettings() {
   settingsMessage.value = ''
   settingsOpen.value = false
+}
+
+function selectSettingsMenu(item) {
+  activeSettings.value = item
+  if (item === '收藏夹') loadFolders()
 }
 
 function showToast(message) {
@@ -1561,9 +1573,7 @@ function showBookmarkMenu(event, bookmark) {
     </section>
 
     <template v-else>
-      <button class="bookmark-tab" type="button" @click.stop="openDrawer">收藏夹</button>
-      <div class="floating-actions"><button v-if="showNetworkSwitcher" type="button" :title="networkTip" @click.stop="cycleNetworkMode"><img :src="iconUrl(networkIcon)" alt="" /></button><button type="button" title="设置" @click.stop="openSettings"><img :src="iconUrl('setting')" alt="" /></button></div>
-      <div v-if="toastText" class="toast-message">{{ toastText }}</div>
+      <FloatingActions :show-network-switcher="showNetworkSwitcher" :network-tip="networkTip" :network-icon="networkIcon" :toast-text="toastText" :icon-url="iconUrl" @open-drawer="openDrawer" @cycle-network-mode="cycleNetworkMode" @open-settings="openSettings" />
 
       <aside v-if="drawerOpen" class="bookmark-drawer" aria-label="收藏夹" @click.stop>
         <div class="drawer-head">
@@ -1634,16 +1644,7 @@ function showBookmarkMenu(event, bookmark) {
 
           <div class="bookmark-list">
             <template v-if="bookmarkSearch.q.trim()">
-              <article v-for="bookmark in bookmarkSearch.results" :key="`search-${bookmark.id}`" class="bookmark-row" @contextmenu="showBookmarkMenu($event, bookmark)">
-                <label v-if="bookmarkSelectionMode" class="bookmark-select"><input type="checkbox" :checked="isBookmarkSelected(bookmark.id)" @change="toggleBookmarkSelection(bookmark)" /></label>
-                <span class="favicon"><img v-if="isImageValue(bookmark.favicon)" :src="bookmark.favicon" alt="" /><span v-else>{{ bookmark.title.slice(0, 1) }}</span></span>
-                <div>
-                  <h3>{{ bookmark.title }}</h3>
-                  <p>{{ bookmark.url }}</p>
-                  <small>{{ bookmark.path || '搜索结果' }}</small>
-                </div>
-                <a class="open-link" :href="bookmark.url">打开</a>
-              </article>
+              <BookmarkRow v-for="bookmark in bookmarkSearch.results" :key="`search-${bookmark.id}`" :bookmark="bookmark" :selection-mode="bookmarkSelectionMode" :selected="isBookmarkSelected(bookmark.id)" path-fallback="搜索结果" :is-image-value="isImageValue" @toggle-selection="toggleBookmarkSelection" @context-menu="showBookmarkMenu" />
               <div v-if="!bookmarkSearch.loading && !bookmarkSearch.results.length" class="empty-state">没有匹配的收藏。</div>
             </template>
             <template v-else>
@@ -1654,21 +1655,7 @@ function showBookmarkMenu(event, bookmark) {
                 <button type="button" @click="fillQuickBookmarkMetadata">{{ metadataLoading ? '抓取中' : '自动抓取' }}</button>
                 <button type="button" @click="addBookmark">新增收藏</button>
               </div>
-              <article v-for="bookmark in bookmarks" :key="bookmark.id" class="bookmark-row" draggable="true" @dragstart="startDrag('bookmark', bookmark)" @dragover.prevent @drop="dropBookmark(bookmark)" @contextmenu="showBookmarkMenu($event, bookmark)">
-                <label v-if="bookmarkSelectionMode" class="bookmark-select"><input type="checkbox" :checked="isBookmarkSelected(bookmark.id)" @change="toggleBookmarkSelection(bookmark)" /></label>
-                <span class="favicon"><img v-if="isImageValue(bookmark.favicon)" :src="bookmark.favicon" alt="" /><span v-else>{{ bookmark.title.slice(0, 1) }}</span></span>
-                <div>
-                  <h3>{{ bookmark.title }}</h3>
-                  <p>{{ bookmark.url }}</p>
-                  <small>{{ bookmark.path || '当前文件夹' }}</small>
-                </div>
-                <div class="row-actions">
-                  <button type="button" @click="editBookmark(bookmark)">编辑</button>
-                  <button type="button" @click="moveBookmark(bookmark, -1)">上移</button>
-                  <button type="button" @click="moveBookmark(bookmark, 1)">下移</button>
-                  <button type="button" @click="removeBookmark(bookmark)">删除</button>
-                </div>
-              </article>
+              <BookmarkRow v-for="bookmark in bookmarks" :key="bookmark.id" :bookmark="bookmark" :selection-mode="bookmarkSelectionMode" :selected="isBookmarkSelected(bookmark.id)" draggable show-actions path-fallback="当前文件夹" :is-image-value="isImageValue" @toggle-selection="toggleBookmarkSelection" @context-menu="showBookmarkMenu" @drag-start="(item) => startDrag('bookmark', item)" @drop="dropBookmark" @edit="editBookmark" @move-up="(item) => moveBookmark(item, -1)" @move-down="(item) => moveBookmark(item, 1)" @remove="removeBookmark" />
               <div v-if="activeFolderId && !bookmarks.length" class="empty-state">这个文件夹还没有收藏。</div>
             </template>
           </div>
@@ -1676,31 +1663,19 @@ function showBookmarkMenu(event, bookmark) {
       </aside>
 
       <section v-if="activeView === 'home'" class="home-panel sun-panel">
-        <section class="hero-card"><div class="topbar"><div class="home-title"><h2><span v-if="settingsForm.showTitle === 'true'" class="title-text">{{ settingsForm.siteTitle || 'biu-panel' }}</span><template v-if="settingsForm.showTitle === 'true' && settingsForm.showClock === 'true'"><em>｜</em></template><time v-if="settingsForm.showClock === 'true'" class="time-stack"><strong>{{ displayTime }}</strong><small class="date-toggle" role="button" tabindex="0" :title="dateMode === 'solar' ? '点击切换农历' : '点击切换公历'" @click.stop="toggleDateMode" @keyup.enter="toggleDateMode">{{ displayDate }}</small></time></h2></div></div><div v-if="settingsForm.showSearch === 'true'" class="search-wrap"><form class="sun-search" @submit.prevent="runWebSearch"><button class="engine-button" type="button" @click="searchPickerOpen = !searchPickerOpen"><img v-if="isImageValue(activeSearchEngine?.icon)" :src="activeSearchEngine.icon" alt="" /><span v-else>{{ activeSearchEngine?.icon || 'G' }}</span></button><input v-model="webSearch.q" placeholder="网页搜索" /><button type="submit" title="搜索"><img class="button-icon" :src="iconUrl('search')" alt="" /></button></form><div v-if="searchPickerOpen" class="search-engine-picker"><button v-for="engine in searchEngines" :key="`picker-${engine.key}`" type="button" :title="engine.title" :class="{ active: engine.key === webSearch.engine }" @click="selectSearchEngine(engine)"><img v-if="isImageValue(engine.icon)" :src="engine.icon" alt="" /><span v-else>{{ engine.icon || engine.title.slice(0, 1) }}</span></button></div></div></section>
+        <HomeHero :settings-form="settingsForm" :display-time="displayTime" :display-date="displayDate" :date-mode="dateMode" :web-search="webSearch" :active-search-engine="activeSearchEngine" :search-engines="searchEngines" :search-picker-open="searchPickerOpen" :is-image-value="isImageValue" :icon-url="iconUrl" @toggle-date-mode="toggleDateMode" @run-web-search="runWebSearch" @toggle-search-picker="searchPickerOpen = !searchPickerOpen" @select-search-engine="selectSearchEngine" @update-search-query="webSearch.q = $event" />
 
         <section v-for="group in displayGroups" :key="group.id || group.name" class="nav-group" :class="{ editing: editingNavGroupId === group.id, 'drag-saving': dragState.saving && dragState.groupId === group.id, 'dragging-card': navPointerDrag.active && navPointerDrag.groupId === group.id }" :data-nav-group-id="group.id" :draggable="typeof group.id === 'number'" @dragstart="typeof group.id === 'number' && startDrag('navGroup', group, null, $event)" @dragend="clearDragState" @dragover.prevent @drop="typeof group.id === 'number' && dropNavGroup(group)"><header class="group-head" @contextmenu="showGroupMenu($event, group)"><h2>{{ group.name }}</h2><div class="group-tools"><button type="button" title="新增卡片" @click="addCardFromMenu(group)"><img :src="iconUrl('plus')" alt="" /></button><button type="button" title="编辑分组" @click="toggleNavGroupEdit(group)"><img :src="iconUrl('edit')" alt="" /></button></div></header><TransitionGroup tag="div" class="card-grid" name="nav-card-list"><a v-for="item in group.items" :key="item.id || item.name" class="app-tile" :class="{ dragging: navPointerDrag.active && navPointerDrag.item?.id === item.id }" :data-nav-item-id="item.id" :href="editingNavGroupId === group.id ? '#' : resolveNavUrl(item)" :draggable="false" @pointerdown.stop="startNavPointerSort($event, group, item)" @click="handleNavCardClick($event, group, item)" @contextmenu="showCardMenu($event, item, group)"><span class="nav-card"><span v-if="isImageValue(item.icon)" class="card-icon image-icon"><img :src="item.icon" alt="" /></span><span v-else class="card-text-icon" :class="cardTextClass(item.icon || item.name)">{{ limitText(item.icon || item.name, 5) }}</span></span><span class="card-title">{{ limitText(item.name, 10) }}</span></a></TransitionGroup></section>
       </section>
 
-      <div v-if="navPointerDrag.active && navPointerDrag.item" class="nav-drag-float" :style="navDragFloatStyle()">
-        <span class="nav-card"><span v-if="isImageValue(navPointerDrag.item.icon)" class="card-icon image-icon"><img :src="navPointerDrag.item.icon" alt="" /></span><span v-else class="card-text-icon" :class="cardTextClass(navPointerDrag.item.icon || navPointerDrag.item.name)">{{ limitText(navPointerDrag.item.icon || navPointerDrag.item.name, 5) }}</span></span>
-        <span class="card-title">{{ limitText(navPointerDrag.item.name, 10) }}</span>
-      </div>
+      <NavDragFloat v-if="navPointerDrag.active" :item="navPointerDrag.item" :drag-style="navDragFloatStyle()" :is-image-value="isImageValue" :card-text-class="cardTextClass" :limit-text="limitText" />
 
       <section v-if="settingsOpen" class="settings-mask" @mousedown.self.stop="closeSettings">
         <section class="settings-panel settings-center" @click.stop>
           <header class="settings-head"><div><h2>系统设置</h2></div><div class="inline-actions"><button type="button" @click="submitSettings">保存</button><button type="button" @click="closeSettings">关闭</button></div></header>
           <p v-if="settingsMessage" class="settings-message">{{ settingsMessage }}</p>
           <div class="settings-layout" :class="{ collapsed: settingsMenuCollapsed }">
-            <button class="menu-collapse" type="button" :title="settingsMenuCollapsed ? '展开菜单' : '收起菜单'" @click="settingsMenuCollapsed = !settingsMenuCollapsed">{{ settingsMenuCollapsed ? '›' : '‹' }}</button>
-            <aside v-if="!settingsMenuCollapsed" class="settings-menu">
-              <button type="button" :class="{ active: activeSettings === '个性化' }" @click="activeSettings = '个性化'">个性化</button>
-              <button type="button" :class="{ active: activeSettings === '搜索引擎' }" @click="activeSettings = '搜索引擎'">搜索引擎</button>
-              <button type="button" :class="{ active: activeSettings === '导航管理' }" @click="activeSettings = '导航管理'">导航管理</button>
-              <button type="button" :class="{ active: activeSettings === '收藏夹' }" @click="activeSettings = '收藏夹'; loadFolders()">收藏夹</button>
-              <button type="button" :class="{ active: activeSettings === '备份恢复' }" @click="activeSettings = '备份恢复'">备份恢复</button>
-              <button type="button" :class="{ active: activeSettings === 'S3 存储' }" @click="activeSettings = 'S3 存储'">S3 存储</button>
-              <button type="button" :class="{ active: activeSettings === '关于' }" @click="activeSettings = '关于'">关于</button>
-            </aside>
+            <SettingsMenu :collapsed="settingsMenuCollapsed" :active="activeSettings" @toggle-collapse="settingsMenuCollapsed = !settingsMenuCollapsed" @select="selectSettingsMenu" />
             <div class="settings-content">
               <section v-if="activeSettings === '导航管理'" class="setting-card manager-card"><header class="manager-head"><h3>导航管理</h3><button type="button" @click="createGroupByPrompt">新增分组</button></header><article v-for="group in navGroupsDraft" :key="`manage-${group.id}`" class="manager-row"><div><strong>{{ group.name }}</strong><p>{{ group.items?.length || 0 }} 张卡片</p></div><div class="inline-actions"><button type="button" @click="addCardFromMenu(group)">新增卡片</button><button type="button" @click="editNavGroup(group)">编辑</button><button type="button" @click="moveNavGroup(group, -1)">上移</button><button type="button" @click="moveNavGroup(group, 1)">下移</button><button type="button" @click="removeNavGroup(group, true)">删除</button></div></article><div v-if="!navGroupsDraft.length" class="empty-state">暂无导航分组</div></section>
               <section v-if="activeSettings === '收藏夹'" class="setting-card manager-card"><header class="manager-head"><h3>收藏夹管理</h3><div class="inline-actions"><button type="button" @click="createFolderByPrompt()">新增文件夹</button><button type="button" @click="createBookmarkByPrompt()">新增收藏</button><button type="button" @click="openDrawer">打开收藏夹</button></div></header><article v-for="folder in folderFlatList" :key="`manage-folder-${folder.id}`" class="manager-row" :style="{ paddingLeft: `${10 + folder.depth * 14}px` }"><strong>{{ folder.name }}</strong><div class="inline-actions"><button type="button" @click="createFolderByPrompt(folder)">新增子目录</button><button type="button" @click="createBookmarkByPrompt(folder)">新增收藏</button><button type="button" @click="editFolder(folder)">编辑</button><button type="button" @click="removeFolder(folder)">删除</button></div></article><div v-if="!folderFlatList.length" class="empty-state">暂无收藏夹文件夹，点击新增文件夹创建。</div></section>
@@ -1774,34 +1749,8 @@ function showBookmarkMenu(event, bookmark) {
     </section>
 
 
-    <section v-if="moveDialog.open" class="modal-mask" @mousedown.self.stop="moveDialog.open = false">
-      <div class="edit-modal" @click.stop>
-        <header class="modal-head">
-          <h2>{{ moveDialog.title }}</h2>
-          <button type="button" @click="moveDialog.open = false">关闭</button>
-        </header>
-        <p class="move-hint">将 {{ moveDialog.items.length }} 条收藏移动到以下文件夹。</p>
-        <label>
-          目标文件夹
-          <select v-model="moveDialog.targetFolderId">
-            <option v-for="folder in folderFlatList" :key="`move-folder-${folder.id}`" :value="folder.id">{{ '　'.repeat(folder.depth) }}{{ folder.name }}</option>
-          </select>
-        </label>
-        <footer class="modal-actions">
-          <button type="button" @click="moveDialog.open = false">取消</button>
-          <button type="button" @click="confirmMoveDialog">确认移动</button>
-        </footer>
-      </div>
-    </section>
+    <MoveDialog v-model:target-folder-id="moveDialog.targetFolderId" :open="moveDialog.open" :title="moveDialog.title" :items="moveDialog.items" :folder-flat-list="folderFlatList" @close="moveDialog.open = false" @confirm="confirmMoveDialog" />
 
-    <div v-if="menu.open" class="context-menu" :class="{ compact: menu.compact }" :style="menuStyle" @click.stop>
-      <div v-if="menu.actions.some((action) => action.variant === 'icon')" class="menu-icon-row">
-        <button v-for="action in menu.actions.filter((item) => item.variant === 'icon')" :key="action.label" class="icon-only" type="button" :title="action.label" @click="runMenuAction(action)"><img :src="iconUrl(action.icon)" alt="" /><span class="visually-hidden">{{ action.label }}</span></button>
-      </div>
-      <template v-for="(action, index) in menu.actions" :key="action.label || `divider-${index}`">
-        <div v-if="action.divider" class="menu-divider"></div>
-        <button v-else-if="action.variant !== 'icon'" type="button" @click="runMenuAction(action)"><img v-if="action.icon" :src="iconUrl(action.icon)" alt="" /><span>{{ action.label }}</span></button>
-      </template>
-    </div>
+    <ContextMenu :open="menu.open" :compact="menu.compact" :actions="menu.actions" :menu-style="menuStyle" :icon-url="iconUrl" @run="runMenuAction" />
   </main>
 </template>

@@ -36,22 +36,27 @@
 最近 5 个提交：
 
 ```text
+30fa80e Stabilize navigation persistence flow
+551bc22 Refine navigation and settings UI
 7f928d7 Add personalized search dashboard
 f9a66af Redesign for efficient neutral dashboard
 8bde5f1 Improve settings management interactions
-a782796 Make settings menu switch content
-3c8e7c0 Add settings center modal
 ```
 
 当前工作区存在未提交修改：
 
 ```text
-M backend/internal/httpx/server.go
 M frontend/src/App.vue
-M frontend/src/style.css
+?? frontend/src/components/BookmarkRow.vue
+?? frontend/src/components/ContextMenu.vue
+?? frontend/src/components/FloatingActions.vue
+?? frontend/src/components/HomeHero.vue
+?? frontend/src/components/MoveDialog.vue
+?? frontend/src/components/NavDragFloat.vue
+?? frontend/src/components/SettingsMenu.vue
 ```
 
-说明：以上修改是当前实际工作区状态的一部分。新的 AI 接手前应先阅读这些文件和 `git diff`，不要随意回滚。
+说明：以上修改是当前保守组件拆分工作的一部分。新的 AI 接手前应先阅读这些文件和 `git diff`，不要随意回滚。
 
 ## 2. 技术架构
 
@@ -60,7 +65,8 @@ M frontend/src/style.css
 - Vue 3
 - Vite
 - npm
-- 单文件主应用：`frontend/src/App.vue`
+- 主应用入口：`frontend/src/App.vue`
+- 展示型组件目录：`frontend/src/components/`
 - 样式集中在：`frontend/src/style.css`
 - API 封装：`frontend/src/lib/api.js`
 
@@ -211,6 +217,14 @@ BIU_PANEL_PORT=55088
     package-lock.json
     vite.config.js
     src/App.vue
+    src/components/BookmarkFolderTreeNode.vue
+    src/components/BookmarkRow.vue
+    src/components/ContextMenu.vue
+    src/components/FloatingActions.vue
+    src/components/HomeHero.vue
+    src/components/MoveDialog.vue
+    src/components/NavDragFloat.vue
+    src/components/SettingsMenu.vue
     src/main.js
     src/style.css
     src/lib/api.js
@@ -237,7 +251,8 @@ BIU_PANEL_PORT=55088
 - `backend/internal/httpx/`：HTTP 路由、认证、API、静态文件、上传、备份、S3、导入导出等处理逻辑。
 - `backend/internal/store/`：SQLite 连接、建表迁移、基础 CRUD。
 - `frontend/`：Vue 前端项目。
-- `frontend/src/App.vue`：当前几乎所有前端状态、页面和交互逻辑都集中在这个文件。
+- `frontend/src/App.vue`：当前保留全局布局、主要状态、组件组合、顶层事件处理和核心业务逻辑。
+- `frontend/src/components/`：已承载部分展示型组件，例如首页 Hero、右键菜单、移动弹窗、收藏行、设置菜单、拖拽浮层等。
 - `frontend/src/style.css`：全局样式。
 - `frontend/src/lib/api.js`：前端请求后端 API 的封装。
 - `docs/`：需求、开发说明、发布清单和本交接文档。
@@ -428,7 +443,7 @@ curl -fsS http://127.0.0.1:55088/api/health
 
 ### 代码结构问题
 
-- `frontend/src/App.vue` 过大，当前接近 900 行，包含大量状态、业务逻辑和模板，维护成本较高。
+- `frontend/src/App.vue` 仍然偏大，当前约 1750 行；已完成第一轮保守组件拆分，但设置内容区、编辑弹窗、导航分组网格、收藏夹抽屉等复杂区域仍在 App.vue 中。
 - `backend/internal/httpx/server.go` 过大，当前约 1180 行，认证、导航、收藏、设置、上传、S3、备份、导入导出全部集中在一个文件。
 - 后端 store 层只是基础 SQL 封装，没有领域边界和事务封装。
 - 前端已经移除了之前多处使用原生 `prompt()` 的地方（例如新增搜索引擎、新增分组等），统一改为了更加美观和体验一致的自定义弹窗组件，但仍需注意未来新功能的表单交互体验。
@@ -842,9 +857,9 @@ docker compose up -d --force-recreate biu-panel: 已完成
 
 ### P1：拆分大文件
 
-1. 将 `frontend/src/App.vue` 拆分为组件：登录页、首页、导航分组、卡片弹窗、收藏夹抽屉、设置中心。
+1. 继续保守拆分 `frontend/src/App.vue`：优先拆 `BackupRestoreSection`、`SearchEngineManagerSection`、`PersonalSettingsForm`、`NavGroupSection`，暂不强拆整个设置面板或编辑弹窗。
 2. 将 `backend/internal/httpx/server.go` 拆分为 auth、navigation、bookmarks、settings、assets、backup、s3、metadata 等文件或 handler。
-3. 将前端业务逻辑抽到 composables 或简单模块中，降低单文件复杂度。
+3. 等展示组件稳定后，再考虑将前端业务逻辑抽到 composables 或简单模块中，降低单文件复杂度。
 
 ### P2：补齐收藏夹核心
 

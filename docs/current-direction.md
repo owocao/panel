@@ -18,9 +18,10 @@
 
 截至 2026-06-15，当前阶段重点不是恢复最初的简化设置页或旧版导航，而是在现有浅色、高一致性、草稿式系统设置基础上继续打磨。当前提交 `551bc22` 是导航页与设置页 UI/交互的阶段性 checkpoint。
 
-本轮主要修改集中在：
+近期主要修改集中在：
 
 - `frontend/src/App.vue`
+- `frontend/src/components/`
 - `frontend/src/style.css`
 - `.gitignore`
 
@@ -30,7 +31,7 @@
 
 - 项目已具备 Go 后端、Vue 前端、SQLite 数据、导航首页、收藏夹、系统设置、搜索引擎配置、备份恢复入口等核心结构。
 - 首页导航和系统设置已经从早期功能验证阶段进入视觉和交互统一打磨阶段。
-- 前端主实现仍集中在 `frontend/src/App.vue` 和 `frontend/src/style.css`，后续如继续扩大功能，建议逐步拆分组件。
+- 前端主状态和业务逻辑仍集中在 `frontend/src/App.vue`，但已经完成第一轮保守组件拆分，将部分展示型 UI 移入 `frontend/src/components/`。
 - 当前本地调试方式以直接运行前端 Vite 和后端 Go 服务为主，Docker 仍保留交付能力，但不是当前调试主路径。
 - 当前 Git 基线提交为 `551bc22 Refine navigation and settings UI`，该提交包含阶段性 UI 调整和本文档初版。
 
@@ -245,6 +246,37 @@
 - 系统设置、卡片编辑、搜索引擎编辑尽量复用相同控件样式。
 - 默认分组不使用背景框，编辑态使用外框和轻微上浮表达状态。
 
+## 前端组件拆分现状
+
+### 已完成的保守拆分
+
+本轮拆分遵循“不改变现有功能、交互和视觉效果；不引入状态管理库；只移动边界清晰 UI 区块”的原则。业务状态、接口调用、草稿保存、拖拽排序等逻辑仍保留在 `App.vue`。
+
+已拆出的展示型组件：
+
+- `FloatingActions.vue`：收藏夹入口、内外网切换、设置按钮和 toast 展示。
+- `HomeHero.vue`：首页标题、时间日期、网页搜索和搜索引擎选择器。
+- `BookmarkRow.vue`：收藏夹普通行和搜索结果行。
+- `MoveDialog.vue`：收藏夹批量移动弹窗。
+- `ContextMenu.vue`：右键菜单展示。
+- `NavDragFloat.vue`：导航卡片拖拽浮层。
+- `SettingsMenu.vue`：系统设置左侧菜单和收起按钮。
+
+`App.vue` 当前仍保留：
+
+- 全局布局和组件组合。
+- 全局状态和主要页面状态。
+- 导航、收藏夹、设置、搜索引擎、备份恢复的业务逻辑。
+- 导航管理草稿机制、保存逻辑、拖拽排序和接口调用。
+- 编辑弹窗和设置内容区等依赖较复杂的模板。
+
+### 暂不强拆的部分
+
+- `SettingsPanel` 整体暂不拆，因为右侧内容涉及多个设置菜单、草稿状态和保存逻辑。
+- `EditDialog` 暂不拆，因为多个表单类型复用同一个保存入口，依赖复杂。
+- `BookmarkDrawer` 整体暂不拆，目前只拆了 `BookmarkRow`，避免一次性传递过多 props/events。
+- `NavGroupSection` 暂不拆，因为拖拽排序、编辑态、右键菜单和卡片打开逻辑仍集中依赖父级状态。
+
 ## 当前验证结果
 
 最近一次前端构建命令：
@@ -269,6 +301,7 @@ PATH="/project/panel/.tools/node/bin:$PATH" npm run build
 
 - `frontend/src/App.vue` 无诊断错误。
 - `frontend/src/style.css` 无诊断错误。
+- 新增展示型组件无诊断错误。
 
 当前开发服务：
 
