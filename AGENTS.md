@@ -1,156 +1,416 @@
-# AGENTS.md
+AGENTS.md
 
-This file is the working contract for AI coding agents in `/project/panel`.
+此文件定义 /project/panel 项目的 AI 编码代理长期工作规则。
 
-## Project
+⸻
 
-- Name: `biu-panel`.
-- Goal: personal lightweight web navigation panel plus bookmark manager.
-- Reference: Sun-Panel user experience, but do not clone it exactly.
-- Primary user: one personal administrator.
-- Deployment target: Docker for final release, but local non-Docker development before v1.0.
-- Default HTTP port: `55088`.
-- HTTPS is handled by reverse proxy, not by the app.
+1. 项目定位
 
-## Confirmed Stack
+项目名称：biu-panel
 
-- Backend: Go.
-- Frontend: Vue 3 + Vite.
-- Database: SQLite.
-- Frontend package manager: npm.
-- Final delivery: Dockerfile plus `docker-compose.yml`.
-- Development: run backend and frontend directly on the host; do not force Docker for normal coding/debugging.
+项目目标：轻量级个人导航面板与书签管理器。
 
-## Repository Layout
+主要用户：单管理员个人使用。
 
-Use this structure unless there is a strong reason to change it:
+参考产品：Sun-Panel。
 
-```text
+允许参考 Sun-Panel 的交互体验和易用性，但禁止直接复制其代码、页面结构和视觉设计。
+
+⸻
+
+2. 文档优先级
+
+开始任何开发任务前，优先阅读：
+
+1. AGENTS.md
+2. docs/current-direction.md
+3. docs/project-state.md
+4. docs/requirements.md
+5. docs/tasks.md
+6. docs/development.md
+
+如文档之间存在冲突：
+
+current-direction.md > project-state.md > requirements.md > tasks.md
+
+禁止仅依据旧需求文档自动回退已经确认的设计、交互和实现。
+
+如果文档与代码不一致，先指出冲突，不要自动猜测和修改。
+
+⸻
+
+3. 文档职责
+
+AGENTS.md
+
+长期规则，包括开发原则、UI 规则、编码规则、安全规则和文档管理规则。不要记录项目当前状态。
+
+docs/current-direction.md
+
+记录当前阶段方向、已确认的 UI/交互方案、已废弃方案、禁止回退内容和下一阶段重点。
+
+docs/project-state.md
+
+记录当前技术栈、当前目录结构、当前已完成功能、当前部署方式、当前运行方式和当前依赖情况。
+
+docs/requirements.md
+
+记录产品需求、功能范围和非功能要求。不要记录实现状态。
+
+docs/tasks.md
+
+记录任务拆解、里程碑、待办事项和 Bug 修复计划。
+
+docs/development.md
+
+记录开发环境、启动方式、构建方式、本地调试流程和常用命令。
+
+docs/release-checklist.md
+
+记录发布前检查项、发布流程、回滚检查项和备份检查项。
+
+完成较大功能、方向变更或开发流程变更后，应检查相关文档是否需要同步更新。
+
+⸻
+
+4. AI 工作原则
+
+开始编码前：
+
+* 先阅读相关文档和现有代码
+* 先分析影响范围
+* 再给出修改方案
+* 最后实施修改
+
+修改已有功能时：
+
+* 优先理解现有实现
+* 优先复用已有代码
+* 避免重写
+* 避免引入不必要的新依赖
+
+禁止：
+
+* 擅自大规模重构
+* 擅自替换技术栈
+* 擅自修改数据库结构
+* 擅自修改部署方式
+* 擅自删除已有功能
+* 擅自回退已确认方案
+* 擅自执行破坏性操作
+
+如确需执行高风险操作，必须先说明风险、影响范围和回滚方式。
+
+⸻
+
+5. 产品范围规则
+
+V1 范围以 docs/requirements.md 为准。
+
+未明确进入 V1 范围的功能，默认不开发。
+
+如果用户提出新需求，应先判断：
+
+* 是否属于 V1 范围
+* 是否影响当前架构
+* 是否需要更新 requirements.md
+* 是否需要更新 tasks.md
+
+⸻
+
+6. 仓库结构规则
+
+默认结构：
+
 /project/panel/
-  AGENTS.md
-  docs/
-  backend/
-  frontend/
-  deploy/
-```
+AGENTS.md
+docs/
+backend/
+frontend/
+deploy/
 
-Documentation belongs in `/project/panel/docs`. Important docs should also be mirrored to Siyuan Notes following the user's existing project-document habit.
+新增目录前，优先复用现有结构。
 
-## Product Scope V1
+文档统一放在 docs/ 目录下。
 
-V1 includes:
+⸻
 
-- Single administrator login.
-- First-run initialization page if no admin exists.
-- Initial admin via Docker environment variables for deployment.
-- Sun-Panel-like homepage: group title plus small grid cards.
-- Homepage groups with collapse/expand and drag sorting.
-- Homepage cards with name, icon, group, LAN URL, WAN URL, sort order.
-- LAN/WAN switch with global manual mode, auto-detect mode, timeout, unified detect URL, and per-card override.
-- Left drawer bookmark manager, lazy-loaded only when opened.
-- Infinite-level bookmark folders.
-- Bookmark URLs with title, URL, favicon, plain-text note, sort order.
-- Bookmark fuzzy search only; no homepage search.
-- Bookmark folder and URL drag sorting, including cross-folder moves.
-- Browser bookmark import/export compatible with Chrome and Safari HTML bookmark files.
-- Manual `.tar.gz` system backup and restore.
-- S3-compatible storage for uploads and backups.
-- Local uploads for icons/logo/background.
-- Site title, logo, background image/color settings.
-- Mobile support.
+7. 首页规则
 
-V1 explicitly excludes:
+首页是系统核心页面。
 
-- Multi-user isolation.
-- Docker container management.
-- Server monitoring.
-- Homepage search.
-- Homepage site online checks.
-- Recycle bin.
-- Captcha.
-- Complex permission system.
-- Sub-path deployment.
-- Markdown notes.
-- Tags.
+优先级：
 
-## UX Rules
+加载速度 > 信息密度 > 视觉效果
 
-- Homepage must stay fast: do not load bookmark tree or bookmark data on initial homepage load.
-- Bookmark drawer opens from the left and can be closed.
-- Bookmark drawer layout: folder tree on the left, current folder URL list on the right.
-- Bookmark tree loads on demand; expanding a folder loads its children.
-- Homepage cards open in the current tab by default.
-- Card edit operations are in a right-click menu, following Sun-Panel style.
-- Mobile uses long-press to open the action menu.
-- Bookmark URL menu includes: open, open in new tab, open in new window, edit, delete, copy link, move to folder, set/unset homepage card, batch selection entry.
-- Deletion requires a second confirmation and is permanent.
-- Drag sort saves immediately.
+要求：
 
-## Bookmark Import/Export Rules
+* 首页首次加载不得加载书签树
+* 首页首次加载不得加载全部书签数据
+* 首页卡片尺寸、间距、圆角和 hover 效果保持统一
+* 首页布局保持稳定
+* 链接默认在当前标签页打开
+* 编辑入口优先使用右键菜单或已确认的交互方式
 
-- Preserve browser root folders, e.g. bookmark bar and other bookmarks.
-- During one import, do not deduplicate internally; preserve source structure, order, and duplicates.
-- For later imports, compare against existing data only.
-- Treat as duplicate only when URL, title, note/description, and key fields are the same under the same folder.
-- Different folders may contain identical URLs and titles.
-- Preserve original URLs as much as possible. Do not apply aggressive normalization.
-- Browser bookmark export exports bookmarks only, not homepage cards.
-- Homepage cards and settings are covered by system backup instead.
+禁止：
 
-## Data And Storage Rules
+* 瀑布流布局
+* 重型动画
+* 大量实时轮询
+* 为视觉效果牺牲加载速度
+* 因旧文档描述而回退当前已确认的首页设计
 
-- Use SQLite for local data.
-- Final Docker volumes should be split:
-  - `./data/db:/app/data/db`
-  - `./data/uploads:/app/data/uploads`
-  - `./data/backups:/app/data/backups`
-- S3 config is edited in the web settings page and stored locally.
-- S3 fields: endpoint, region, bucket, access key, secret key, path-style switch, upload prefix.
-- Do not add extra encryption for S3 secret key in V1.
-- Normal icons/logo uploads: common image formats only, default max 5 MB.
-- Background images: image type required, size not limited in V1.
+⸻
 
-## Security Rules
+8. 书签规则
 
-- Login session expires when the browser closes by default.
-- Support remember-login for long-lived login.
-- Log only login success and login failure.
-- Lock login for 15 minutes after 5 consecutive failures.
-- No captcha in V1.
-- Never commit secrets, tokens, local `.env` files, database files, uploaded files, or backups.
+书签模块默认通过左侧抽屉打开。
 
-## Backup Rules
+抽屉布局：
 
-- System backup format: `.tar.gz`.
-- Backup includes SQLite DB, local uploaded files, config, and version metadata.
-- S3-hosted images are not included by default; this may be optional later.
-- Restore overwrites current data after a second confirmation.
-- Backup version mismatch warns the user but allows forced restore after confirmation.
+* 左侧：文件夹树
+* 右侧：当前文件夹 URL 列表
 
-## Coding Rules
+加载规则：
 
-- Keep code simple and maintainable; personal-use performance and reliability matter more than enterprise abstraction.
-- Prefer clear module boundaries: auth, settings, navigation, bookmarks, storage, backup, import/export.
-- Do not introduce heavy frameworks unless needed.
-- Avoid global npm installs.
-- Keep frontend dependencies project-local.
-- Add tests for parser/import/export logic and critical backend handlers.
-- Do not write generated artifacts or dependency folders into git.
-- Use Chinese UI text by default; no i18n in V1.
-- Use ASCII in code unless existing files or UI copy clearly require Chinese.
+* 抽屉默认关闭
+* 打开时再加载书签模块
+* 文件夹树按需加载
+* 展开文件夹后再获取子节点
 
-## Documentation Rules
+功能规则：
 
-- Main requirements doc: `docs/requirements-v0.1.md`.
-- Keep docs updated when product decisions change.
-- Mirror important project docs to Siyuan Notes.
-- Based on observed Siyuan structure, project docs likely belong under notebook `AI-creation`, using a parent project page with versioned child documents, similar to the existing `测试机使用记录系统` project.
-- Before writing to Siyuan, confirm the target parent page if uncertain.
+* 支持无限层级文件夹
+* 支持拖拽排序
+* 支持跨目录移动
+* 拖拽完成后立即保存
+* 删除必须二次确认
+* 删除后不可恢复
 
-## Current Decisions Snapshot
+⸻
 
-- Project directory: `/project/panel`.
-- Project name: `biu-panel`.
-- Use Go installed via Debian `apt`.
-- Use npm, not pnpm for now.
-- First step before coding: write requirements and project-agent rules.
+9. 导入导出规则
+
+首次导入浏览器书签时：
+
+* 保留原始结构
+* 保留原始顺序
+* 保留重复项目
+* 不做内部去重
+
+后续导入时，仅与现有数据比较。
+
+仅当以下字段全部相同时，才视为重复：
+
+* URL
+* 标题
+* 备注
+* 所属目录
+
+书签导出只导出书签数据，不导出首页导航和系统配置。
+
+⸻
+
+10. 数据与存储规则
+
+本地数据库使用 SQLite。
+
+上传文件默认本地存储。
+
+最终 Docker 卷规划：
+
+./data/db:/app/data/db
+./data/uploads:/app/data/uploads
+./data/backups:/app/data/backups
+
+S3 配置保存在本地数据库中。
+
+V1 阶段不额外加密 S3 密钥。
+
+禁止提交：
+
+* .env
+* token
+* key
+* 数据库文件
+* 上传文件
+* 备份文件
+
+⸻
+
+11. 安全规则
+
+默认会话规则：
+
+* 浏览器关闭即退出登录
+* 支持“记住登录”
+
+登录失败规则：
+
+* 连续 5 次失败后锁定 15 分钟
+
+V1 不使用验证码。
+
+仅记录必要安全日志：
+
+* 登录成功
+* 登录失败
+
+⸻
+
+12. 备份规则
+
+备份格式：.tar.gz
+
+备份应包含：
+
+* SQLite 数据库
+* 本地上传文件
+* 系统配置
+* 版本信息
+
+恢复操作会覆盖当前数据，必须二次确认。
+
+备份版本不一致时，应提示风险，但允许用户确认后强制恢复。
+
+⸻
+
+13. UI 设计规则
+
+总体风格：
+
+* 现代
+* 简洁
+* 轻量
+* 统一
+
+优先保证一致性，不追求炫酷效果。
+
+色彩规则：
+
+* 全站一个主色
+* 最多两个辅助色
+* 避免高饱和度大面积使用
+
+状态色统一：
+
+* 成功：绿色
+* 警告：橙色
+* 错误：红色
+* 信息：蓝色
+
+布局规则：
+
+* 统一间距体系
+* 统一圆角体系
+* 统一阴影体系
+* 统一 hover 效果
+* 禁止同类组件出现明显不同的视觉风格
+
+图标规则：
+
+* 全站统一图标库
+* 图标尺寸保持一致
+* 图标风格保持一致
+* 禁止混用线框、填充、拟物等不同风格图标
+
+表单规则：
+
+* 输入框高度统一
+* 标签位置统一
+* 校验提示样式统一
+* 按钮样式统一
+
+弹窗规则：
+
+* 使用统一弹窗组件
+* 标题、内容、按钮和关闭逻辑保持一致
+
+动效规则：
+
+* 动效只用于增强体验
+* 禁止炫技式动画
+* 动画时长保持统一
+* 优先保证流畅度
+
+响应式规则：
+
+* 必须支持桌面端、平板端和手机端
+* 优先使用响应式布局
+* 禁止维护独立移动版页面
+
+⸻
+
+14. 组件规则
+
+新增组件前，先检查现有组件。
+
+如果已有组件满足 80% 以上需求，优先扩展现有组件。
+
+禁止重复创建功能相近组件。
+
+避免出现多个功能相似但命名不同的组件。
+
+⸻
+
+15. 编码规则
+
+优先：
+
+* 简单
+* 稳定
+* 易维护
+
+避免：
+
+* 过度抽象
+* 过度设计
+* 引入大型框架
+* 为小功能增加复杂架构
+
+保持模块边界清晰：
+
+* 认证
+* 导航
+* 书签
+* 设置
+* 存储
+* 备份
+* 导入导出
+
+默认使用中文 UI。
+
+V1 不支持国际化。
+
+⸻
+
+16. 测试规则
+
+关键逻辑应优先补充测试：
+
+* 导入
+* 导出
+* 备份恢复
+* 解析器
+* 核心 API
+* 数据迁移
+
+提交前应优先执行已有测试和构建命令。
+
+具体命令以 docs/development.md 为准。
+
+⸻
+
+17. 变更完成后的检查
+
+完成较大功能后，应检查是否需要更新：
+
+* docs/current-direction.md
+* docs/project-state.md
+* docs/tasks.md
+* docs/development.md
+* docs/release-checklist.md
+
+不要把项目状态、任务清单、临时决策写入 AGENTS.md。
+
+AGENTS.md 只维护长期规则。

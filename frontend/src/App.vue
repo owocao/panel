@@ -71,7 +71,8 @@ const dateMode = ref('solar')
 let clockTimer
 let toastTimer
 let navLongPressTimer
-const settingsForm = ref({ siteTitle: 'biu-panel', logoUrl: '', showTitle: 'true', showLogo: 'true', showClock: 'true', showSeconds: 'false', showSearch: 'true', searchEngines: JSON.stringify([{ key: 'google', title: 'Google', icon: 'G', url: 'https://www.google.com/search?q={q}' }, { key: 'baidu', title: '百度', icon: '百', url: 'https://www.baidu.com/s?wd={q}' }, { key: 'bing', title: 'Bing', icon: 'B', url: 'https://www.bing.com/search?q={q}' }]), backgroundUrl: '', backgroundColor: '#02030a', lanDetectUrl: '', lanDetectTimeout: '800', autoDetectLan: 'false', s3Endpoint: '', s3Region: 'auto', s3Bucket: '', s3AccessKey: '', s3SecretKey: '', s3Prefix: 'biu-panel/', s3PathStyle: 'true', s3Enabled: 'false', s3PublicBase: '' })
+let draftIdSeed = 0
+const settingsForm = ref({ siteTitle: 'biu-panel', logoUrl: '', showTitle: 'true', showLogo: 'true', showClock: 'true', showSeconds: 'false', showSearch: 'true', searchEngines: JSON.stringify([{ key: 'google', title: 'Google', icon: 'G', url: 'https://www.google.com/search?q={q}' }, { key: 'baidu', title: '百度', icon: '百', url: 'https://www.baidu.com/s?wd={q}' }, { key: 'bing', title: 'Bing', icon: 'B', url: 'https://www.bing.com/search?q={q}' }]), backgroundUrl: '', backgroundColor: '#02030a', lanDetectTimeout: '800', s3Endpoint: '', s3Region: 'auto', s3Bucket: '', s3AccessKey: '', s3SecretKey: '', s3Prefix: 'biu-panel/', s3PathStyle: 'true', s3Enabled: 'false', s3PublicBase: '' })
 const settingsDraft = ref({ ...settingsForm.value })
 const navGroupsDraft = ref([])
 
@@ -81,7 +82,7 @@ const fallbackGroups = ref([
   { id: 'demo-life', name: '生活收藏', items: [{ id: 'demo-mail', name: '邮箱', icon: '邮', wanUrl: '#' }, { id: 'demo-calendar', name: '日历', icon: '日', wanUrl: '#' }, { id: 'demo-cloud', name: '网盘', icon: '云', wanUrl: '#' }, { id: 'demo-music', name: '音乐', icon: '音', wanUrl: '#' }, { id: 'demo-read', name: '阅读', icon: '读', wanUrl: '#' }, { id: 'demo-map', name: '地图', icon: '图', wanUrl: '#' }] },
 ])
 const displayGroups = computed(() => (navGroups.value.length ? navGroups.value : fallbackGroups.value))
-const navGroupOptions = computed(() => (navGroups.value.length ? navGroups.value : fallbackGroups.value))
+const navGroupOptions = computed(() => (settingsOpen.value ? navGroupsDraft.value : (navGroups.value.length ? navGroups.value : fallbackGroups.value)))
 const menuStyle = computed(() => ({ left: `${menu.value.x}px`, top: `${menu.value.y}px` }))
 const activeFolder = computed(() => findFolderById(folders.value, activeFolderId.value))
 const bookmarkCount = computed(() => bookmarks.value.length)
@@ -319,9 +320,18 @@ function normalizeNetworkMode(value) {
   return value === 'wan' ? 'wan' : 'lan'
 }
 
+function ensureHttp(url) {
+  url = String(url || '').trim()
+  if (!url || url === '#') return url
+  if (!/^https?:\/\//i.test(url) && !url.startsWith('/')) {
+    return 'http://' + url
+  }
+  return url
+}
+
 function navUrlCandidates(item) {
-  const lanUrl = String(item?.lanUrl || '').trim()
-  const wanUrl = String(item?.wanUrl || '').trim()
+  const lanUrl = ensureHttp(item?.lanUrl)
+  const wanUrl = ensureHttp(item?.wanUrl)
   if (networkMode.value === 'lan') return { primary: lanUrl, fallback: wanUrl }
   return { primary: wanUrl, fallback: lanUrl }
 }
@@ -391,6 +401,51 @@ function showToast(message) {
   toastText.value = message
   if (toastTimer) window.clearTimeout(toastTimer)
   toastTimer = window.setTimeout(() => { toastText.value = '' }, 1800)
+}
+
+function createDraftId(prefix) {
+  draftIdSeed += 1
+  return `${prefix}-${Date.now()}-${draftIdSeed}`
+}
+
+function updateNavDraftGroup(groupId, updater) {
+  navGroupsDraft.value = navGroupsDraft.value.map((group) => group.id === groupId ? updater(group) : group)
+}
+
+function removeNavDraftGroup(groupId) {
+  navGroupsDraft.value = navGroupsDraft.value.filter((group) => group.id !== groupId)
+}
+
+function upsertNavDraftItem(item) {
+  navGroupsDraft.value = navGroupsDraft.value.map((group) => {
+    const existingItems = [...(group.items || [])]
+    const existingIndex = existingItems.findIndex((entry) => entry.id === item.id)
+    const items = existingItems.filter((entry) => entry.id !== item.id)
+    if (group.id !== item.groupId) return { ...group, items }
+    const nextItems = [...items]
+    nextItems.splice(existingIndex >= 0 ? existingIndex : nextItems.length, 0, { ...item })
+    return { ...group, items: nextItems.map((entry, index) => ({ ...entry, sort: index + 1 })) }
+  })
+}
+
+function removeNavDraftItem(itemId) {
+  navGroupsDraft.value = navGroupsDraft.value.map((group) => ({ ...group, items: (group.items || []).filter((item) => item.id !== itemId) }))
+}
+
+function removeFallbackNavItem(itemId) {
+  fallbackGroups.value = fallbackGroups.value.map((group) => ({ ...group, items: (group.items || []).filter((item) => item.id !== itemId) }))
+}
+
+function upsertFallbackNavItem(item) {
+  fallbackGroups.value = fallbackGroups.value.map((group) => {
+    const existingItems = [...(group.items || [])]
+    const existingIndex = existingItems.findIndex((entry) => entry.id === item.id)
+    const items = existingItems.filter((entry) => entry.id !== item.id)
+    if (group.id !== item.groupId) return { ...group, items }
+    const nextItems = [...items]
+    nextItems.splice(existingIndex >= 0 ? existingIndex : nextItems.length, 0, { ...item })
+    return { ...group, items: nextItems.map((entry, index) => ({ ...entry, sort: index + 1 })) }
+  })
 }
 
 function cycleNetworkMode() {
@@ -555,11 +610,39 @@ async function submitSettings() {
 }
 
 async function saveNavGroupDraftOrder() {
-  if (!navGroups.value.length) {
-    fallbackGroups.value = navGroupsDraft.value.map((group) => ({ ...group, items: [...(group.items || [])] }))
-    return
+  const originalGroups = navGroups.value
+  const draftGroups = navGroupsDraft.value
+  const originalGroupIds = originalGroups.map((group) => group.id)
+  const draftExistingGroupIds = draftGroups.filter((group) => typeof group.id === 'number').map((group) => group.id)
+  const createdGroupIds = new Map()
+  for (const group of originalGroups) {
+    if (!draftExistingGroupIds.includes(group.id)) await deleteNavGroup(group.id)
   }
-  await Promise.all(navGroupsDraft.value.map((group, index) => updateNavGroup({ ...group, sort: index + 1 })))
+  for (let groupIndex = 0; groupIndex < draftGroups.length; groupIndex += 1) {
+    const group = draftGroups[groupIndex]
+    const payload = { name: group.name, sort: groupIndex + 1, collapsed: Boolean(group.collapsed) }
+    if (typeof group.id === 'number' && originalGroupIds.includes(group.id)) {
+      await updateNavGroup({ id: group.id, ...payload })
+      createdGroupIds.set(group.id, group.id)
+    } else {
+      const created = await createNavGroup(payload)
+      createdGroupIds.set(group.id, created.id || created)
+    }
+  }
+  const originalItemIds = originalGroups.flatMap((group) => group.items || []).map((item) => item.id)
+  const draftExistingItemIds = draftGroups.flatMap((group) => group.items || []).filter((item) => typeof item.id === 'number').map((item) => item.id)
+  for (const id of originalItemIds) {
+    if (!draftExistingItemIds.includes(id)) await deleteNavItem(id)
+  }
+  for (const group of draftGroups) {
+    const groupId = createdGroupIds.get(group.id)
+    for (let itemIndex = 0; itemIndex < (group.items || []).length; itemIndex += 1) {
+      const item = group.items[itemIndex]
+      const payload = { groupId, name: item.name, icon: item.icon || '', lanUrl: item.lanUrl || '', wanUrl: item.wanUrl || '', urlMode: item.urlMode || 'auto', sort: itemIndex + 1 }
+      if (typeof item.id === 'number' && originalItemIds.includes(item.id)) await updateNavItem({ id: item.id, ...payload })
+      else await createNavItem(payload)
+    }
+  }
   await loadNavigation()
 }
 
@@ -1065,8 +1148,16 @@ async function moveNavGroup(group, offset) {
   await loadNavigation()
 }
 
-async function removeNavGroup(group) {
+async function removeNavGroup(group, draftOnly = false) {
   if (!group.id || !confirm(`确认删除分组「${group.name}」？`)) return
+  if (draftOnly || settingsOpen.value) {
+    removeNavDraftGroup(group.id)
+    return
+  }
+  if (!navGroups.value.length) {
+    fallbackGroups.value = fallbackGroups.value.filter((item) => item.id !== group.id)
+    return
+  }
   await deleteNavGroup(group.id)
   await loadNavigation()
 }
@@ -1082,6 +1173,12 @@ async function moveNavCard(group, item, offset) {
   const targetIndex = index + offset
   if (index < 0 || targetIndex < 0 || targetIndex >= list.length) return
   const target = list[targetIndex]
+  if (settingsOpen.value) {
+    list[targetIndex] = item
+    list[index] = target
+    updateNavDraftGroup(group.id, (entry) => ({ ...entry, items: list.map((card, cardIndex) => ({ ...card, sort: cardIndex + 1 })) }))
+    return
+  }
   const itemSort = item.sort || index + 1
   const targetSort = target.sort || targetIndex + 1
   await updateNavItem({ ...item, sort: targetSort })
@@ -1091,6 +1188,14 @@ async function moveNavCard(group, item, offset) {
 
 async function removeNavCard(item) {
   if (!item.id || !confirm(`确认删除卡片「${item.name}」？`)) return
+  if (settingsOpen.value) {
+    removeNavDraftItem(item.id)
+    return
+  }
+  if (!navGroups.value.length) {
+    removeFallbackNavItem(item.id)
+    return
+  }
   await deleteNavItem(item.id)
   await loadNavigation()
 }
@@ -1099,6 +1204,16 @@ async function deleteEditingNavCard() {
   const item = editDialog.value.form
   if (!item?.id || !confirm(`确认删除卡片「${item.name}」？`)) return
   try {
+    if (settingsOpen.value) {
+      removeNavDraftItem(item.id)
+      closeEditDialog()
+      return
+    }
+    if (!navGroups.value.length) {
+      removeFallbackNavItem(item.id)
+      closeEditDialog()
+      return
+    }
     await deleteNavItem(item.id)
     await loadNavigation()
     closeEditDialog()
@@ -1242,9 +1357,22 @@ function selectEditGroup(group) {
 async function saveEditDialog() {
   const { type, form } = editDialog.value
   try {
-    if (type === 'navGroup') {
+    if (type === 'navGroup' || type === 'navGroupCreate') {
       if (!form.name?.trim()) return
-      await updateNavGroup({ ...form, name: form.name.trim() })
+      if (settingsOpen.value) {
+        if (type === 'navGroupCreate') navGroupsDraft.value = [...navGroupsDraft.value, { id: createDraftId('draft-group'), name: form.name.trim(), sort: navGroupsDraft.value.length + 1, collapsed: false, items: [] }]
+        else updateNavDraftGroup(form.id, (group) => ({ ...group, name: form.name.trim() }))
+        closeEditDialog()
+        return
+      }
+      if (!navGroups.value.length) {
+        if (type === 'navGroupCreate') fallbackGroups.value = [...fallbackGroups.value, { id: createDraftId('demo-group'), name: form.name.trim(), sort: fallbackGroups.value.length + 1, collapsed: false, items: [] }]
+        else fallbackGroups.value = fallbackGroups.value.map((group) => group.id === form.id ? { ...group, name: form.name.trim() } : group)
+        closeEditDialog()
+        return
+      }
+      if (type === 'navGroupCreate') await createNavGroup({ name: form.name.trim(), sort: navGroups.value.length + 1 })
+      else await updateNavGroup({ ...form, name: form.name.trim() })
       await loadNavigation()
     }
     if (type === 'navItem' || type === 'navItemCreate') {
@@ -1272,6 +1400,16 @@ async function saveEditDialog() {
         return
       }
       const payload = { groupId: form.groupId, name, icon, lanUrl: form.lanUrl || '', wanUrl: form.wanUrl || '', urlMode: 'auto', sort: form.sort || 0 }
+      if (settingsOpen.value) {
+        upsertNavDraftItem({ id: form.id || createDraftId('draft-card'), ...payload })
+        closeEditDialog()
+        return
+      }
+      if (!navGroups.value.length) {
+        upsertFallbackNavItem({ id: form.id || createDraftId('demo-card'), ...payload })
+        closeEditDialog()
+        return
+      }
       if (type === 'navItemCreate') await createNavItem(payload)
       else await updateNavItem({ id: form.id, ...payload })
       await loadNavigation()
@@ -1329,10 +1467,7 @@ async function copyText(value) {
   }
 }
 async function createGroupByPrompt() {
-  const name = prompt('分组名称')
-  if (!name?.trim()) return
-  await createNavGroup({ name: name.trim(), sort: navGroups.value.length + 1 })
-  await loadNavigation()
+  editDialog.value = { open: true, type: 'navGroupCreate', title: '新增导航分组', form: { name: '' } }
 }
 async function addCardFromMenu(group) {
   editDialog.value = {
@@ -1567,7 +1702,7 @@ function showBookmarkMenu(event, bookmark) {
               <button type="button" :class="{ active: activeSettings === '关于' }" @click="activeSettings = '关于'">关于</button>
             </aside>
             <div class="settings-content">
-              <section v-if="activeSettings === '导航管理'" class="setting-card manager-card"><header class="manager-head"><h3>导航管理</h3><button type="button" @click="createGroupByPrompt">新增分组</button></header><article v-for="group in navGroupsDraft" :key="`manage-${group.id}`" class="manager-row"><div><strong>{{ group.name }}</strong><p>{{ group.items?.length || 0 }} 张卡片</p></div><div class="inline-actions"><button type="button" @click="addCardFromMenu(group)">新增卡片</button><button type="button" @click="editNavGroup(group)">编辑</button><button type="button" @click="moveNavGroup(group, -1)">上移</button><button type="button" @click="moveNavGroup(group, 1)">下移</button><button type="button" @click="removeNavGroup(group)">删除</button></div></article><div v-if="!navGroupsDraft.length" class="empty-state">暂无导航分组</div></section>
+              <section v-if="activeSettings === '导航管理'" class="setting-card manager-card"><header class="manager-head"><h3>导航管理</h3><button type="button" @click="createGroupByPrompt">新增分组</button></header><article v-for="group in navGroupsDraft" :key="`manage-${group.id}`" class="manager-row"><div><strong>{{ group.name }}</strong><p>{{ group.items?.length || 0 }} 张卡片</p></div><div class="inline-actions"><button type="button" @click="addCardFromMenu(group)">新增卡片</button><button type="button" @click="editNavGroup(group)">编辑</button><button type="button" @click="moveNavGroup(group, -1)">上移</button><button type="button" @click="moveNavGroup(group, 1)">下移</button><button type="button" @click="removeNavGroup(group, true)">删除</button></div></article><div v-if="!navGroupsDraft.length" class="empty-state">暂无导航分组</div></section>
               <section v-if="activeSettings === '收藏夹'" class="setting-card manager-card"><header class="manager-head"><h3>收藏夹管理</h3><div class="inline-actions"><button type="button" @click="createFolderByPrompt()">新增文件夹</button><button type="button" @click="createBookmarkByPrompt()">新增收藏</button><button type="button" @click="openDrawer">打开收藏夹</button></div></header><article v-for="folder in folderFlatList" :key="`manage-folder-${folder.id}`" class="manager-row" :style="{ paddingLeft: `${10 + folder.depth * 14}px` }"><strong>{{ folder.name }}</strong><div class="inline-actions"><button type="button" @click="createFolderByPrompt(folder)">新增子目录</button><button type="button" @click="createBookmarkByPrompt(folder)">新增收藏</button><button type="button" @click="editFolder(folder)">编辑</button><button type="button" @click="removeFolder(folder)">删除</button></div></article><div v-if="!folderFlatList.length" class="empty-state">暂无收藏夹文件夹，点击新增文件夹创建。</div></section>
               <section v-if="activeSettings === '搜索引擎'" class="setting-card manager-card"><header class="manager-head"><h3>搜索引擎</h3><button type="button" @click="addSearchEngine">增加</button></header><article v-for="engine in settingsSearchEngines" :key="`search-manage-${engine.key}`" class="manager-row search-engine-row"><span class="engine-mark"><img v-if="isImageValue(engine.icon)" :src="engine.icon" alt="" /><span v-else>{{ engine.icon || engine.title.slice(0, 1) }}</span></span><div><strong>{{ engine.title }}</strong><p>{{ engine.url }}</p></div><div class="inline-actions"><button type="button" @click="editSearchEngine(engine)">编辑</button><button type="button" @click="moveSearchEngine(engine, -1)">上移</button><button type="button" @click="moveSearchEngine(engine, 1)">下移</button><button type="button" @click="removeSearchEngine(engine)">删除</button></div></article><div v-if="!settingsSearchEngines.length" class="empty-state">暂无搜索引擎，点击增加创建。</div></section>
               <section v-if="activeSettings === '关于'" class="setting-card"><h3>关于</h3><p>这是个人自用导航站和网页收藏夹，当前正在按 Sun-Panel 的交互方式重做。</p></section>
@@ -1581,7 +1716,7 @@ function showBookmarkMenu(event, bookmark) {
     <section v-if="editDialog.open" class="modal-mask" @mousedown.self.stop="closeEditDialog">
       <form class="edit-modal" @click.stop @submit.prevent="saveEditDialog">
         <header class="modal-head"><h2>{{ editDialog.title }}</h2><button type="button" @click="closeEditDialog">关闭</button></header>
-        <label v-if="editDialog.type === 'navGroup' || editDialog.type === 'folder'">名称<input v-model="editDialog.form.name" /></label>
+        <label v-if="editDialog.type === 'navGroup' || editDialog.type === 'navGroupCreate' || editDialog.type === 'folder'">名称<input v-model="editDialog.form.name" placeholder="请输入分组名称" /></label>
         <template v-if="editDialog.type === 'navItem' || editDialog.type === 'navItemCreate'">
           <label>
             <span class="label-line"><span>标题 <em class="required">*</em></span><small>{{ String(editDialog.form.name || '').length }}/15</small></span>
@@ -1632,7 +1767,7 @@ function showBookmarkMenu(event, bookmark) {
         <template v-if="editDialog.type === 'searchEngine' || editDialog.type === 'searchEngineCreate'"><label>标题<input v-model="editDialog.form.title" placeholder="例如 Google" /></label><label>URL<input v-model="editDialog.form.url" placeholder="https://example.com/search?q={q}" /></label><div class="icon-mode-block"><span class="icon-mode-title">图标风格</span><div class="segmented"><button type="button" :class="{ active: editDialog.form.iconMode !== 'image' }" @click="setNavIconMode(editDialog.form, 'text')">文字</button><button type="button" :class="{ active: editDialog.form.iconMode === 'image' }" @click="setNavIconMode(editDialog.form, 'image')">图片</button></div><label><span class="label-line"><span>{{ editDialog.form.iconMode === 'image' ? '图片地址' : '文本内容' }}</span></span><span class="input-with-button"><input v-model="editDialog.form.icon" :placeholder="editDialog.form.iconMode === 'image' ? '输入图标地址或上传' : '请输入文本内容'" /><label v-if="editDialog.form.iconMode === 'image'" class="upload-inline">上传<input type="file" accept="image/*" @change="uploadIconFile($event, editDialog.form, 'icon')" /></label></span></label></div></template>
         <footer class="modal-actions">
           <button v-if="editDialog.type === 'navItem'" class="danger" type="button" @click="deleteEditingNavCard">删除</button>
-          <button v-else-if="editDialog.type !== 'navItemCreate'" type="button" @click="closeEditDialog">取消</button>
+          <button v-else-if="editDialog.type !== 'navItemCreate' && editDialog.type !== 'navGroupCreate' && editDialog.type !== 'searchEngineCreate'" type="button" @click="closeEditDialog">取消</button>
           <button type="submit">保存</button>
         </footer>
       </form>
