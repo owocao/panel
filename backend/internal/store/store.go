@@ -211,6 +211,23 @@ func (s *Store) CreateNavItem(it NavItem) (int64, error) {
 	return res.LastInsertId()
 }
 
+func (s *Store) ListNavItemsByGroup(groupID int64) ([]NavItem, error) {
+	rows, err := s.DB.Query(`SELECT id,group_id,name,icon,lan_url,wan_url,url_mode,sort FROM nav_items WHERE group_id=? ORDER BY sort ASC, id ASC`, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []NavItem
+	for rows.Next() {
+		var it NavItem
+		if err := rows.Scan(&it.ID, &it.GroupID, &it.Name, &it.Icon, &it.LANURL, &it.WANURL, &it.URLMode, &it.Sort); err != nil {
+			return nil, err
+		}
+		out = append(out, it)
+	}
+	return out, nil
+}
+
 func (s *Store) ReplaceNavigation(groups []NavGroup, items map[int64][]NavItem) error {
 	tx, err := s.DB.Begin()
 	if err != nil {

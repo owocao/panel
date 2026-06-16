@@ -198,6 +198,10 @@ BIU_PANEL_PORT=55088
     go.sum
     cmd/server/main.go
     internal/config/config.go
+    internal/httpx/auth.go
+    internal/httpx/bookmarks.go
+    internal/httpx/health.go
+    internal/httpx/navigation.go
     internal/httpx/server.go
     internal/httpx/settings.go
     internal/store/store.go
@@ -238,7 +242,7 @@ BIU_PANEL_PORT=55088
 - `backend/`：Go 后端服务。
 - `backend/cmd/server/`：服务启动入口。
 - `backend/internal/config/`：环境变量配置加载。
-- `backend/internal/httpx/`：HTTP 路由、认证、API、静态文件、上传、备份、S3、导入导出等处理逻辑。`settings.go` 已从 `server.go` 中拆分，专门处理设置相关接口（`getSettings`、`saveSettings`）。
+- `backend/internal/httpx/`：HTTP 路由、认证、API、静态文件、上传、备份、S3、导入导出等处理逻辑。已完成后端 HTTP handler 保守拆分整理：`auth.go` 处理认证与会话，`navigation.go` 处理导航页基础接口，`bookmarks.go` 处理收藏夹基础接口，`health.go` 处理健康检查，`settings.go` 处理设置相关接口；`server.go` 继续保留路由注册、通用工具、备份恢复、S3、静态资源上传、metadata、书签导入导出等尚未拆分逻辑。
 - `backend/internal/store/`：SQLite 连接、建表迁移、基础 CRUD。
 - `frontend/`：Vue 前端项目。
 - `frontend/src/App.vue`：当前保留全局布局、主要状态、组件组合、顶层事件处理和核心业务逻辑。
@@ -439,10 +443,18 @@ curl -fsS http://127.0.0.1:55088/api/health
 
 ## 6. 已知问题
 
+### 近期后端拆分整理
+
+- 后端 HTTP handler 已完成多轮保守拆分，并已整理重复定义问题，当前 `go fmt ./...`、`go test ./...`、`go build ./...` 均通过。
+- 已从 `server.go` 拆出：认证相关 handler、导航页基础 handler、收藏夹基础 handler、设置 handler、健康检查 handler。
+- `Routes()` 行为未修改，API 路径、HTTP 方法、请求参数和响应 JSON 保持不变。
+- 本轮未拆分备份恢复、S3、静态资源上传、metadata、书签 HTML 导入导出相关逻辑。
+- `server.go` 当前职责收敛为：路由注册、通用工具、备份恢复、S3、静态资源上传、metadata、书签导入导出等剩余 HTTP 逻辑。
+
 ### 代码结构问题
 
 - `frontend/src/App.vue` 仍然偏大，当前约 1500 行；已完成两轮保守组件拆分（抽离了右键菜单、拖拽浮层、移动弹窗、设置页菜单、备份恢复、搜索引擎列表、个性化设置等），但编辑弹窗、导航分组网格、收藏夹抽屉等复杂区域仍在 App.vue 中。
-- `backend/internal/httpx/server.go` 过大，当前约 1180 行，认证、导航、收藏、设置、上传、S3、备份、导入导出全部集中在一个文件。
+- `backend/internal/httpx/server.go` 已完成首批保守拆分，不再集中承载认证、导航、收藏夹基础、设置、健康检查 handler；备份恢复、S3、静态资源上传、metadata、书签 HTML 导入导出等仍保留在 `server.go`，后续如继续拆分应保持小步、只移动、不改行为。
 - 后端 store 层只是基础 SQL 封装，没有领域边界和事务封装。
 - 前端已经移除了之前多处使用原生 `prompt()` 的地方（例如新增搜索引擎、新增分组等），统一改为了更加美观和体验一致的自定义弹窗组件，但仍需注意未来新功能的表单交互体验。
 

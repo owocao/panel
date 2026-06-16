@@ -668,11 +668,23 @@ async function saveNavGroupDraftOrder() {
   const originalGroupIds = originalGroups.map((group) => group.id)
   const draftExistingGroupIds = draftGroups.filter((group) => typeof group.id === 'number').map((group) => group.id)
   const createdGroupIds = new Map()
-  for (const group of originalGroups) {
-    if (!draftExistingGroupIds.includes(group.id)) await deleteNavGroup(group.id)
+
+  const originalItemIds = originalGroups.flatMap((group) => group.items || []).map((item) => item.id)
+  const draftExistingItemIds = draftGroups.flatMap((group) => group.items || []).filter((item) => typeof item.id === 'number').map((item) => item.id)
+  
+  const deleteItemPromises = []
+  for (const id of originalItemIds) {
+    if (!draftExistingItemIds.includes(id)) deleteItemPromises.push(deleteNavItem(id))
   }
-  for (let groupIndex = 0; groupIndex < draftGroups.length; groupIndex += 1) {
-    const group = draftGroups[groupIndex]
+  await Promise.all(deleteItemPromises)
+
+  const deleteGroupPromises = []
+  for (const group of originalGroups) {
+    if (!draftExistingGroupIds.includes(group.id)) deleteGroupPromises.push(deleteNavGroup(group.id))
+  }
+  await Promise.all(deleteGroupPromises)
+
+  const groupPromises = draftGroups.map(async (group, groupIndex) => {
     const payload = { name: group.name, sort: groupIndex + 1, collapsed: Boolean(group.collapsed) }
     if (typeof group.id === 'number' && originalGroupIds.includes(group.id)) {
       await updateNavGroup({ id: group.id, ...payload })
@@ -681,21 +693,24 @@ async function saveNavGroupDraftOrder() {
       const created = await createNavGroup(payload)
       createdGroupIds.set(group.id, created.id || created)
     }
-  }
-  const originalItemIds = originalGroups.flatMap((group) => group.items || []).map((item) => item.id)
-  const draftExistingItemIds = draftGroups.flatMap((group) => group.items || []).filter((item) => typeof item.id === 'number').map((item) => item.id)
-  for (const id of originalItemIds) {
-    if (!draftExistingItemIds.includes(id)) await deleteNavItem(id)
-  }
+  })
+  await Promise.all(groupPromises)
+
+  const itemPromises = []
   for (const group of draftGroups) {
     const groupId = createdGroupIds.get(group.id)
     for (let itemIndex = 0; itemIndex < (group.items || []).length; itemIndex += 1) {
       const item = group.items[itemIndex]
       const payload = { groupId, name: item.name, icon: item.icon || '', lanUrl: item.lanUrl || '', wanUrl: item.wanUrl || '', urlMode: item.urlMode === 'lan' ? 'lan' : 'wan', sort: itemIndex + 1 }
-      if (typeof item.id === 'number' && originalItemIds.includes(item.id)) await updateNavItem({ id: item.id, ...payload })
-      else await createNavItem(payload)
+      if (typeof item.id === 'number' && originalItemIds.includes(item.id)) {
+        itemPromises.push(updateNavItem({ id: item.id, ...payload }))
+      } else {
+        itemPromises.push(createNavItem(payload))
+      }
     }
   }
+  await Promise.all(itemPromises)
+
   await loadNavigation()
 }
 
@@ -1214,11 +1229,20 @@ async function moveNavGroup(group, offset) {
 }
 
 async function removeNavGroup(group, draftOnly = false) {
-  if (!group.id || !confirm(`确认删除分组「${group.name}」？`)) return
+  if (!group.id) return
   if (draftOnly || settingsOpen.value) {
-    removeNavDraftGroup(group.id)
+    if (group.items && group.items.length > 0) {
+      if (confirm(`分组「${group.name}」内存在卡片，无法直接删除。\n点击“确定”将删除该分组及内部所有卡片；点击“取消”放弃删除。`)) {
+        removeNavDraftGroup(group.id)
+      }
+      return
+    }
+    if (confirm(`确认删除分组「${group.name}」？`)) {
+      removeNavDraftGroup(group.id)
+    }
     return
   }
+  if (!confirm(`确认删除分组「${group.name}」？`)) return
   if (!navGroups.value.length) {
     fallbackGroups.value = fallbackGroups.value.filter((item) => item.id !== group.id)
     return
@@ -1621,11 +1645,11 @@ function showBookmarkMenu(event, bookmark) {
 <template>
   <main class="shell sun-shell" @click="handleShellClick">
     <section v-if="activeView === 'login'" class="auth-screen">
-      <div class="auth-box"><h1>biu-panel</h1><p>{{ statusText }}</p><form class="form-grid" @submit.prevent="submitLogin"><label>账号<input v-model="loginForm.username" /></label><label>密码<input v-model="loginForm.password" type="password" /></label><label class="check-row"><input v-model="loginForm.remember" type="checkbox" /> 记住登录</label><button type="submit">登录</button></form></div>
+      <div class="auth-box"><p v-if="statusText" class="auth-status">{{ statusText }}</p><form class="form-grid" @submit.prevent="submitLogin"><label>账号<input v-model="loginForm.username" /></label><label>密码<input v-model="loginForm.password" type="password" /></label><label class="check-row"><input v-model="loginForm.remember" type="checkbox" /> 记住登录</label><button type="submit">登录</button></form></div>
     </section>
 
     <section v-else-if="activeView === 'setup'" class="auth-screen">
-      <div class="auth-box"><h1>biu-panel</h1><span class="eyebrow dark" style="display:block;margin-bottom:1rem;">初始化管理员</span><p>{{ statusText }}</p><form class="form-grid" @submit.prevent="submitSetup"><label>管理员账号<input v-model="setupForm.username" /></label><label>管理员密码<input v-model="setupForm.password" type="password" placeholder="至少 8 位" /></label><label>确认密码<input v-model="setupForm.confirm" type="password" /></label><button type="submit">创建管理员</button></form></div>
+      <div class="auth-box"><p v-if="statusText" class="auth-status">{{ statusText }}</p><form class="form-grid" @submit.prevent="submitSetup"><h2 style="text-align: center; margin-bottom: 8px; font-size: 20px;">初始化管理员</h2><label>管理员账号<input v-model="setupForm.username" /></label><label>管理员密码<input v-model="setupForm.password" type="password" placeholder="至少 8 位" /></label><label>确认密码<input v-model="setupForm.confirm" type="password" /></label><button type="submit">创建管理员</button></form></div>
     </section>
 
     <template v-else>

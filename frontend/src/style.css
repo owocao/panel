@@ -160,24 +160,26 @@ h1, h2, h3, p { margin: 0; }
 .bookmark-select input { width: 16px; height: 16px; }
 .bookmark-row { display: flex; align-items: center; gap: 8px; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
 .bookmark-row h3 { font-size: 14px; }
-.bookmark-row p, .bookmark-row small, .auth-box p, .setting-card p { color: var(--muted); font-size: 12px; }
+.bookmark-row p, .bookmark-row small, .setting-card p { color: var(--muted); font-size: 12px; }
 .bookmark-row p { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row-actions, .open-link { margin-left: auto; }
 .empty-state { padding: 12px; border: 1px dashed var(--line); border-radius: var(--radius); color: var(--muted); background: #fff; }
 .empty-actions { margin-top: 10px; }
 
-.auth-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
-.auth-box { width: min(440px, 100%); padding: 24px; border-radius: 16px; text-align: center; }
-.auth-box h1 { margin: 0 0 4px; font-size: 28px; }
-.auth-box .form-grid { text-align: center; }
-.auth-box .form-grid input { text-align: center; }
-.form-grid, .setting-card, .edit-modal { display: grid; gap: 12px; }
-.form-grid { margin-top: 20px; }
-.form-grid label, .setting-card label, .edit-modal label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; font-weight: 800; }
+.auth-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; text-align: center; }
+.auth-box { width: min(440px, 100%); padding: 24px; border-radius: 16px; font-family: Figtree, ui-sans-serif, system-ui, sans-serif; }
+.auth-box p { color: var(--muted); font-size: 14px; margin-bottom: 20px; font-family: Figtree, ui-sans-serif, system-ui, sans-serif; }
+.auth-status { text-align: center; color: var(--danger); font-size: 14px; margin: 0 0 12px; font-weight: 600; }
+.form-grid, .setting-card, .edit-modal { display: grid; gap: 12px; text-align: left; }
+.form-grid { margin-top: 0; }
+.form-grid label { display: grid; gap: 6px; color: var(--muted); font-size: 14px; font-weight: 800; font-family: Figtree, ui-sans-serif, system-ui, sans-serif; }
+.setting-card label, .edit-modal label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; font-weight: 800; }
+.form-grid input { font-family: Figtree, ui-sans-serif, system-ui, sans-serif; font-size: 14px; }
+.form-grid button { font-family: Figtree, ui-sans-serif, system-ui, sans-serif; font-size: 14px; padding: 10px; font-weight: 600; }
 .label-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .label-line small { color: var(--muted); font-size: 12px; font-weight: 700; white-space: nowrap; }
-.check-row { display: flex !important; align-items: center; justify-content: center; gap: 8px; }
-.check-row input { width: auto; margin: 0; }
+.check-row { display: flex !important; align-items: center; gap: 8px; font-size: 14px; }
+.check-row input { width: auto; }
 
 .settings-mask { position: fixed; z-index: 34; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(31,35,40,.36); }
 .settings-center { position: relative; width: min(980px, 100%); height: min(680px, calc(100vh - 48px)); max-height: min(760px, calc(100vh - 48px)); margin: 0; overflow: hidden; display: grid; grid-template-rows: auto auto 1fr; border-radius: 16px; padding: 16px; }
