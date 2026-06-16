@@ -167,15 +167,17 @@ h1, h2, h3, p { margin: 0; }
 .empty-actions { margin-top: 10px; }
 
 .auth-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
-.auth-box { width: min(440px, 100%); padding: 24px; border-radius: 16px; }
-.auth-box h1 { margin: 12px 0 4px; font-size: 28px; }
+.auth-box { width: min(440px, 100%); padding: 24px; border-radius: 16px; text-align: center; }
+.auth-box h1 { margin: 0 0 4px; font-size: 28px; }
+.auth-box .form-grid { text-align: center; }
+.auth-box .form-grid input { text-align: center; }
 .form-grid, .setting-card, .edit-modal { display: grid; gap: 12px; }
 .form-grid { margin-top: 20px; }
 .form-grid label, .setting-card label, .edit-modal label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; font-weight: 800; }
 .label-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .label-line small { color: var(--muted); font-size: 12px; font-weight: 700; white-space: nowrap; }
-.check-row { display: flex !important; align-items: center; gap: 8px; }
-.check-row input { width: auto; }
+.check-row { display: flex !important; align-items: center; justify-content: center; gap: 8px; }
+.check-row input { width: auto; margin: 0; }
 
 .settings-mask { position: fixed; z-index: 34; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(31,35,40,.36); }
 .settings-center { position: relative; width: min(980px, 100%); height: min(680px, calc(100vh - 48px)); max-height: min(760px, calc(100vh - 48px)); margin: 0; overflow: hidden; display: grid; grid-template-rows: auto auto 1fr; border-radius: 16px; padding: 16px; }
