@@ -875,9 +875,21 @@ async function fillMetadataFromField(target, field) {
 }
 
 function setNavIconMode(form, mode) {
+  if (form.iconMode === mode) return
+
+  if (form.iconMode === 'text') {
+    form.__textIcon = form.icon
+  } else if (form.iconMode === 'image') {
+    form.__imageIcon = form.icon
+  }
+
   form.iconMode = mode
-  if (mode === 'text' && isImageValue(form.icon)) form.icon = ''
-  if (mode === 'image' && !isImageValue(form.icon)) form.icon = ''
+
+  if (mode === 'text') {
+    form.icon = form.__textIcon !== undefined ? form.__textIcon : (isImageValue(form.icon) ? '' : form.icon)
+  } else if (mode === 'image') {
+    form.icon = form.__imageIcon !== undefined ? form.__imageIcon : (!isImageValue(form.icon) ? '' : form.icon)
+  }
 }
 
 async function fillQuickBookmarkMetadata() {

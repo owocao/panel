@@ -199,6 +199,7 @@ BIU_PANEL_PORT=55088
     cmd/server/main.go
     internal/config/config.go
     internal/httpx/server.go
+    internal/httpx/settings.go
     internal/store/store.go
   frontend/
     index.html
@@ -237,7 +238,7 @@ BIU_PANEL_PORT=55088
 - `backend/`：Go 后端服务。
 - `backend/cmd/server/`：服务启动入口。
 - `backend/internal/config/`：环境变量配置加载。
-- `backend/internal/httpx/`：HTTP 路由、认证、API、静态文件、上传、备份、S3、导入导出等处理逻辑。
+- `backend/internal/httpx/`：HTTP 路由、认证、API、静态文件、上传、备份、S3、导入导出等处理逻辑。`settings.go` 已从 `server.go` 中拆分，专门处理设置相关接口（`getSettings`、`saveSettings`）。
 - `backend/internal/store/`：SQLite 连接、建表迁移、基础 CRUD。
 - `frontend/`：Vue 前端项目。
 - `frontend/src/App.vue`：当前保留全局布局、主要状态、组件组合、顶层事件处理和核心业务逻辑。
@@ -853,6 +854,14 @@ docker compose up -d --force-recreate biu-panel: 已完成
 - 后端导航错误文案已统一为“标题 / 公网地址 / 分组”。
 - 旧数据 `urlMode='auto'` 已通过数据库迁移兼容转换为 `wan`；导航备份恢复也已兼容旧 `auto` 的导入转换。
 - 新增后端导航校验测试文件 `backend/internal/httpx/server_test.go`。
+
+后端第一轮拆分完成（2026-06-15）：
+
+- 新增 `backend/internal/httpx/settings.go`，从 `server.go` 中拆分出设置相关接口。
+- 移动的函数：`getSettings`、`saveSettings`。
+- API 行为未变化：`GET /api/settings`、`PUT /api/settings` 路径、方法、参数、响应格式均保持不变。
+- 路由注册仍在 `server.go` 的 `Routes()` 中，未改动。
+- 已通过验证：`go test ./...`、`go build ./...`、前端设置页保存功能正常。
 
 ## 11. 后续开发建议
 
