@@ -1621,11 +1621,11 @@ function showBookmarkMenu(event, bookmark) {
 <template>
   <main class="shell sun-shell" @click="handleShellClick">
     <section v-if="activeView === 'login'" class="auth-screen">
-      <div class="auth-box"><div class="logo big"><img v-if="settingsForm.logoUrl" :src="settingsForm.logoUrl" alt="Logo" /><span v-else>B</span></div><span class="eyebrow dark">biu-panel</span><h1>欢迎回来</h1><p>{{ statusText }}</p><form class="form-grid" @submit.prevent="submitLogin"><label>账号<input v-model="loginForm.username" /></label><label>密码<input v-model="loginForm.password" type="password" /></label><label class="check-row"><input v-model="loginForm.remember" type="checkbox" /> 记住登录</label><button type="submit">登录</button></form></div>
+      <div class="auth-box"><span class="eyebrow dark">biu-panel</span><h1>欢迎回来</h1><p>{{ statusText }}</p><form class="form-grid" @submit.prevent="submitLogin"><label>账号<input v-model="loginForm.username" /></label><label>密码<input v-model="loginForm.password" type="password" /></label><label class="check-row"><input v-model="loginForm.remember" type="checkbox" /> 记住登录</label><button type="submit">登录</button></form></div>
     </section>
 
     <section v-else-if="activeView === 'setup'" class="auth-screen">
-      <div class="auth-box"><div class="logo big">B</div><span class="eyebrow dark">First run</span><h1>初始化管理员</h1><p>{{ statusText }}</p><form class="form-grid" @submit.prevent="submitSetup"><label>管理员账号<input v-model="setupForm.username" /></label><label>管理员密码<input v-model="setupForm.password" type="password" placeholder="至少 8 位" /></label><label>确认密码<input v-model="setupForm.confirm" type="password" /></label><button type="submit">创建管理员</button></form></div>
+      <div class="auth-box"><span class="eyebrow dark">First run</span><h1>初始化管理员</h1><p>{{ statusText }}</p><form class="form-grid" @submit.prevent="submitSetup"><label>管理员账号<input v-model="setupForm.username" /></label><label>管理员密码<input v-model="setupForm.password" type="password" placeholder="至少 8 位" /></label><label>确认密码<input v-model="setupForm.confirm" type="password" /></label><button type="submit">创建管理员</button></form></div>
     </section>
 
     <template v-else>
