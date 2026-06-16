@@ -19,7 +19,7 @@ func (s *Server) navigation(w http.ResponseWriter, _ *http.Request) {
 		if groupItems == nil {
 			groupItems = []store.NavItem{}
 		}
-		out = append(out, map[string]any{"id": g.ID, "name": g.Name, "sort": g.Sort, "collapsed": g.Collapsed, "items": groupItems})
+		out = append(out, map[string]any{"id": g.ID, "name": g.Name, "sort": g.Sort, "items": groupItems})
 	}
 	writeJSON(w, 200, map[string]any{"groups": out})
 }

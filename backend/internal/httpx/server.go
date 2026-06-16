@@ -70,7 +70,6 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/backup/restore", s.restoreBackup)
 	mux.HandleFunc("GET /api/navigation/backup", s.downloadNavigationBackup)
 	mux.HandleFunc("POST /api/navigation/restore", s.restoreNavigationBackup)
-	mux.HandleFunc("POST /api/backup/s3", s.backupToS3)
 	mux.HandleFunc("POST /api/s3/test", s.testS3)
 	mux.HandleFunc("POST /api/assets/upload", s.uploadAsset)
 	mux.HandleFunc("GET /api/bookmark/export", s.exportBookmarks)
@@ -454,49 +453,6 @@ func uriEncodePath(v string) string {
 		parts[i] = strings.ReplaceAll(url.QueryEscape(part), "+", "%20")
 	}
 	return strings.Join(parts, "/")
-}
-
-func (s *Server) backupToS3(w http.ResponseWriter, r *http.Request) {
-	if _, err := s.currentUser(r); err != nil {
-		writeError(w, 401, "未登录")
-		return
-	}
-	settings, err := s.store.ListSettings()
-	if err != nil {
-		writeError(w, 500, err.Error())
-		return
-	}
-	if settings["s3Enabled"] != "true" {
-		writeError(w, 400, "S3 未启用")
-		return
-	}
-	var buf bytes.Buffer
-	gz := gzip.NewWriter(&buf)
-	tw := tar.NewWriter(gz)
-	if err := s.writeDataTar(tw); err != nil {
-		writeError(w, 500, err.Error())
-		return
-	}
-	if err := tw.Close(); err != nil {
-		writeError(w, 500, err.Error())
-		return
-	}
-	if err := gz.Close(); err != nil {
-		writeError(w, 500, err.Error())
-		return
-	}
-	prefix := strings.Trim(settings["s3Prefix"], "/")
-	key := "biu-panel-backup-" + time.Now().Format("20060102-150405") + ".tar.gz"
-	if prefix != "" {
-		key = prefix + "/backups/" + key
-	} else {
-		key = "backups/" + key
-	}
-	if err := s.s3PutObject(settings, key, "application/gzip", buf.Bytes()); err != nil {
-		writeError(w, 502, err.Error())
-		return
-	}
-	writeJSON(w, 200, map[string]any{"key": key, "size": buf.Len()})
 }
 
 func (s *Server) writeDataTar(tw *tar.Writer) error {

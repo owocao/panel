@@ -21,9 +21,16 @@
 
 - [x] S3 settings are persisted
 - [x] S3 test endpoint is implemented
-- [x] S3 backup upload is implemented
 - [x] S3 asset upload fallback is implemented
 - [x] hi168 S3 path-style upload was tested successfully with a corrected bucket name
+- [x] S3 backup upload entry and `POST /api/backup/s3` endpoint are removed from the current release scope
+
+## Regression Checks
+
+- [x] Logo settings are not exposed or saved by the current settings API
+- [x] Backup restore page does not expose a "backup to S3" action
+- [x] Bookmark create, folder create, and bookmark-to-home-card flows use the unified dialog instead of native `prompt()`
+- [x] `lanDetectUrl` and `autoDetectLan` configuration entries are not exposed
 
 ## Notes
 

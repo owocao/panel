@@ -41,7 +41,6 @@ export const searchBookmarks = (q) => api(`/api/bookmark/search?q=${encodeURICom
 export const fetchMetadata = (url) => api(`/api/metadata?url=${encodeURIComponent(url)}`)
 export const getSettings = () => api('/api/settings')
 export const saveSettings = (payload) => api('/api/settings', jsonRequest('PUT', payload))
-export const backupToS3 = () => api('/api/backup/s3', { method: 'POST' })
 export const testS3 = () => api('/api/s3/test', { method: 'POST' })
 export async function downloadFile(path) {
   const response = await fetch(`${API_BASE}${path}`, { credentials: 'include' })

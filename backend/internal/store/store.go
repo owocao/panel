@@ -18,10 +18,9 @@ type User struct {
 	PasswordHash string
 }
 type NavGroup struct {
-	ID        int64  `json:"id"`
-	Name      string `json:"name"`
-	Sort      int    `json:"sort"`
-	Collapsed bool   `json:"collapsed"`
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+	Sort int    `json:"sort"`
 }
 type NavItem struct {
 	ID      int64  `json:"id"`
@@ -69,7 +68,7 @@ func (s *Store) Migrate() error {
 		`CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at TEXT, remember INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);`,
 		`CREATE TABLE IF NOT EXISTS login_logs (id INTEGER PRIMARY KEY, username TEXT NOT NULL, success INTEGER NOT NULL, ip TEXT, message TEXT, created_at TEXT NOT NULL);`,
 		`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);`,
-		`CREATE TABLE IF NOT EXISTS nav_groups (id INTEGER PRIMARY KEY, name TEXT NOT NULL, sort INTEGER NOT NULL DEFAULT 0, collapsed INTEGER NOT NULL DEFAULT 0);`,
+		`CREATE TABLE IF NOT EXISTS nav_groups (id INTEGER PRIMARY KEY, name TEXT NOT NULL, sort INTEGER NOT NULL DEFAULT 0);`,
 		`CREATE TABLE IF NOT EXISTS nav_items (id INTEGER PRIMARY KEY, group_id INTEGER NOT NULL, name TEXT NOT NULL, icon TEXT, lan_url TEXT, wan_url TEXT, url_mode TEXT NOT NULL DEFAULT 'wan', sort INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(group_id) REFERENCES nav_groups(id) ON DELETE CASCADE);`,
 		`CREATE TABLE IF NOT EXISTS bookmark_folders (id INTEGER PRIMARY KEY, parent_id INTEGER, name TEXT NOT NULL, sort INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(parent_id) REFERENCES bookmark_folders(id) ON DELETE CASCADE);`,
 		`CREATE TABLE IF NOT EXISTS bookmarks (id INTEGER PRIMARY KEY, folder_id INTEGER NOT NULL, title TEXT NOT NULL, url TEXT NOT NULL, favicon TEXT, note TEXT, sort INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(folder_id) REFERENCES bookmark_folders(id) ON DELETE CASCADE);`,
@@ -147,7 +146,7 @@ func (s *Store) UserBySession(token string) (User, error) {
 }
 
 func (s *Store) ListNavigation() ([]NavGroup, map[int64][]NavItem, error) {
-	rows, err := s.DB.Query(`SELECT id,name,sort,collapsed FROM nav_groups ORDER BY sort,id`)
+	rows, err := s.DB.Query(`SELECT id,name,sort FROM nav_groups ORDER BY sort,id`)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -155,11 +154,9 @@ func (s *Store) ListNavigation() ([]NavGroup, map[int64][]NavItem, error) {
 	groups := []NavGroup{}
 	for rows.Next() {
 		var g NavGroup
-		var c int
-		if err := rows.Scan(&g.ID, &g.Name, &g.Sort, &c); err != nil {
+		if err := rows.Scan(&g.ID, &g.Name, &g.Sort); err != nil {
 			return nil, nil, err
 		}
-		g.Collapsed = c == 1
 		groups = append(groups, g)
 	}
 	itemRows, err := s.DB.Query(`SELECT id,group_id,name,COALESCE(icon,''),COALESCE(lan_url,''),COALESCE(wan_url,''),url_mode,sort FROM nav_items ORDER BY sort,id`)
@@ -197,7 +194,7 @@ func (s *Store) NavItemExists(id int64) (bool, error) {
 }
 
 func (s *Store) CreateNavGroup(g NavGroup) (int64, error) {
-	res, err := s.DB.Exec(`INSERT INTO nav_groups(name,sort,collapsed) VALUES(?,?,?)`, g.Name, g.Sort, boolInt(g.Collapsed))
+	res, err := s.DB.Exec(`INSERT INTO nav_groups(name,sort) VALUES(?,?)`, g.Name, g.Sort)
 	if err != nil {
 		return 0, err
 	}
@@ -245,7 +242,7 @@ func (s *Store) ReplaceNavigation(groups []NavGroup, items map[int64][]NavItem) 
 		if sort == 0 {
 			sort = index + 1
 		}
-		res, err := tx.Exec(`INSERT INTO nav_groups(name,sort,collapsed) VALUES(?,?,?)`, group.Name, sort, boolInt(group.Collapsed))
+		res, err := tx.Exec(`INSERT INTO nav_groups(name,sort) VALUES(?,?)`, group.Name, sort)
 		if err != nil {
 			return err
 		}
@@ -404,7 +401,7 @@ func (s *Store) SearchBookmarks(q string) ([]Bookmark, error) {
 }
 
 func (s *Store) UpdateNavGroup(g NavGroup) error {
-	_, err := s.DB.Exec(`UPDATE nav_groups SET name=?, sort=?, collapsed=? WHERE id=?`, g.Name, g.Sort, boolInt(g.Collapsed), g.ID)
+	_, err := s.DB.Exec(`UPDATE nav_groups SET name=?, sort=? WHERE id=?`, g.Name, g.Sort, g.ID)
 	return err
 }
 func (s *Store) DeleteNavGroup(id int64) error {
@@ -469,11 +466,4 @@ func (s *Store) SaveSettings(values map[string]string) error {
 		}
 	}
 	return tx.Commit()
-}
-
-func boolInt(v bool) int {
-	if v {
-		return 1
-	}
-	return 0
 }

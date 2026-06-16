@@ -177,7 +177,7 @@ BIU_PANEL_PORT=55088
 运行时外部服务：
 
 - 无强制外部服务。
-- 可选 S3 兼容对象存储，用于图片上传和备份上传。
+- 可选 S3 兼容对象存储，用于图片上传；备份上传入口已按当前方向移除。
 
 ## 3. 项目目录结构
 
@@ -298,9 +298,10 @@ BIU_PANEL_PORT=55088
   - 自动抓取标题/图标按钮放在内网地址、公网地址右侧。
 - 卡片支持当前标签页打开。
 - 卡片右键菜单包含打开、编辑、删除等。
-- 右下角网络切换按钮：当未开启自动检测时显示“内网优先 / 外网优先”。
+- 右下角网络切换按钮显示“内网优先 / 外网优先”。
 - 内外网前端切换使用右下角“内网优先 / 外网优先”按钮，点击卡片时按优先级选择内网或公网地址，并在地址未填写协议时自动补全 `http://`。
-- 内外网切换前端页面已由用户确认可用，自动检测地址和自动检测开关方向已取消。
+- 当前保留优先地址超时回退机制：内网优先时探测内网地址，超时后回退公网；公网优先时探测公网地址，超时后回退内网。
+- 自动检测地址和自动检测开关方向已取消，不再恢复 `lanDetectUrl` / `autoDetectLan` 配置入口。
 
 ### 收藏夹
 
@@ -338,18 +339,14 @@ BIU_PANEL_PORT=55088
 - 设置保存：`PUT /api/settings`
 - 当前允许保存的设置字段包括：
   - `siteTitle`
-  - `logoUrl`
   - `showTitle`
-  - `showLogo`
   - `showClock`
   - `showSeconds`
   - `showSearch`
   - `searchEngines`
   - `backgroundUrl`
   - `backgroundColor`
-  - `lanDetectUrl`
   - `lanDetectTimeout`
-  - `autoDetectLan`
   - `s3Endpoint`
   - `s3Region`
   - `s3Bucket`
@@ -361,6 +358,7 @@ BIU_PANEL_PORT=55088
   - `s3PublicBase`
 - 设置页保存后显示“设置已保存”。
 - 关闭设置页会清空保存提示，重新打开不会残留旧提示。
+- `lanDetectTimeout` 当前用于内外网优先地址探测的超时回退配置；`lanDetectUrl` / `autoDetectLan` 属于已取消的自动检测方向，不应再作为页面配置入口恢复。
 
 ### 搜索
 
@@ -374,8 +372,8 @@ BIU_PANEL_PORT=55088
 - 恢复备份：`POST /api/backup/restore`
 - 导航页备份：`GET /api/navigation/backup`
 - 导航页恢复：`POST /api/navigation/restore`
-- S3 备份：`POST /api/backup/s3`
 - S3 测试：`POST /api/s3/test`
+- “备份到 S3”入口和 `POST /api/backup/s3` 专用接口已按当前方向清理；S3 测试和图片上传同步 S3 能力保留。
 - 备份格式为 `.tar.gz`，包含 `data/` 下文件。
 - 恢复会将备份包中 `data/` 前缀下的文件写回数据目录。
 - 导航页备份格式为 JSON，包含 `version`、`createdAt`、`groups`、`items`，只导出真实后端导航数据，不包含前端演示数据。
@@ -405,8 +403,8 @@ curl -fsS http://127.0.0.1:55088/api/health
 
 ### 首页导航相关
 
-- 分组折叠/展开字段存在于数据库 `nav_groups.collapsed`，但用户已明确当前不需要分组折叠/展开功能。
-- 自动判断内外网的 `lanDetectUrl` 和 `autoDetectLan` 方向已经取消，当前保留手动切换“内网优先 / 外网优先”和点击卡片时的前端优先级判断，该前端页面已验证可用。
+- 分组折叠/展开功能已明确不需要，前端 payload、后端模型和新建数据库结构已移除导航分组 `collapsed` 残留。
+- 自动判断内外网的 `lanDetectUrl` 和 `autoDetectLan` 方向已经取消，当前保留手动切换“内网优先 / 外网优先”，以及点击卡片时的优先地址探测超时回退机制，该前端页面已验证可用。
 - 单卡片独立检测地址未实现；当前 NavItem 只有 `lanUrl`、`wanUrl`、`urlMode`。
 - 后端未强制校验导航卡片公网地址必填；目前主要是前端校验。
 - 收藏夹部分近期暂不作为主线，主页卡片“从收藏夹设为首页卡片”后续再继续完善。
@@ -426,9 +424,9 @@ curl -fsS http://127.0.0.1:55088/api/health
 ### 设置和资源
 
 - `storage_configs` 表存在，但实际 S3 配置保存在 `settings` 表中，`storage_configs` 未使用。
-- `backup_records` 表存在，但备份下载/S3 上传未明显写入备份记录，当前记录数为 0。
-- 上传限制文档提到普通图标/Logo 5MB，实际代码是 8MB，存在不一致。
-- 背景图、Logo 上传入口是否完整好用需要进一步人工验证；代码中复用图片字段，但 UI 体验待确认。
+- `backup_records` 表存在，但备份下载未明显写入备份记录，当前记录数为 0。
+- Logo 配置已明确取消，前端默认设置和后端设置白名单已移除 `logoUrl` / `showLogo`。
+- 背景图、背景色能力保留给后续使用，当前 UI 体验待进一步补齐。
 
 ### 测试
 
@@ -462,7 +460,7 @@ curl -fsS http://127.0.0.1:55088/api/health
 - 前端仍留在 `App.vue` 的较大职责包括：导航分组和卡片编辑弹窗、分组管理草稿逻辑、收藏夹抽屉整体编排、登录/初始化页面、设置弹窗整体状态、备份恢复动作编排、上传动作编排。
 - 后端当前以 `backend/internal/httpx/server.go` 负责 `Routes()` 路由注册和剩余未拆分 HTTP 逻辑，已拆出的 handler 文件与 `server.go` 同属 `httpx` 包，不改变路由调用方式。
 - 后端已完成拆分的模块包括：`auth.go` 认证与会话、`navigation.go` 导航页基础接口、`bookmarks.go` 收藏夹基础接口、`settings.go` 设置接口、`health.go` 健康检查。
-- 后端仍保留在 `server.go` 中的模块包括：路由注册、通用 JSON/参数工具、静态文件服务、metadata 抓取、书签 HTML 导入导出、全局备份恢复、导航备份恢复、S3 测试/备份上传、静态资源上传、签名和上传辅助函数。
+- 后端仍保留在 `server.go` 中的模块包括：路由注册、通用 JSON/参数工具、静态文件服务、metadata 抓取、书签 HTML 导入导出、全局备份恢复、导航备份恢复、S3 测试、静态资源上传、签名和上传辅助函数。
 - 后续如继续拆分，建议顺序为：先拆 metadata 抓取，再拆静态资源上传，再拆书签 HTML 导入导出，再拆导航备份恢复，再拆全局备份恢复，最后拆 S3；每轮只移动一个边界清晰模块并立即执行 `go fmt ./...`、`go test ./...`、`go build ./...`。
 
 ### 代码结构问题
@@ -487,7 +485,7 @@ curl -fsS http://127.0.0.1:55088/api/health
 
 ### 功能缺陷/设计债
 
-- 自动内网检测设置方向已取消，不应再恢复 `lanDetectUrl` 和 `autoDetectLan` 配置入口。
+- 自动内网检测设置方向已取消，不应再恢复 `lanDetectUrl` 和 `autoDetectLan` 配置入口；`lanDetectTimeout` 可继续作为优先地址探测超时回退配置。
 - 收藏夹无限层级的后端结构存在，前端树形交互不足。
 - 书签导入解析使用正则，面对复杂浏览器导出 HTML 可能不够稳健。
 - 全局备份恢复会直接覆盖数据目录文件，后端版本兼容检查仍需继续完善；导航页单独恢复已加入前端二次确认和备份版本校验。
@@ -556,7 +554,6 @@ curl -fsS http://127.0.0.1:55088/api/health
 - `id INTEGER PRIMARY KEY`
 - `name TEXT NOT NULL`
 - `sort INTEGER NOT NULL DEFAULT 0`
-- `collapsed INTEGER NOT NULL DEFAULT 0`
 
 ### `nav_items`
 
@@ -711,7 +708,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || ''
 
 ### 设置项
 
-系统设置保存在 SQLite 的 `settings` 表中，通过 `/api/settings` 读写。S3 密钥、站点标题、Logo、背景、搜索引擎、内网检测配置等都在这里。
+系统设置保存在 SQLite 的 `settings` 表中，通过 `/api/settings` 读写。S3 密钥、站点标题、背景、搜索引擎、内外网优先地址探测超时配置等都在这里。
 
 ## 9. 部署说明
 
@@ -852,7 +849,7 @@ POST /api/backup/restore
 - 设置页保存提示调整：关闭设置页时清空“设置已保存”，重新打开不残留。
 - 右下角网络切换按钮调整：在自动检测开启时隐藏手动切换按钮；关闭自动检测时显示内网/公网图标切换。
 - 首页分组名右侧新增/编辑按钮布局调整。
-- 新增卡片、新增分组和搜索引擎新增/编辑都已从原生 `prompt()` 流程改为统一弹窗流程。
+- 新增卡片、新增分组、搜索引擎新增/编辑、收藏夹新增文件夹、新增收藏和收藏转首页卡片都已从原生 `prompt()` 流程改为统一弹窗流程。
 - 编辑分组状态下卡片可点击编辑，并支持拖拽排序。
 - 手机端卡片布局保持一行 5 个。
 - 系统设置内导航管理已全面草稿化，分组和卡片的新增、编辑、删除、排序点击保存后才批量应用。
@@ -915,11 +912,11 @@ docker compose up -d --force-recreate biu-panel: 已完成
 4. 搜索结果显示完整路径，而不是仅直接文件夹名。
 5. 改进书签导入：支持 `<DD>` 备注、重复检测、跳过统计、失败统计。
 
-### P3：补齐内外网自动判断
+### P3：完善内外网优先地址回退
 
-1. 实现 `lanDetectUrl` + `lanDetectTimeout` 的实际探测逻辑。
-2. 明确自动检测应在前端执行还是后端执行。个人浏览器环境下，前端探测内网地址更接近实际访问场景。
-3. 若要单卡片覆盖检测地址，需要扩展 `nav_items` 表。
+1. 保留当前“内网优先 / 外网优先”手动切换方向，不恢复 `lanDetectUrl` / `autoDetectLan` 自动检测配置入口。
+2. 明确并验证 `lanDetectTimeout` 是否只用于优先地址探测超时回退：内网优先时内网超时回退公网，公网优先时公网超时回退内网。
+3. 若未来需要单卡片独立检测地址，需要重新确认产品范围并扩展 `nav_items` 表。
 
 ### P4：发布质量
 

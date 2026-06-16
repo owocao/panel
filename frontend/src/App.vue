@@ -12,7 +12,6 @@ import BackupRestoreSection from './components/BackupRestoreSection.vue'
 import SearchEngineManagerSection from './components/SearchEngineManagerSection.vue'
 import PersonalSettingsForm from './components/PersonalSettingsForm.vue'
 import {
-  backupToS3,
   createBookmark,
   createBookmarkFolder,
   createNavGroup,
@@ -84,7 +83,7 @@ let clockTimer
 let toastTimer
 let navLongPressTimer
 let draftIdSeed = 0
-const settingsForm = ref({ siteTitle: 'biu-panel', logoUrl: '', showTitle: 'true', showLogo: 'true', showClock: 'true', showSeconds: 'false', showSearch: 'true', searchEngines: JSON.stringify([{ key: 'google', title: 'Google', icon: 'G', url: 'https://www.google.com/search?q={q}' }, { key: 'baidu', title: '百度', icon: '百', url: 'https://www.baidu.com/s?wd={q}' }, { key: 'bing', title: 'Bing', icon: 'B', url: 'https://www.bing.com/search?q={q}' }]), backgroundUrl: '', backgroundColor: '#02030a', lanDetectTimeout: '800', s3Endpoint: '', s3Region: 'auto', s3Bucket: '', s3AccessKey: '', s3SecretKey: '', s3Prefix: 'biu-panel/', s3PathStyle: 'true', s3Enabled: 'false', s3PublicBase: '' })
+const settingsForm = ref({ siteTitle: 'biu-panel', showTitle: 'true', showClock: 'true', showSeconds: 'false', showSearch: 'true', searchEngines: JSON.stringify([{ key: 'google', title: 'Google', icon: 'G', url: 'https://www.google.com/search?q={q}' }, { key: 'baidu', title: '百度', icon: '百', url: 'https://www.baidu.com/s?wd={q}' }, { key: 'bing', title: 'Bing', icon: 'B', url: 'https://www.bing.com/search?q={q}' }]), backgroundUrl: '', backgroundColor: '#02030a', lanDetectTimeout: '800', s3Endpoint: '', s3Region: 'auto', s3Bucket: '', s3AccessKey: '', s3SecretKey: '', s3Prefix: 'biu-panel/', s3PathStyle: 'true', s3Enabled: 'false', s3PublicBase: '' })
 const settingsDraft = ref({ ...settingsForm.value })
 const navGroupsDraft = ref([])
 
@@ -300,9 +299,12 @@ async function confirmMoveDialog() {
 
 async function convertBookmarkToNavCard(bookmark) {
   const defaultGroup = navGroups.value[0]
-  let group = defaultGroup
-  const requested = prompt(`目标分组名称（留空使用「${defaultGroup?.name || '新分组'}」）`, defaultGroup?.name || '')
-  const groupName = requested?.trim()
+  editDialog.value = { open: true, type: 'bookmarkToNav', title: '设为首页卡片', form: { bookmark, groupName: defaultGroup?.name || '收藏卡片' } }
+}
+
+async function saveBookmarkAsNavCard(bookmark, requestedGroupName) {
+  let group = navGroups.value[0]
+  const groupName = requestedGroupName?.trim()
   if (groupName) {
     group = navGroups.value.find((item) => item.name === groupName)
     if (!group) {
@@ -587,15 +589,6 @@ async function submitTestS3() {
   }
 }
 
-async function submitBackupToS3() {
-  try {
-    const data = await backupToS3()
-    statusText.value = `S3 备份完成：${data.key}`
-  } catch (error) {
-    statusText.value = error.message
-  }
-}
-
 async function restoreBackupFile(event) {
   const file = event.target.files?.[0]
   if (!file) return
@@ -685,7 +678,7 @@ async function saveNavGroupDraftOrder() {
   await Promise.all(deleteGroupPromises)
 
   const groupPromises = draftGroups.map(async (group, groupIndex) => {
-    const payload = { name: group.name, sort: groupIndex + 1, collapsed: Boolean(group.collapsed) }
+    const payload = { name: group.name, sort: groupIndex + 1 }
     if (typeof group.id === 'number' && originalGroupIds.includes(group.id)) {
       await updateNavGroup({ id: group.id, ...payload })
       createdGroupIds.set(group.id, group.id)
@@ -1453,13 +1446,13 @@ async function saveEditDialog() {
         return
       }
       if (settingsOpen.value) {
-        if (type === 'navGroupCreate') navGroupsDraft.value = [...navGroupsDraft.value, { id: createDraftId('draft-group'), name: form.name.trim(), sort: navGroupsDraft.value.length + 1, collapsed: false, items: [] }]
+        if (type === 'navGroupCreate') navGroupsDraft.value = [...navGroupsDraft.value, { id: createDraftId('draft-group'), name: form.name.trim(), sort: navGroupsDraft.value.length + 1, items: [] }]
         else updateNavDraftGroup(form.id, (group) => ({ ...group, name: form.name.trim() }))
         closeEditDialog()
         return
       }
       if (!navGroups.value.length) {
-        if (type === 'navGroupCreate') fallbackGroups.value = [...fallbackGroups.value, { id: createDraftId('demo-group'), name: form.name.trim(), sort: fallbackGroups.value.length + 1, collapsed: false, items: [] }]
+        if (type === 'navGroupCreate') fallbackGroups.value = [...fallbackGroups.value, { id: createDraftId('demo-group'), name: form.name.trim(), sort: fallbackGroups.value.length + 1, items: [] }]
         else fallbackGroups.value = fallbackGroups.value.map((group) => group.id === form.id ? { ...group, name: form.name.trim() } : group)
         closeEditDialog()
         return
@@ -1507,16 +1500,23 @@ async function saveEditDialog() {
       else await updateNavItem({ id: form.id, ...payload })
       await loadNavigation()
     }
-    if (type === 'folder') {
+    if (type === 'folder' || type === 'folderCreate') {
       if (!form.name?.trim()) return
-      await updateBookmarkFolder({ ...form, name: form.name.trim() })
+      if (type === 'folderCreate') await createBookmarkFolder({ parentId: form.parentId || null, name: form.name.trim(), sort: form.sort || folderFlatList.value.length + 1 })
+      else await updateBookmarkFolder({ ...form, name: form.name.trim() })
       await loadFolders(form.parentId)
     }
-    if (type === 'bookmark') {
+    if (type === 'bookmark' || type === 'bookmarkCreate') {
       if (!form.title?.trim() || !form.url?.trim()) return
-      await updateBookmark({ ...form, title: form.title.trim(), url: form.url.trim(), note: form.note || '', favicon: form.favicon || '' })
+      const payload = { ...form, title: form.title.trim(), url: form.url.trim(), note: form.note || '', favicon: form.favicon || form.title.trim().slice(0, 1) }
+      if (type === 'bookmarkCreate') await createBookmark(payload)
+      else await updateBookmark(payload)
       if (activeFolder.value) await selectFolder(activeFolder.value)
       if (bookmarkSearch.value.q.trim()) await runBookmarkSearch()
+    }
+    if (type === 'bookmarkToNav') {
+      if (!form.bookmark) return
+      await saveBookmarkAsNavCard(form.bookmark, form.groupName)
     }
     if (type === 'searchEngine' || type === 'searchEngineCreate') {
       if (!form.title?.trim() || !form.url?.trim()) {
@@ -1571,34 +1571,19 @@ async function addCardFromMenu(group) {
   }
 }
 async function createFolderByPrompt(parent = null) {
-  const name = prompt(parent ? `子目录名称 · ${parent.name}` : '文件夹名称')
-  if (!name?.trim()) return
-  await createBookmarkFolder({ parentId: parent?.id || null, name: name.trim(), sort: parent ? (parent.children?.length || 0) + 1 : folderFlatList.value.length + 1 })
-  await loadFolders(parent?.id ?? null)
+  editDialog.value = { open: true, type: 'folderCreate', title: parent ? `新增子目录 · ${parent.name}` : '新增收藏夹文件夹', form: { parentId: parent?.id || null, name: '', sort: parent ? (parent.children?.length || 0) + 1 : folderFlatList.value.length + 1 } }
 }
 async function createBookmarkByPrompt(folder = activeFolder.value || folders.value[0]) {
   let targetFolder = folder
   if (!targetFolder) {
-    const name = prompt('还没有收藏文件夹，请先创建一个文件夹', '默认收藏')
-    if (!name?.trim()) return
-    const created = await createBookmarkFolder({ name: name.trim(), sort: folderFlatList.value.length + 1 })
-    await loadFolders()
-    targetFolder = created
-    if (!targetFolder?.id) {
-      targetFolder = findFolderById(folders.value, created.id) || folders.value[0]
-    }
+    editDialog.value = { open: true, type: 'folderCreate', title: '请先创建收藏夹文件夹', form: { parentId: null, name: '默认收藏', sort: folderFlatList.value.length + 1 } }
+    return
   }
   if (!targetFolder) {
     statusText.value = '请先创建收藏夹文件夹'
     return
   }
-  const title = prompt('收藏标题')
-  if (!title?.trim()) return
-  const url = prompt('收藏网址')
-  if (!url?.trim()) return
-  const note = prompt('备注，可不填') || ''
-  await createBookmark({ folderId: targetFolder.id, title: title.trim(), url: url.trim(), note: note.trim(), favicon: title.trim().slice(0, 1), sort: bookmarks.value.length + 1 })
-  await selectFolder(targetFolder)
+  editDialog.value = { open: true, type: 'bookmarkCreate', title: `新增网址收藏 · ${targetFolder.name}`, form: { folderId: targetFolder.id, title: '', url: '', favicon: '', note: '', sort: bookmarks.value.length + 1 } }
 }
 function showCardMenu(event, item, group = null) {
   if (group && editingNavGroupId.value === group.id) {
@@ -1794,7 +1779,7 @@ function showBookmarkMenu(event, bookmark) {
       <form class="edit-modal" @click.stop @submit.prevent="saveEditDialog">
         <header class="modal-head"><h2>{{ editDialog.title }}</h2><button type="button" @click="closeEditDialog">关闭</button></header>
         <label v-if="editDialog.type === 'navGroup' || editDialog.type === 'navGroupCreate'">名称<span class="label-line"><small>{{ String(editDialog.form.name || '').length }}/10</small></span><input v-model="editDialog.form.name" maxlength="10" placeholder="请输入分组名称" @input="clampEditField('name', 10)" /></label>
-        <label v-if="editDialog.type === 'folder'">名称<input v-model="editDialog.form.name" placeholder="请输入分组名称" /></label>
+        <label v-if="editDialog.type === 'folder' || editDialog.type === 'folderCreate'">名称<input v-model="editDialog.form.name" placeholder="请输入文件夹名称" /></label>
         <template v-if="editDialog.type === 'navItem' || editDialog.type === 'navItemCreate'">
           <label>
             <span class="label-line"><span>标题 <em class="required">*</em></span><small>{{ String(editDialog.form.name || '').length }}/15</small></span>
@@ -1841,11 +1826,12 @@ function showBookmarkMenu(event, bookmark) {
             </span>
           </label>
         </template>
-        <template v-if="editDialog.type === 'bookmark'"><label>标题<input v-model="editDialog.form.title" /></label><label>网址<input v-model="editDialog.form.url" /></label><label>图标<input v-model="editDialog.form.favicon" /></label><label>上传图标图片<input type="file" accept="image/*" @change="uploadIconFile($event, editDialog.form, 'favicon')" /></label><label>备注<input v-model="editDialog.form.note" /></label><button type="button" @click="fillMetadata(editDialog.form)">{{ metadataLoading ? '抓取中' : '自动抓取标题/图标' }}</button></template>
+        <template v-if="editDialog.type === 'bookmark' || editDialog.type === 'bookmarkCreate'"><label>标题<input v-model="editDialog.form.title" /></label><label>网址<input v-model="editDialog.form.url" /></label><label>图标<input v-model="editDialog.form.favicon" /></label><label>上传图标图片<input type="file" accept="image/*" @change="uploadIconFile($event, editDialog.form, 'favicon')" /></label><label>备注<input v-model="editDialog.form.note" /></label><button type="button" @click="fillMetadata(editDialog.form)">{{ metadataLoading ? '抓取中' : '自动抓取标题/图标' }}</button></template>
+        <template v-if="editDialog.type === 'bookmarkToNav'"><label>目标分组名称<input v-model="editDialog.form.groupName" placeholder="输入已有或新的分组名称" /></label><p class="muted">将收藏「{{ editDialog.form.bookmark?.title }}」复制为首页导航卡片。</p></template>
         <template v-if="editDialog.type === 'searchEngine' || editDialog.type === 'searchEngineCreate'"><label>标题<input v-model="editDialog.form.title" placeholder="例如 Google" /></label><label>URL<input v-model="editDialog.form.url" placeholder="https://example.com/search?q={q}" /></label><div class="icon-mode-block"><span class="icon-mode-title">图标风格</span><div class="segmented"><button type="button" :class="{ active: editDialog.form.iconMode !== 'image' }" @click="setNavIconMode(editDialog.form, 'text')">文字</button><button type="button" :class="{ active: editDialog.form.iconMode === 'image' }" @click="setNavIconMode(editDialog.form, 'image')">图片</button></div><label><span class="label-line"><span>{{ editDialog.form.iconMode === 'image' ? '图片地址' : '文本内容' }}</span></span><span class="input-with-button"><input v-model="editDialog.form.icon" :placeholder="editDialog.form.iconMode === 'image' ? '输入图标地址或上传' : '请输入文本内容'" /><label v-if="editDialog.form.iconMode === 'image'" class="upload-inline">上传<input type="file" accept="image/*" @change="uploadIconFile($event, editDialog.form, 'icon')" /></label></span></label></div></template>
         <footer class="modal-actions">
           <button type="submit">保存</button>
-          <button v-if="editDialog.type !== 'navItemCreate' && editDialog.type !== 'navGroupCreate' && editDialog.type !== 'searchEngineCreate'" type="button" @click="closeEditDialog">取消</button>
+          <button v-if="editDialog.type !== 'navItemCreate' && editDialog.type !== 'navGroupCreate' && editDialog.type !== 'searchEngineCreate' && editDialog.type !== 'folderCreate' && editDialog.type !== 'bookmarkCreate'" type="button" @click="closeEditDialog">取消</button>
           <button v-if="editDialog.type === 'navItem'" class="danger" type="button" @click="deleteEditingNavCard">删除</button>
         </footer>
       </form>
