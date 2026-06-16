@@ -211,6 +211,7 @@ BIU_PANEL_PORT=55088
     package-lock.json
     vite.config.js
     src/App.vue
+    src/components/BackupRestoreSection.vue
     src/components/BookmarkFolderTreeNode.vue
     src/components/BookmarkRow.vue
     src/components/ContextMenu.vue
@@ -218,6 +219,8 @@ BIU_PANEL_PORT=55088
     src/components/HomeHero.vue
     src/components/MoveDialog.vue
     src/components/NavDragFloat.vue
+    src/components/PersonalSettingsForm.vue
+    src/components/SearchEngineManagerSection.vue
     src/components/SettingsMenu.vue
     src/main.js
     src/style.css
@@ -246,7 +249,7 @@ BIU_PANEL_PORT=55088
 - `backend/internal/store/`：SQLite 连接、建表迁移、基础 CRUD。
 - `frontend/`：Vue 前端项目。
 - `frontend/src/App.vue`：当前保留全局布局、主要状态、组件组合、顶层事件处理和核心业务逻辑。
-- `frontend/src/components/`：已承载部分展示型组件，例如首页 Hero、右键菜单、移动弹窗、收藏行、设置菜单、拖拽浮层等。
+- `frontend/src/components/`：已承载部分展示型组件和设置页区块，例如首页 Hero、右键菜单、移动弹窗、收藏行、设置菜单、拖拽浮层、备份恢复、搜索引擎管理、个性化设置表单等。
 - `frontend/src/style.css`：全局样式。
 - `frontend/src/lib/api.js`：前端请求后端 API 的封装。
 - `docs/`：需求、开发说明、发布清单和本交接文档。
@@ -450,6 +453,17 @@ curl -fsS http://127.0.0.1:55088/api/health
 - `Routes()` 行为未修改，API 路径、HTTP 方法、请求参数和响应 JSON 保持不变。
 - 本轮未拆分备份恢复、S3、静态资源上传、metadata、书签 HTML 导入导出相关逻辑。
 - `server.go` 当前职责收敛为：路由注册、通用工具、备份恢复、S3、静态资源上传、metadata、书签导入导出等剩余 HTTP 逻辑。
+
+### 当前架构说明
+
+- 前端当前以 `frontend/src/App.vue` 为顶层容器，配合 `frontend/src/components/` 下的展示型组件和设置页区块组件组织页面。
+- `App.vue` 当前仍负责全局状态、登录/初始化视图、首页布局组合、设置弹窗组合、导航草稿保存、收藏夹抽屉状态、上下文菜单事件、上传/备份/恢复等顶层业务编排。
+- 前端已完成拆分的模块包括：首页 Hero、右侧浮动按钮、收藏行、移动弹窗、右键菜单、导航拖拽浮层、系统设置菜单、备份恢复区域、搜索引擎管理列表、个性化设置表单。
+- 前端仍留在 `App.vue` 的较大职责包括：导航分组和卡片编辑弹窗、分组管理草稿逻辑、收藏夹抽屉整体编排、登录/初始化页面、设置弹窗整体状态、备份恢复动作编排、上传动作编排。
+- 后端当前以 `backend/internal/httpx/server.go` 负责 `Routes()` 路由注册和剩余未拆分 HTTP 逻辑，已拆出的 handler 文件与 `server.go` 同属 `httpx` 包，不改变路由调用方式。
+- 后端已完成拆分的模块包括：`auth.go` 认证与会话、`navigation.go` 导航页基础接口、`bookmarks.go` 收藏夹基础接口、`settings.go` 设置接口、`health.go` 健康检查。
+- 后端仍保留在 `server.go` 中的模块包括：路由注册、通用 JSON/参数工具、静态文件服务、metadata 抓取、书签 HTML 导入导出、全局备份恢复、导航备份恢复、S3 测试/备份上传、静态资源上传、签名和上传辅助函数。
+- 后续如继续拆分，建议顺序为：先拆 metadata 抓取，再拆静态资源上传，再拆书签 HTML 导入导出，再拆导航备份恢复，再拆全局备份恢复，最后拆 S3；每轮只移动一个边界清晰模块并立即执行 `go fmt ./...`、`go test ./...`、`go build ./...`。
 
 ### 代码结构问题
 
