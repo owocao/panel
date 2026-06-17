@@ -194,6 +194,7 @@ h1, h2, h3, p { margin: 0; }
 .bookmark-row h3 { font-size: 14px; margin: 0; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
 .bookmark-row p, .bookmark-row small, .setting-card p { color: var(--muted); font-size: 13px; margin: 0; font-weight: 500; }
 .bookmark-row p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bookmark-row.compact .bookmark-path { color: rgba(140,149,159,.8); font-size: 11px; margin-top: 2px; display: block; }
 .row-actions, .open-link { margin-left: auto; flex-shrink: 0; display: inline-flex; align-items: center; }
 .empty-state { padding: 32px 16px; border: 1px dashed var(--line); border-radius: var(--radius); color: var(--muted); background: #fff; text-align: center; }
 .empty-actions { margin-top: 16px; justify-content: center; }

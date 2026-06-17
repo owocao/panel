@@ -19,10 +19,8 @@ const emit = defineEmits(['toggle-selection', 'context-menu', 'drag-start', 'dra
     <span class="favicon"><img v-if="isImageValue(bookmark.favicon)" :src="bookmark.favicon" alt="" /><span v-else>{{ bookmark.title.slice(0, 1) }}</span></span>
     <div>
       <h3>{{ bookmark.title }}</h3>
-      <template v-if="!compact">
-        <p>{{ bookmark.url }}</p>
-        <small>{{ bookmark.path || pathFallback }}</small>
-      </template>
+      <p v-if="!compact">{{ bookmark.url }}</p>
+      <small v-if="bookmark.path || pathFallback" class="bookmark-path">{{ bookmark.path || pathFallback }}</small>
     </div>
     <div v-if="showActions" class="row-actions">
       <button type="button" @click="emit('edit', bookmark)">编辑</button>

@@ -837,21 +837,43 @@ async function selectFolder(folder) {
   }
 }
 
+let bookmarkSearchTimer
+
 async function runBookmarkSearch() {
   const q = bookmarkSearch.value.q.trim()
   if (!q) {
     bookmarkSearch.value.results = []
     return
   }
+  
+  // 保存当前搜索词，防止旧请求覆盖新请求
+  const currentQ = q
+  
   bookmarkSearch.value.loading = true
   try {
     const data = await searchBookmarks(q)
-    bookmarkSearch.value.results = data.items || []
+    if (bookmarkSearch.value.q.trim() === currentQ) {
+      bookmarkSearch.value.results = data.items || []
+    }
   } catch (error) {
     statusText.value = error.message
   } finally {
-    bookmarkSearch.value.loading = false
+    if (bookmarkSearch.value.q.trim() === currentQ) {
+      bookmarkSearch.value.loading = false
+    }
   }
+}
+
+function handleBookmarkSearchInput() {
+  clearTimeout(bookmarkSearchTimer)
+  const q = bookmarkSearch.value.q.trim()
+  if (!q) {
+    bookmarkSearch.value.results = []
+    return
+  }
+  bookmarkSearchTimer = setTimeout(() => {
+    runBookmarkSearch()
+  }, 250)
 }
 
 function clearBookmarkSearch() {
@@ -1830,11 +1852,9 @@ function showBookmarkMenu(event, bookmark) {
         <div class="bookmark-toolbar">
           <div class="bookmark-search-row">
           <label class="bookmark-search">
-            <input v-model="bookmarkSearch.q" placeholder="输入标题、网址或备注搜索" @keyup.enter="runBookmarkSearch" />
+            <input v-model="bookmarkSearch.q" placeholder="输入标题、网址或备注搜索" @input="handleBookmarkSearchInput" />
           </label>
           <div class="inline-actions search-actions">
-            <button type="button" @click="runBookmarkSearch">搜索</button>
-            <button type="button" v-if="bookmarkSearch.q" @click="clearBookmarkSearch">清空</button>
             <span v-if="bookmarkSearch.loading">搜索中...</span>
             <span v-else-if="bookmarkSearch.results.length">找到 {{ bookmarkSearch.results.length }} 条</span>
           </div>
@@ -1890,7 +1910,7 @@ function showBookmarkMenu(event, bookmark) {
               <div v-if="!bookmarkSearch.loading && !bookmarkSearch.results.length" class="empty-state compact-empty">没有匹配的收藏。</div>
             </template>
             <template v-else>
-              <BookmarkRow v-for="bookmark in bookmarks" :key="bookmark.id" :bookmark="bookmark" :selection-mode="bookmarkSelectionMode" :selected="isBookmarkSelected(bookmark.id)" draggable path-fallback="当前文件夹" :is-image-value="isImageValue" compact @toggle-selection="toggleBookmarkSelection" @context-menu="showBookmarkMenu" @drag-start="(item, event) => startDrag('bookmark', item, null, event)" @drag-over="hoverBookmark" @drop="dropBookmark" @open="openBookmarkUrl" />
+              <BookmarkRow v-for="bookmark in bookmarks" :key="bookmark.id" :bookmark="bookmark" :selection-mode="bookmarkSelectionMode" :selected="isBookmarkSelected(bookmark.id)" draggable :is-image-value="isImageValue" compact @toggle-selection="toggleBookmarkSelection" @context-menu="showBookmarkMenu" @drag-start="(item, event) => startDrag('bookmark', item, null, event)" @drag-over="hoverBookmark" @drop="dropBookmark" @open="openBookmarkUrl" />
               <div v-if="activeFolderId && !bookmarks.length" class="empty-state compact-empty">这个文件夹还没有收藏。</div>
               <div v-if="!activeFolderId" class="empty-state compact-empty">选择左侧文件夹查看收藏。</div>
             </template>
