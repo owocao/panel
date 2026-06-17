@@ -1,16 +1,29 @@
 const API_BASE = import.meta.env.VITE_API_BASE || ''
 
 export async function api(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-    ...options,
-  })
-  const body = await response.json().catch(() => ({}))
-  if (!response.ok || body.success === false) {
-    throw new Error(body.error || `请求失败：${response.status}`)
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), options.timeout || 10000)
+  
+  try {
+    const response = await fetch(`${API_BASE}${path}`, {
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+      signal: controller.signal,
+      ...options,
+    })
+    clearTimeout(timeoutId)
+    const body = await response.json().catch(() => ({}))
+    if (!response.ok || body.success === false) {
+      throw new Error(body.error || `请求失败：${response.status}`)
+    }
+    return body.data
+  } catch (error) {
+    clearTimeout(timeoutId)
+    if (error.name === 'AbortError') {
+      throw new Error('请求超时，请重试')
+    }
+    throw error
   }
-  return body.data
 }
 
 const jsonRequest = (method, body) => ({ method, body: JSON.stringify(body) })
@@ -38,7 +51,7 @@ export const createBookmark = (payload) => api('/api/bookmarks', jsonRequest('PO
 export const updateBookmark = (payload) => api('/api/bookmarks', jsonRequest('PUT', payload))
 export const deleteBookmark = (id) => api(`/api/bookmarks?id=${id}`, { method: 'DELETE' })
 export const searchBookmarks = (q) => api(`/api/bookmark/search?q=${encodeURIComponent(q)}`)
-export const fetchMetadata = (url) => api(`/api/metadata?url=${encodeURIComponent(url)}`)
+export const fetchMetadata = (url) => api(`/api/metadata?url=${encodeURIComponent(url)}`, { timeout: 3000 })
 export const getSettings = () => api('/api/settings')
 export const saveSettings = (payload) => api('/api/settings', jsonRequest('PUT', payload))
 export const testS3 = () => api('/api/s3/test', { method: 'POST' })

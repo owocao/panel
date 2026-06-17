@@ -1,75 +1,85 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const props = defineProps({
   folder: { type: Object, required: true },
   depth: { type: Number, default: 0 },
   activeFolderId: { type: [Number, String, null], default: null },
+  selectionMode: { type: Boolean, default: false },
+  selectedIds: { type: Array, default: () => [] },
+  isImageValue: { type: Function, required: true },
 })
 
-const emit = defineEmits(['select', 'toggle', 'edit', 'remove', 'move', 'create-child'])
+const emit = defineEmits(['select', 'toggle', 'context-menu', 'drag-start', 'drag-over', 'drop'])
 
 const isActive = computed(() => props.folder.id === props.activeFolderId)
 const hasChildren = computed(() => props.folder.children?.length > 0 || props.folder.hasChildren)
+const dragging = ref(false)
 
 function handleSelect() {
+  if (dragging.value) return
   emit('select', props.folder)
 }
 function handleToggle() {
   emit('toggle', props.folder)
 }
-function handleEdit() {
-  emit('edit', props.folder)
+function handleContextMenu(event) {
+  emit('context-menu', event, props.folder)
 }
-function handleRemove() {
-  emit('remove', props.folder)
+function forwardContextMenu(event, folder) {
+  emit('context-menu', event, folder)
 }
-function handleMove(offset) {
-  emit('move', { folder: props.folder, offset })
+function forwardDragStart(folder, event) {
+  emit('drag-start', folder, event)
 }
-function handleCreateChild() {
-  emit('create-child', props.folder)
+function forwardDrop(folder) {
+  emit('drop', folder)
+}
+function forwardDragOver(folder) {
+  emit('drag-over', folder)
+}
+function handleDragStart(event) {
+  dragging.value = true
+  emit('drag-start', props.folder, event)
+}
+function handleDragEnd() {
+  window.setTimeout(() => { dragging.value = false }, 0)
 }
 </script>
 
 <template>
   <div class="tree-node" :style="{ '--tree-depth': depth }">
-    <button
+    <div
       class="folder tree-folder"
       :class="{ active: isActive }"
-      type="button"
-      @click="handleSelect"
+      draggable="true"
+      @dragstart="handleDragStart"
+      @dragend="handleDragEnd"
+      @dragover.prevent="emit('drag-over', folder)"
+      @drop="emit('drop', folder)"
+      @contextmenu.prevent="handleContextMenu"
     >
-      <span class="folder-toggle" :class="{ expanded: folder.expanded }" @click.stop="handleToggle">{{ hasChildren ? (folder.expanded ? '▾' : '▸') : '•' }}</span>
-      <strong>{{ folder.name }}</strong>
-      <small>
-        <template v-if="folder.loading">加载中…</template>
-        <template v-else-if="folder.hasChildren">{{ folder.expanded ? '已展开' : '可展开子目录' }}</template>
-        <template v-else>当前目录</template>
-      </small>
-      <span class="mini-actions">
-        <em @click.stop="handleCreateChild">新增子目录</em>
-        <em @click.stop="handleEdit">编辑</em>
-        <em @click.stop="handleMove(-1)">上移</em>
-        <em @click.stop="handleMove(1)">下移</em>
-        <em @click.stop="handleRemove">删除</em>
-      </span>
-    </button>
+      <button type="button" class="folder-toggle" :class="{ expanded: folder.expanded }" draggable="false" @click.stop="handleToggle">{{ hasChildren ? (folder.expanded ? '▾' : '▸') : '📁' }}</button>
+      <button type="button" class="folder-name" draggable="false" @click="handleSelect"><strong>{{ folder.name }}</strong></button>
+    </div>
 
-    <div v-if="folder.expanded" class="tree-children">
+    <TransitionGroup v-if="folder.expanded" tag="div" class="tree-children" name="tree-list">
       <BookmarkFolderTreeNode
         v-for="child in folder.children || []"
         :key="child.id"
         :folder="child"
         :depth="depth + 1"
         :active-folder-id="activeFolderId"
+        :selection-mode="selectionMode"
+        :selected-ids="selectedIds"
+        :is-image-value="isImageValue"
         @select="$emit('select', $event)"
         @toggle="$emit('toggle', $event)"
-        @edit="$emit('edit', $event)"
-        @remove="$emit('remove', $event)"
-        @move="$emit('move', $event)"
-        @create-child="$emit('create-child', $event)"
+        @context-menu="forwardContextMenu"
+        @drag-start="forwardDragStart"
+        @drag-over="forwardDragOver"
+        @drop="forwardDrop"
       />
-    </div>
+    </TransitionGroup>
   </div>
 </template>

@@ -57,6 +57,7 @@ const initialized = ref(false)
 const navGroups = ref([])
 const folders = ref([])
 const bookmarks = ref([])
+const bookmarkCache = ref({})
 const activeFolderId = ref(null)
 const bookmarkSelectionMode = ref(false)
 const selectedBookmarkIds = ref([])
@@ -94,7 +95,7 @@ const fallbackGroups = ref([
 ])
 const displayGroups = computed(() => (navGroups.value.length ? navGroups.value : fallbackGroups.value))
 const navGroupOptions = computed(() => (settingsOpen.value ? navGroupsDraft.value : (navGroups.value.length ? navGroups.value : fallbackGroups.value)))
-const menuStyle = computed(() => ({ left: `${menu.value.x}px`, top: `${menu.value.y}px` }))
+const menuStyle = computed(() => ({ left: `${menu.value.x}px`, top: `${menu.value.y}px`, width: menu.value.width ? `${menu.value.width}px` : undefined }))
 const activeFolder = computed(() => findFolderById(folders.value, activeFolderId.value))
 const bookmarkCount = computed(() => bookmarks.value.length)
 const folderFlatList = computed(() => flattenFolders(folders.value))
@@ -159,12 +160,14 @@ const shellStyle = computed(() => ({
 
 onMounted(async () => {
   clockTimer = window.setInterval(() => { now.value = new Date() }, 1000)
+  window.addEventListener('keydown', handleGlobalKeydown)
   networkMode.value = normalizeNetworkMode(localStorage.getItem('biu-network-mode'))
   await refreshBootstrap()
   await loadNavigation()
 })
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', handleGlobalKeydown)
   if (clockTimer) window.clearInterval(clockTimer)
   if (toastTimer) window.clearTimeout(toastTimer)
   clearNavLongPressTimer()
@@ -173,6 +176,19 @@ onUnmounted(() => {
 
 function isImageValue(value) {
   return typeof value === 'string' && (value.startsWith('/uploads/') || value.startsWith('http://') || value.startsWith('https://') || value.startsWith('data:image/'))
+}
+
+function handleGlobalKeydown(event) {
+  if (event.key !== 'Escape') return
+  if (editDialog.value.open) {
+    closeEditDialog()
+    return
+  }
+  if (bookmarkSelectionMode.value) {
+    clearBookmarkSelection()
+    return
+  }
+  closeMenu()
 }
 
 function normalizeFolder(folder, parentId = null) {
@@ -242,7 +258,9 @@ function enableBookmarkSelection(bookmark) {
   if (!isBookmarkSelected(bookmark.id)) selectedBookmarkIds.value = [...selectedBookmarkIds.value, bookmark.id]
 }
 
-function openMoveDialog(items, title) {
+async function openMoveDialog(items, title) {
+  if (!folders.value.length) await loadFolders()
+  await loadAllFolderChildren(folders.value)
   moveDialog.value = {
     open: true,
     title,
@@ -251,7 +269,7 @@ function openMoveDialog(items, title) {
   }
 }
 
-async function loadFolderNodeChildren(folder) {
+async function loadFolderNodeChildren(folder, options = {}) {
   folder.loading = true
   try {
     const data = await getBookmarkFolders(folder.id)
@@ -259,11 +277,18 @@ async function loadFolderNodeChildren(folder) {
     folder.children = children
     folder.childrenLoaded = true
     folder.hasChildren = children.length > 0
-    folder.expanded = true
+    if (options.expand !== false) folder.expanded = true
   } catch (error) {
     statusText.value = error.message
   } finally {
     folder.loading = false
+  }
+}
+
+async function loadAllFolderChildren(nodes = folders.value) {
+  for (const folder of nodes || []) {
+    if (folder.hasChildren && !folder.childrenLoaded) await loadFolderNodeChildren(folder, { expand: false })
+    if (Array.isArray(folder.children) && folder.children.length) await loadAllFolderChildren(folder.children)
   }
 }
 
@@ -273,10 +298,35 @@ async function toggleFolderExpanded(folder) {
     return
   }
   if (!folder.childrenLoaded) {
-    await loadFolderNodeChildren(folder)
+    folder.expanded = true
+    loadFolderNodeChildren(folder)
   } else {
     folder.expanded = true
   }
+}
+
+function collapseFolderTree(nodes = folders.value) {
+  nodes.forEach((folder) => {
+    folder.expanded = false
+    if (Array.isArray(folder.children)) collapseFolderTree(folder.children)
+  })
+}
+
+function expandFolderTree(nodes = folders.value) {
+  nodes.forEach((folder) => {
+    folder.expanded = true
+    if (!folder.childrenLoaded) {
+      loadFolderNodeChildren(folder).then(() => expandFolderTree(folder.children || []))
+      return
+    }
+    if (Array.isArray(folder.children) && folder.children.length) expandFolderTree(folder.children)
+  })
+}
+
+function toggleAllBookmarkFolders() {
+  const hasCollapsed = folderFlatList.value.some((folder) => !folder.expanded)
+  if (hasCollapsed) expandFolderTree()
+  else collapseFolderTree()
 }
 
 async function moveBookmarkItems(items, folderId) {
@@ -299,23 +349,14 @@ async function confirmMoveDialog() {
 
 async function convertBookmarkToNavCard(bookmark) {
   const defaultGroup = navGroups.value[0]
-  editDialog.value = { open: true, type: 'bookmarkToNav', title: '设为首页卡片', form: { bookmark, groupName: defaultGroup?.name || '收藏卡片' } }
+  editDialog.value = { open: true, type: 'bookmarkToNav', title: '首页卡片', form: { bookmark, groupId: defaultGroup?.id || null } }
 }
 
-async function saveBookmarkAsNavCard(bookmark, requestedGroupName) {
-  let group = navGroups.value[0]
-  const groupName = requestedGroupName?.trim()
-  if (groupName) {
-    group = navGroups.value.find((item) => item.name === groupName)
-    if (!group) {
-      const created = await createNavGroup({ name: groupName, sort: navGroups.value.length + 1 })
-      await loadNavigation()
-      group = { id: created.id || created, name: groupName }
-    }
-  } else if (!group) {
-    const created = await createNavGroup({ name: '收藏卡片', sort: navGroups.value.length + 1 })
-    await loadNavigation()
-    group = { id: created.id || created, name: '收藏卡片' }
+async function saveBookmarkAsNavCard(bookmark, groupId) {
+  const group = navGroups.value.find((item) => item.id === Number(groupId))
+  if (!group) {
+    statusText.value = '请选择目标分组'
+    return
   }
   await createNavItem({
     groupId: group.id,
@@ -387,6 +428,12 @@ async function probeUrl(url) {
   } finally {
     window.clearTimeout(timer)
   }
+}
+
+function openBookmarkUrl(bookmark) {
+  const url = ensureHttp(bookmark?.url || '')
+  if (!url) return
+  window.location.href = url
 }
 
 async function openNavItem(item, target = '_self', features = 'noopener,noreferrer') {
@@ -772,12 +819,22 @@ async function loadFolders(parentId = null) {
 }
 
 async function selectFolder(folder) {
+  const cached = bookmarkCache.value[folder.id]
   activeFolderId.value = folder.id
   bookmarkSearch.value.q = ''
   bookmarkSearch.value.results = []
   clearBookmarkSelection()
-  const data = await getBookmarks(folder.id)
-  bookmarks.value = data.items || []
+  bookmarks.value = cached ? [...cached] : []
+  try {
+    const data = await getBookmarks(folder.id)
+    const items = data.items || []
+    bookmarkCache.value = { ...bookmarkCache.value, [folder.id]: items }
+    if (activeFolderId.value === folder.id) {
+      bookmarks.value = items
+    }
+  } catch (error) {
+    statusText.value = error.message
+  }
 }
 
 async function runBookmarkSearch() {
@@ -854,16 +911,28 @@ async function fillMetadata(target) {
     statusText.value = '请先填写网址'
     return
   }
+  let fetchUrl = url.trim()
+  if (!/^https?:\/\//i.test(fetchUrl)) {
+    fetchUrl = 'http://' + fetchUrl
+  }
+  
   metadataLoading.value = true
   try {
-    const data = await fetchMetadata(url.trim())
+    const data = await fetchMetadata(fetchUrl)
     if ('title' in target && data.title && !target.title) target.title = data.title
     if ('name' in target && data.title && !target.name) target.name = data.title
     if ('favicon' in target && data.favicon) target.favicon = data.favicon
-    if ('icon' in target && data.favicon) target.icon = data.favicon
+    if ('icon' in target && data.favicon) {
+      target.icon = data.favicon
+      target.iconMode = 'image'
+    }
     statusText.value = '已自动抓取标题和图标'
   } catch (error) {
-    statusText.value = error.message
+    statusText.value = error.message || '抓取失败'
+    // 弹窗内的提示直接使用浏览器的 alert 进行兜底反馈，确保用户能看到
+    alert(statusText.value)
+    // 强制显示提示信息以便看到失败反馈
+    setTimeout(() => { if (statusText.value === error.message || statusText.value === '抓取失败') statusText.value = '' }, 3000)
   } finally {
     metadataLoading.value = false
   }
@@ -954,6 +1023,7 @@ function handleNavCardClick(event, group, item) {
 
 function handleShellClick(event) {
   closeMenu()
+  if (editDialog.value.open) return
   drawerOpen.value = false
   if (!editingNavGroupId.value) return
   if (event.target.closest?.('.nav-group.editing')) return
@@ -962,8 +1032,24 @@ function handleShellClick(event) {
 
 function startDrag(type, item, groupId = null, event = null) {
   dragState.value = { type, item, groupId, overId: null, saving: false, lastMoveAt: 0, settling: false }
+  if (type === 'folder' && item?.expanded) {
+    item.expanded = false
+  }
   if (event?.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', String(item?.id || ''))
+    if (type !== 'navItem' && type !== 'navGroup') {
+      const canvas = document.createElement('canvas')
+      canvas.width = 1
+      canvas.height = 1
+      canvas.style.position = 'fixed'
+      canvas.style.left = '-1000px'
+      canvas.style.top = '-1000px'
+      document.body.appendChild(canvas)
+      event.dataTransfer.setDragImage(canvas, 0, 0)
+      window.setTimeout(() => canvas.remove(), 0)
+      return
+    }
     try {
       const dragNode = event.currentTarget?.cloneNode(true)
       if (dragNode) {
@@ -978,6 +1064,58 @@ function startDrag(type, item, groupId = null, event = null) {
       }
     } catch {}
   }
+}
+
+function reorderListByTarget(list, source, target) {
+  const next = [...list]
+  const sourceIndex = next.findIndex((item) => item.id === source.id)
+  const targetIndex = next.findIndex((item) => item.id === target.id)
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return null
+  const [moved] = next.splice(sourceIndex, 1)
+  next.splice(targetIndex, 0, moved)
+  return next.map((item, index) => ({ ...item, sort: index + 1 }))
+}
+
+function hoverBookmark(target) {
+  const source = dragState.value.item
+  if (dragState.value.type !== 'bookmark' || !source || source.id === target.id) return
+  const next = reorderListByTarget(bookmarks.value, source, target)
+  if (!next) return
+  bookmarks.value = next
+  dragState.value.item = next.find((item) => item.id === source.id) || source
+  dragState.value.overId = target.id
+}
+
+function folderSiblings(folder) {
+  if (!folder.parentId) return folders.value
+  const parent = findFolderById(folders.value, folder.parentId)
+  return parent?.children || []
+}
+
+function replaceFolderSiblings(folder, next) {
+  if (!folder.parentId) {
+    folders.value = next
+    return
+  }
+  const parent = findFolderById(folders.value, folder.parentId)
+  if (parent) parent.children = next
+}
+
+function hoverFolder(target) {
+  const source = dragState.value.item
+  if (dragState.value.settling || dragState.value.type !== 'folder' || !source || source.id === target.id || source.parentId !== target.parentId) return
+  const now = Date.now()
+  if (dragState.value.overId === target.id || now - (dragState.value.lastMoveAt || 0) < 220) return
+  const next = reorderListByTarget(folderSiblings(target), source, target)
+  if (!next) return
+  replaceFolderSiblings(target, next)
+  dragState.value.item = next.find((item) => item.id === source.id) || source
+  dragState.value.overId = target.id
+  dragState.value.lastMoveAt = now
+  dragState.value.settling = true
+  window.setTimeout(() => {
+    if (dragState.value.type === 'folder') dragState.value.settling = false
+  }, 260)
 }
 
 function clearDragState() {
@@ -1166,15 +1304,24 @@ async function dropFolder(target) {
     clearDragState()
     return
   }
-  if (dragState.value.type !== 'folder' || source.id === target.id) return
-  await swapSort(source, target, updateBookmarkFolder, () => loadFolders(source.parentId))
+  if (dragState.value.type !== 'folder') return
+  const siblings = folderSiblings(source)
+  const reordered = siblings.map((folder, index) => ({ ...folder, sort: index + 1 }))
   clearDragState()
+  try {
+    await Promise.all(reordered.map((folder) => updateBookmarkFolder(folder)))
+    statusText.value = '收藏夹排序已保存'
+  } catch (error) {
+    statusText.value = `收藏夹排序保存失败：${error.message}`
+    await loadFolders(source.parentId)
+  }
 }
 
 async function dropBookmark(target) {
   const source = dragState.value.item
-  if (dragState.value.type !== 'bookmark' || !source || source.id === target.id) return
-  await swapSort(source, target, updateBookmark, () => selectFolder(activeFolder.value))
+  if (dragState.value.type !== 'bookmark' || !source) return
+  await Promise.all(bookmarks.value.map((bookmark, index) => updateBookmark({ ...bookmark, sort: index + 1 })))
+  if (activeFolder.value) await selectFolder(activeFolder.value)
   clearDragState()
 }
 
@@ -1325,7 +1472,7 @@ async function addBookmark() {
 }
 
 function editFolder(folder) {
-  editDialog.value = { open: true, type: 'folder', title: '编辑收藏夹文件夹', form: { ...folder } }
+  editDialog.value = { open: true, type: 'folder', title: '编辑收藏夹', form: { ...folder } }
 }
 
 async function moveFolder(folder, offset) {
@@ -1354,7 +1501,7 @@ async function removeFolder(folder) {
 }
 
 function editBookmark(bookmark) {
-  editDialog.value = { open: true, type: 'bookmark', title: '编辑网址收藏', form: { ...bookmark } }
+  editDialog.value = { open: true, type: 'bookmark', title: '编辑书签', form: { ...bookmark } }
 }
 
 async function moveBookmark(bookmark, offset) {
@@ -1502,13 +1649,19 @@ async function saveEditDialog() {
     }
     if (type === 'folder' || type === 'folderCreate') {
       if (!form.name?.trim()) return
-      if (type === 'folderCreate') await createBookmarkFolder({ parentId: form.parentId || null, name: form.name.trim(), sort: form.sort || folderFlatList.value.length + 1 })
+      const parentId = form.parentId || null
+      if (type === 'folderCreate') await createBookmarkFolder({ parentId, name: form.name.trim(), sort: form.sort || folderFlatList.value.length + 1 })
       else await updateBookmarkFolder({ ...form, name: form.name.trim() })
-      await loadFolders(form.parentId)
+      await loadFolders(parentId)
     }
     if (type === 'bookmark' || type === 'bookmarkCreate') {
       if (!form.title?.trim() || !form.url?.trim()) return
-      const payload = { ...form, title: form.title.trim(), url: form.url.trim(), note: form.note || '', favicon: form.favicon || form.title.trim().slice(0, 1) }
+      const folderId = form.folderId || activeFolderId.value
+      if (!folderId) {
+        statusText.value = '请选择要新增到的文件夹'
+        return
+      }
+      const payload = { ...form, title: form.title.trim(), url: form.url.trim(), note: form.note || '', favicon: form.favicon || form.title.trim().slice(0, 1), folderId }
       if (type === 'bookmarkCreate') await createBookmark(payload)
       else await updateBookmark(payload)
       if (activeFolder.value) await selectFolder(activeFolder.value)
@@ -1516,7 +1669,7 @@ async function saveEditDialog() {
     }
     if (type === 'bookmarkToNav') {
       if (!form.bookmark) return
-      await saveBookmarkAsNavCard(form.bookmark, form.groupName)
+      await saveBookmarkAsNavCard(form.bookmark, form.groupId)
     }
     if (type === 'searchEngine' || type === 'searchEngineCreate') {
       if (!form.title?.trim() || !form.url?.trim()) {
@@ -1537,10 +1690,11 @@ async function saveEditDialog() {
 function showMenu(event, title, actions, options = {}) {
   event.preventDefault()
   const point = event.touches?.[0] || event
-  const menuWidth = options.compact ? 128 : 220
+  const menuWidth = options.width || (options.compact ? 128 : 220)
   const x = Math.min(point.clientX, window.innerWidth - menuWidth - 8)
-  const y = Math.min(point.clientY, window.innerHeight - 360)
-  menu.value = { open: true, x: Math.max(8, x), y: Math.max(8, y), title, actions, compact: Boolean(options.compact) }
+  const menuHeight = options.height || (actions.length * 38 + (title ? 36 : 0) + 16)
+  const y = Math.min(point.clientY, window.innerHeight - menuHeight - 8)
+  menu.value = { open: true, x: Math.max(8, x), y: Math.max(8, y), title, actions, compact: Boolean(options.compact), width: options.width || null }
 }
 function closeMenu() { menu.value.open = false }
 async function runMenuAction(action) {
@@ -1553,7 +1707,17 @@ async function runMenuAction(action) {
 }
 async function copyText(value) {
   try {
-    await navigator.clipboard.writeText(value)
+    if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(value)
+    else {
+      const textarea = document.createElement('textarea')
+      textarea.value = value
+      textarea.style.position = 'fixed'
+      textarea.style.left = '-1000px'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      textarea.remove()
+    }
     statusText.value = '链接已复制'
   } catch {
     statusText.value = '复制失败，请手动复制'
@@ -1571,19 +1735,19 @@ async function addCardFromMenu(group) {
   }
 }
 async function createFolderByPrompt(parent = null) {
-  editDialog.value = { open: true, type: 'folderCreate', title: parent ? `新增子目录 · ${parent.name}` : '新增收藏夹文件夹', form: { parentId: parent?.id || null, name: '', sort: parent ? (parent.children?.length || 0) + 1 : folderFlatList.value.length + 1 } }
+  editDialog.value = { open: true, type: 'folderCreate', title: parent ? `新增收藏夹 · ${parent.name}` : '新增收藏夹', form: { parentId: parent?.id || null, name: '', sort: parent ? (parent.children?.length || 0) + 1 : folderFlatList.value.length + 1 } }
 }
 async function createBookmarkByPrompt(folder = activeFolder.value || folders.value[0]) {
   let targetFolder = folder
   if (!targetFolder) {
-    editDialog.value = { open: true, type: 'folderCreate', title: '请先创建收藏夹文件夹', form: { parentId: null, name: '默认收藏', sort: folderFlatList.value.length + 1 } }
+    editDialog.value = { open: true, type: 'folderCreate', title: '请先创建收藏夹', form: { parentId: null, name: '默认收藏', sort: folderFlatList.value.length + 1 } }
     return
   }
   if (!targetFolder) {
-    statusText.value = '请先创建收藏夹文件夹'
+    statusText.value = '请先创建收藏夹'
     return
   }
-  editDialog.value = { open: true, type: 'bookmarkCreate', title: `新增网址收藏 · ${targetFolder.name}`, form: { folderId: targetFolder.id, title: '', url: '', favicon: '', note: '', sort: bookmarks.value.length + 1 } }
+  editDialog.value = { open: true, type: 'bookmarkCreate', title: `新增书签 · ${targetFolder.name}`, form: { folderId: targetFolder.id, title: '', url: '', favicon: '', note: '', sort: bookmarks.value.length + 1 } }
 }
 function showCardMenu(event, item, group = null) {
   if (group && editingNavGroupId.value === group.id) {
@@ -1592,8 +1756,8 @@ function showCardMenu(event, item, group = null) {
     return
   }
   showMenu(event, item.name, [
-    { label: '新标签页打开', icon: 'external-link-alt', variant: 'icon', run: () => openNavItemFromMenu(item, '_blank', 'noopener,noreferrer') },
-    { label: '新窗口打开', icon: 'window', variant: 'icon', run: () => openNavItemFromMenu(item, `biu-nav-window-${item.id || Date.now()}`, 'popup=yes,width=1200,height=800') },
+    { label: '新标签页打开', icon: 'window', variant: 'icon', run: () => openNavItemFromMenu(item, '_blank', 'noopener,noreferrer') },
+    { label: '新窗口打开', icon: 'external-link-alt', variant: 'icon', run: () => openNavItemFromMenu(item, `biu-nav-window-${item.id || Date.now()}`, 'popup=yes,width=1200,height=800') },
     { divider: true },
     { label: '编辑', icon: 'edit', run: () => editNavCard(item, group) },
     { label: '删除', icon: 'trash-alt', run: () => removeNavCard(item) },
@@ -1611,19 +1775,34 @@ function showGroupMenu(event, group) {
     { label: '删除分组', icon: 'trash-alt', run: () => removeNavGroup(group) },
   ])
 }
+function showFolderMenu(event, folder) {
+  event.preventDefault()
+  event.stopPropagation()
+  const current = folderFlatList.value.find((item) => item.id === folder.id)
+  const canCreateChild = !current || current.depth < 3
+  showMenu(event, folder.name, [
+    ...(canCreateChild ? [{ label: '新增收藏夹', icon: 'plus', run: () => createFolderByPrompt(folder) }] : []),
+    { label: '新增书签', icon: 'plus', run: () => createBookmarkByPrompt(folder) },
+    { divider: true },
+    { label: '编辑', icon: 'edit', run: () => editFolder(folder) },
+    { label: '删除', icon: 'trash-alt', run: () => removeFolder(folder) },
+  ], { width: 148 })
+}
+
 function showBookmarkMenu(event, bookmark) {
+  event.preventDefault()
+  event.stopPropagation()
   showMenu(event, bookmark.title, [
-    { label: '打开', icon: 'external-link-alt', run: () => { window.location.href = bookmark.url } },
-    { label: '新标签页打开', icon: 'window', variant: 'icon', run: () => window.open(bookmark.url, '_blank', 'noopener,noreferrer') },
+    { label: '新标签页打开', icon: 'window', variant: 'icon', run: () => window.open(ensureHttp(bookmark.url), '_blank', 'noopener,noreferrer') },
+    { label: '新窗口打开', icon: 'external-link-alt', variant: 'icon', run: () => window.open(ensureHttp(bookmark.url), `biu-bookmark-window-${bookmark.id || Date.now()}`, 'popup=yes,width=1200,height=800') },
     { divider: true },
     { label: '复制链接', icon: 'link', run: () => copyText(bookmark.url) },
-    { label: '移动到文件夹', icon: 'folder', run: () => openMoveDialog([bookmark], '移动到文件夹') },
-    { label: '设为首页卡片', icon: 'square', run: () => convertBookmarkToNavCard(bookmark) },
-    { label: '批量选择', icon: 'check-square', run: () => batchSelectBookmark(bookmark) },
+    { label: '移动', icon: 'folder', run: () => openMoveDialog([bookmark], '移动') },
+    { label: '首页卡片', icon: 'plus', run: () => convertBookmarkToNavCard(bookmark) },
     { divider: true },
     { label: '编辑', icon: 'edit', run: () => editBookmark(bookmark) },
     { label: '删除', icon: 'trash-alt', run: () => removeBookmark(bookmark) },
-  ])
+  ], { width: 148 })
 }
 </script>
 
@@ -1638,92 +1817,85 @@ function showBookmarkMenu(event, bookmark) {
     </section>
 
     <template v-else>
-      <FloatingActions :show-network-switcher="showNetworkSwitcher" :network-tip="networkTip" :network-icon="networkIcon" :toast-text="toastText" :icon-url="iconUrl" @open-drawer="openDrawer" @cycle-network-mode="cycleNetworkMode" @open-settings="openSettings" />
+      <FloatingActions :drawer-open="drawerOpen" :show-network-switcher="showNetworkSwitcher" :network-tip="networkTip" :network-icon="networkIcon" :toast-text="toastText" :icon-url="iconUrl" @open-drawer="openDrawer" @cycle-network-mode="cycleNetworkMode" @open-settings="openSettings" />
 
-      <aside v-if="drawerOpen" class="bookmark-drawer" aria-label="收藏夹" @click.stop>
+      <aside v-if="drawerOpen" class="bookmark-drawer" aria-label="收藏夹" @click.stop="closeMenu">
         <div class="drawer-head">
           <div>
             <span>收藏夹</span>
             <small>{{ folderCount }} 个文件夹 · {{ bookmarkCount }} 条收藏</small>
           </div>
-          <div class="inline-actions">
-            <button type="button" @click="createBookmarkByPrompt()">新增收藏</button>
-            <button type="button" @click="exportBookmarks">导出</button>
-            <label class="file-button">导入<input type="file" accept=".html,.htm,text/html" @change="importBookmarksFile" /></label>
-          </div>
         </div>
 
         <div class="bookmark-toolbar">
+          <div class="bookmark-search-row">
           <label class="bookmark-search">
-            <span>搜索收藏</span>
-            <input v-model="bookmarkSearch.q" placeholder="输入标题、网址或备注" @keyup.enter="runBookmarkSearch" />
+            <input v-model="bookmarkSearch.q" placeholder="输入标题、网址或备注搜索" @keyup.enter="runBookmarkSearch" />
           </label>
           <div class="inline-actions search-actions">
             <button type="button" @click="runBookmarkSearch">搜索</button>
-            <button type="button" @click="clearBookmarkSearch">清空</button>
+            <button type="button" v-if="bookmarkSearch.q" @click="clearBookmarkSearch">清空</button>
             <span v-if="bookmarkSearch.loading">搜索中...</span>
             <span v-else-if="bookmarkSearch.results.length">找到 {{ bookmarkSearch.results.length }} 条</span>
           </div>
-          <div class="quick-create">
-            <input v-model="quickBookmark.folderName" placeholder="新文件夹名称" />
-            <button type="button" @click="addFolder">新增文件夹</button>
           </div>
-          <div v-if="bookmarkSelectionMode" class="selection-bar">
-            <strong>已选择 {{ selectedBookmarkIds.length }} 条收藏</strong>
-            <select v-model="moveDialog.targetFolderId">
-              <option v-for="folder in folderFlatList" :key="folder.id" :value="folder.id">{{ '　'.repeat(folder.depth) }}{{ folder.name }}</option>
-            </select>
-            <div class="inline-actions">
+          <div class="inline-actions bookmark-primary-actions">
+            <button type="button" @click="createFolderByPrompt()">新增收藏夹</button>
+            <button type="button" @click="createBookmarkByPrompt(activeFolder)">新增书签</button>
+            <button type="button" @click="bookmarkSelectionMode ? clearBookmarkSelection() : bookmarkSelectionMode = true" :class="{ 'active': bookmarkSelectionMode }">
+              {{ bookmarkSelectionMode ? '退出批量' : '批量操作' }}
+            </button>
+            <template v-if="bookmarkSelectionMode">
               <button type="button" @click="openSelectedMoveDialog">批量移动</button>
               <button type="button" @click="deleteSelectedBookmarks">批量删除</button>
-              <button type="button" @click="clearBookmarkSelection">取消选择</button>
-            </div>
+            </template>
           </div>
         </div>
 
-        <section class="bookmark-body">
-          <nav class="folder-tree">
+        <section class="bookmark-body explorer-layout">
+          <nav class="folder-tree explorer-sidebar">
             <div class="folder-tree-head">
-              <strong>目录树</strong>
-              <button type="button" @click="loadFolders()">刷新</button>
+              <button type="button" class="folder-tree-title" @click="toggleAllBookmarkFolders">收藏夹</button>
+              <small>{{ folderCount }}</small>
             </div>
-            <BookmarkFolderTreeNode
-              v-for="folder in folders"
-              :key="folder.id"
-              :folder="folder"
-              :active-folder-id="activeFolderId"
-              @select="selectFolder"
-              @toggle="toggleFolderExpanded"
-              @edit="editFolder"
-              @remove="removeFolder"
-              @move="({ folder, offset }) => moveFolder(folder, offset)"
-              @create-child="createFolderByPrompt"
-            />
-            <div v-if="!folders.length" class="empty-state">暂无文件夹，先创建一个目录。
-              <div class="inline-actions empty-actions">
-                <button type="button" @click="createFolderByPrompt()">新建文件夹</button>
-                <button type="button" @click="createBookmarkByPrompt()">直接新增收藏</button>
-              </div>
-            </div>
+            <TransitionGroup tag="div" class="tree-root" name="tree-list">
+              <BookmarkFolderTreeNode
+                v-for="folder in folders"
+                :key="folder.id"
+                :folder="folder"
+                :active-folder-id="activeFolderId"
+                :selection-mode="bookmarkSelectionMode"
+                :selected-ids="selectedBookmarkIds"
+                :is-image-value="isImageValue"
+                @select="selectFolder"
+                @toggle="toggleFolderExpanded"
+                @context-menu="showFolderMenu"
+                @drag-start="(item, event) => startDrag('folder', item, null, event)"
+                @drag-over="hoverFolder"
+                @drop="dropFolder"
+              />
+            </TransitionGroup>
+            <div v-if="!folders.length" class="empty-state compact-empty">暂无文件夹。</div>
           </nav>
 
-          <div class="bookmark-list">
+          <main class="explorer-content bookmark-list">
+            <header class="explorer-section-head">
+              <div>
+                <strong>{{ bookmarkSearch.q.trim() ? '搜索结果' : (activeFolder?.name || '选择文件夹') }}</strong>
+              </div>
+              <small>{{ bookmarkSearch.q.trim() ? `${bookmarkSearch.results.length} 条匹配` : `${bookmarks.length} 条收藏` }}</small>
+            </header>
             <template v-if="bookmarkSearch.q.trim()">
-              <BookmarkRow v-for="bookmark in bookmarkSearch.results" :key="`search-${bookmark.id}`" :bookmark="bookmark" :selection-mode="bookmarkSelectionMode" :selected="isBookmarkSelected(bookmark.id)" path-fallback="搜索结果" :is-image-value="isImageValue" @toggle-selection="toggleBookmarkSelection" @context-menu="showBookmarkMenu" />
-              <div v-if="!bookmarkSearch.loading && !bookmarkSearch.results.length" class="empty-state">没有匹配的收藏。</div>
+              <BookmarkRow v-for="bookmark in bookmarkSearch.results" :key="`search-${bookmark.id}`" :bookmark="bookmark" :selection-mode="bookmarkSelectionMode" :selected="isBookmarkSelected(bookmark.id)" path-fallback="搜索结果" :is-image-value="isImageValue" compact @toggle-selection="toggleBookmarkSelection" @context-menu="showBookmarkMenu" @open="openBookmarkUrl" />
+              <div v-if="!bookmarkSearch.loading && !bookmarkSearch.results.length" class="empty-state compact-empty">没有匹配的收藏。</div>
             </template>
             <template v-else>
-              <div v-if="activeFolderId" class="quick-create bookmark-create">
-                <input v-model="quickBookmark.title" placeholder="收藏标题" />
-                <input v-model="quickBookmark.url" placeholder="https://example.com" />
-                <input v-model="quickBookmark.note" placeholder="备注" />
-                <button type="button" @click="fillQuickBookmarkMetadata">{{ metadataLoading ? '抓取中' : '自动抓取' }}</button>
-                <button type="button" @click="addBookmark">新增收藏</button>
-              </div>
-              <BookmarkRow v-for="bookmark in bookmarks" :key="bookmark.id" :bookmark="bookmark" :selection-mode="bookmarkSelectionMode" :selected="isBookmarkSelected(bookmark.id)" draggable show-actions path-fallback="当前文件夹" :is-image-value="isImageValue" @toggle-selection="toggleBookmarkSelection" @context-menu="showBookmarkMenu" @drag-start="(item) => startDrag('bookmark', item)" @drop="dropBookmark" @edit="editBookmark" @move-up="(item) => moveBookmark(item, -1)" @move-down="(item) => moveBookmark(item, 1)" @remove="removeBookmark" />
-              <div v-if="activeFolderId && !bookmarks.length" class="empty-state">这个文件夹还没有收藏。</div>
+              <BookmarkRow v-for="bookmark in bookmarks" :key="bookmark.id" :bookmark="bookmark" :selection-mode="bookmarkSelectionMode" :selected="isBookmarkSelected(bookmark.id)" draggable path-fallback="当前文件夹" :is-image-value="isImageValue" compact @toggle-selection="toggleBookmarkSelection" @context-menu="showBookmarkMenu" @drag-start="(item, event) => startDrag('bookmark', item, null, event)" @drag-over="hoverBookmark" @drop="dropBookmark" @open="openBookmarkUrl" />
+              <div v-if="activeFolderId && !bookmarks.length" class="empty-state compact-empty">这个文件夹还没有收藏。</div>
+              <div v-if="!activeFolderId" class="empty-state compact-empty">选择左侧文件夹查看收藏。</div>
             </template>
-          </div>
+          </main>
+
         </section>
       </aside>
 
@@ -1743,7 +1915,7 @@ function showBookmarkMenu(event, bookmark) {
             <SettingsMenu :collapsed="settingsMenuCollapsed" :active="activeSettings" @toggle-collapse="settingsMenuCollapsed = !settingsMenuCollapsed" @select="selectSettingsMenu" />
             <div class="settings-content">
               <section v-if="activeSettings === '分组管理'" class="setting-card manager-card"><header class="manager-head"><h3>分组管理</h3><button type="button" @click="createGroupByPrompt">新增分组</button></header><article v-for="group in navGroupsDraft" :key="`manage-${group.id}`" class="manager-row"><div><strong>{{ group.name }}</strong><p>{{ group.items?.length || 0 }} 张卡片</p></div><div class="inline-actions"><button type="button" @click="addCardFromMenu(group)">新增卡片</button><button type="button" @click="editNavGroup(group)">编辑</button><button type="button" @click="moveNavGroup(group, -1)">上移</button><button type="button" @click="moveNavGroup(group, 1)">下移</button><button type="button" @click="removeNavGroup(group, true)">删除</button></div></article><div v-if="!navGroupsDraft.length" class="empty-state">暂无导航分组</div></section>
-              <section v-if="activeSettings === '收藏夹'" class="setting-card manager-card"><header class="manager-head"><h3>收藏夹管理</h3><div class="inline-actions"><button type="button" @click="createFolderByPrompt()">新增文件夹</button><button type="button" @click="createBookmarkByPrompt()">新增收藏</button><button type="button" @click="openDrawer">打开收藏夹</button></div></header><article v-for="folder in folderFlatList" :key="`manage-folder-${folder.id}`" class="manager-row" :style="{ paddingLeft: `${10 + folder.depth * 14}px` }"><strong>{{ folder.name }}</strong><div class="inline-actions"><button type="button" @click="createFolderByPrompt(folder)">新增子目录</button><button type="button" @click="createBookmarkByPrompt(folder)">新增收藏</button><button type="button" @click="editFolder(folder)">编辑</button><button type="button" @click="removeFolder(folder)">删除</button></div></article><div v-if="!folderFlatList.length" class="empty-state">暂无收藏夹文件夹，点击新增文件夹创建。</div></section>
+              <section v-if="activeSettings === '收藏夹'" class="setting-card manager-card"><header class="manager-head"><h3>收藏夹管理</h3><div class="inline-actions"><button type="button" @click="createFolderByPrompt()">新增收藏夹</button><button type="button" @click="createBookmarkByPrompt()">新增书签</button><button type="button" @click="openDrawer">打开收藏夹</button></div></header><article v-for="folder in folderFlatList" :key="`manage-folder-${folder.id}`" class="manager-row" :style="{ paddingLeft: `${10 + folder.depth * 14}px` }"><strong>{{ folder.name }}</strong><div class="inline-actions"><button type="button" @click="createFolderByPrompt(folder)">新增收藏夹</button><button type="button" @click="createBookmarkByPrompt(folder)">新增书签</button><button type="button" @click="editFolder(folder)">编辑</button><button type="button" @click="removeFolder(folder)">删除</button></div></article><div v-if="!folderFlatList.length" class="empty-state">暂无收藏夹，点击新增收藏夹创建。</div></section>
               <SearchEngineManagerSection
                   :active="activeSettings === '搜索引擎'"
                   :engines="settingsSearchEngines"
@@ -1776,10 +1948,18 @@ function showBookmarkMenu(event, bookmark) {
     </template>
 
     <section v-if="editDialog.open" class="modal-mask" @mousedown.self.stop="closeEditDialog">
-      <form class="edit-modal" @click.stop @submit.prevent="saveEditDialog">
-        <header class="modal-head"><h2>{{ editDialog.title }}</h2><button type="button" @click="closeEditDialog">关闭</button></header>
+      <form class="edit-modal" :class="{ 'bookmark-to-nav-modal': editDialog.type === 'bookmarkToNav' }" @click.stop @submit.prevent="saveEditDialog">
+        <header class="modal-head"><h2>{{ editDialog.title }}</h2></header>
         <label v-if="editDialog.type === 'navGroup' || editDialog.type === 'navGroupCreate'">名称<span class="label-line"><small>{{ String(editDialog.form.name || '').length }}/10</small></span><input v-model="editDialog.form.name" maxlength="10" placeholder="请输入分组名称" @input="clampEditField('name', 10)" /></label>
-        <label v-if="editDialog.type === 'folder' || editDialog.type === 'folderCreate'">名称<input v-model="editDialog.form.name" placeholder="请输入文件夹名称" /></label>
+        <template v-if="editDialog.type === 'folder' || editDialog.type === 'folderCreate'">
+          <label>名称<input v-model="editDialog.form.name" placeholder="请输入收藏夹名称" /></label>
+          <label v-if="editDialog.type === 'folderCreate'">上级收藏夹
+            <select v-model="editDialog.form.parentId">
+              <option :value="null">根目录</option>
+              <option v-for="folder in folderFlatList.filter((item) => item.depth < 3)" :key="`folder-parent-${folder.id}`" :value="folder.id">{{ '　'.repeat(folder.depth) }}{{ folder.name }}</option>
+            </select>
+          </label>
+        </template>
         <template v-if="editDialog.type === 'navItem' || editDialog.type === 'navItemCreate'">
           <label>
             <span class="label-line"><span>标题 <em class="required">*</em></span><small>{{ String(editDialog.form.name || '').length }}/15</small></span>
@@ -1826,8 +2006,29 @@ function showBookmarkMenu(event, bookmark) {
             </span>
           </label>
         </template>
-        <template v-if="editDialog.type === 'bookmark' || editDialog.type === 'bookmarkCreate'"><label>标题<input v-model="editDialog.form.title" /></label><label>网址<input v-model="editDialog.form.url" /></label><label>图标<input v-model="editDialog.form.favicon" /></label><label>上传图标图片<input type="file" accept="image/*" @change="uploadIconFile($event, editDialog.form, 'favicon')" /></label><label>备注<input v-model="editDialog.form.note" /></label><button type="button" @click="fillMetadata(editDialog.form)">{{ metadataLoading ? '抓取中' : '自动抓取标题/图标' }}</button></template>
-        <template v-if="editDialog.type === 'bookmarkToNav'"><label>目标分组名称<input v-model="editDialog.form.groupName" placeholder="输入已有或新的分组名称" /></label><p class="muted">将收藏「{{ editDialog.form.bookmark?.title }}」复制为首页导航卡片。</p></template>
+        <template v-if="editDialog.type === 'bookmark' || editDialog.type === 'bookmarkCreate'">
+          <label>标题<input v-model="editDialog.form.title" /></label>
+          <label><span class="label-line"><span>网址 <b class="required">*</b></span></span><input v-model="editDialog.form.url" required /></label>
+          <label>备注<input v-model="editDialog.form.note" /></label>
+          <label>所属文件夹
+            <select v-model="editDialog.form.folderId">
+              <option v-for="folder in folderFlatList" :key="`edit-bookmark-folder-${folder.id}`" :value="folder.id">{{ '　'.repeat(folder.depth) }}{{ folder.name }}</option>
+            </select>
+          </label>
+          <button type="button" @click="fillMetadata(editDialog.form)">{{ metadataLoading ? '抓取中' : '自动抓取标题/图标' }}</button>
+        </template>
+        <template v-if="editDialog.type === 'bookmarkToNav'">
+          <label>
+            目标分组
+            <div class="select-popover" :class="{ open: groupSelectOpen }">
+              <button type="button" class="select-trigger" @click="groupSelectOpen = !groupSelectOpen"><span>{{ getEditGroupName() }}</span><span class="select-arrow">⌄</span></button>
+              <div v-if="groupSelectOpen" class="select-options">
+                <button v-for="group in navGroupOptions" :key="`bookmark-nav-group-${group.id}`" type="button" :class="{ active: group.id === editDialog.form.groupId }" @click.stop="selectEditGroup(group)">{{ group.name }}</button>
+              </div>
+            </div>
+          </label>
+          <p class="muted">将收藏「{{ editDialog.form.bookmark?.title }}」复制为首页导航卡片。</p>
+        </template>
         <template v-if="editDialog.type === 'searchEngine' || editDialog.type === 'searchEngineCreate'"><label>标题<input v-model="editDialog.form.title" placeholder="例如 Google" /></label><label>URL<input v-model="editDialog.form.url" placeholder="https://example.com/search?q={q}" /></label><div class="icon-mode-block"><span class="icon-mode-title">图标风格</span><div class="segmented"><button type="button" :class="{ active: editDialog.form.iconMode !== 'image' }" @click="setNavIconMode(editDialog.form, 'text')">文字</button><button type="button" :class="{ active: editDialog.form.iconMode === 'image' }" @click="setNavIconMode(editDialog.form, 'image')">图片</button></div><label><span class="label-line"><span>{{ editDialog.form.iconMode === 'image' ? '图片地址' : '文本内容' }}</span></span><span class="input-with-button"><input v-model="editDialog.form.icon" :placeholder="editDialog.form.iconMode === 'image' ? '输入图标地址或上传' : '请输入文本内容'" /><label v-if="editDialog.form.iconMode === 'image'" class="upload-inline">上传<input type="file" accept="image/*" @change="uploadIconFile($event, editDialog.form, 'icon')" /></label></span></label></div></template>
         <footer class="modal-actions">
           <button type="submit">保存</button>
