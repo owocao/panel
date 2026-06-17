@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"errors"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -113,6 +114,25 @@ func (s *Store) FailedLoginsSince(username string, since time.Time) (int, error)
 	err := s.DB.QueryRow(`SELECT COUNT(*) FROM login_logs WHERE username=? AND success=0 AND created_at>?`, username, since.Format(time.RFC3339)).Scan(&n)
 	return n, err
 }
+func (s *Store) CleanupExpiredData(logsRetentionDays int) error {
+	nowStr := time.Now().Format(time.RFC3339)
+	oldLogsStr := time.Now().AddDate(0, 0, -logsRetentionDays).Format(time.RFC3339)
+
+	// Clean expired sessions
+	_, err := s.DB.Exec(`DELETE FROM sessions WHERE expires_at != '' AND expires_at < ?`, nowStr)
+	if err != nil {
+		log.Printf("[Store] Failed to cleanup expired sessions: %v\n", err)
+	}
+
+	// Clean old login logs
+	_, err = s.DB.Exec(`DELETE FROM login_logs WHERE created_at < ?`, oldLogsStr)
+	if err != nil {
+		log.Printf("[Store] Failed to cleanup old login_logs: %v\n", err)
+	}
+
+	return nil
+}
+
 func (s *Store) SaveSession(token string, userID int64, expires *time.Time, remember bool) error {
 	rem := 0
 	var exp any
@@ -377,7 +397,7 @@ func (s *Store) SearchBookmarks(q string) ([]Bookmark, error) {
 	rows, err := s.DB.Query(`WITH RECURSIVE folder_paths(id, path) AS (
 		SELECT id, name FROM bookmark_folders WHERE parent_id IS NULL
 		UNION ALL
-		SELECT f.id, folder_paths.path || '/' || f.name FROM bookmark_folders f JOIN folder_paths ON f.parent_id = folder_paths.id
+		SELECT f.id, folder_paths.path || ' / ' || f.name FROM bookmark_folders f JOIN folder_paths ON f.parent_id = folder_paths.id
 	)
 	SELECT b.id,b.folder_id,b.title,b.url,COALESCE(b.favicon,''),COALESCE(b.note,''),b.sort,COALESCE(folder_paths.path, f.name)
 	FROM bookmarks b
@@ -466,4 +486,10 @@ func (s *Store) SaveSettings(values map[string]string) error {
 		}
 	}
 	return tx.Commit()
+}
+
+func (s *Store) BookmarkExistsInFolder(folderID int64, url string) (bool, error) {
+	var count int
+	err := s.DB.QueryRow(`SELECT count(*) FROM bookmarks WHERE folder_id = ? AND url = ?`, folderID, url).Scan(&count)
+	return count > 0, err
 }

@@ -270,8 +270,10 @@ BIU_PANEL_PORT=55088
 - 当前用户：`GET /api/auth/me`
 - Cookie 会话：`biu_session`
 - 默认浏览器会话；勾选“记住登录”后有效期 30 天。
+- **定期清理过期 Session**：服务启动时和每 24 小时自动清理已过期的 sessions。
 - 登录日志：`login_logs`
 - 失败锁定：15 分钟内失败次数达到 5 次后锁定。
+- **定期清理陈旧登录日志**：服务启动时和每 24 小时自动清理 30 天前的 `login_logs` 记录（不影响 15 分钟内的防暴力破解锁定机制）。
 - 支持环境变量首次自动创建管理员：`BIU_PANEL_ADMIN_USER`、`BIU_PANEL_ADMIN_PASSWORD`。
 
 ### 首页导航

@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"html"
 	"io"
+	"log"
 	"mime"
 	"net/http"
 	"net/url"
@@ -108,6 +109,17 @@ func CreateInitialUser(st *store.Store, username, password string) error {
 	return st.CreateUser(username, string(hash))
 }
 
+func StartCleanupTask(st *store.Store, retentionDays int) {
+	ticker := time.NewTicker(24 * time.Hour)
+	for range ticker.C {
+		if err := st.CleanupExpiredData(retentionDays); err != nil {
+			log.Printf("[CleanupTask] Failed to cleanup data: %v\n", err)
+		} else {
+			log.Println("[CleanupTask] Successfully cleaned up expired sessions and old login logs.")
+		}
+	}
+}
+
 func (s *Server) exportBookmarks(w http.ResponseWriter, r *http.Request) {
 	if _, err := s.currentUser(r); err != nil {
 		writeError(w, 401, "未登录")
@@ -182,68 +194,12 @@ func (s *Server) importBookmarks(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "读取导入文件失败或文件过大")
 		return
 	}
-	importedFolders, importedBookmarks, err := s.parseBookmarkHTML(string(body))
+	result, err := s.parseBookmarkHTML(string(body))
 	if err != nil {
 		writeError(w, 400, err.Error())
 		return
 	}
-	writeJSON(w, 201, map[string]int{"folders": importedFolders, "bookmarks": importedBookmarks})
-}
-
-func (s *Server) parseBookmarkHTML(input string) (int, int, error) {
-	tokenRe := regexp.MustCompile(`(?is)<DT>\s*<H3[^>]*>(.*?)</H3>|<DT>\s*<A[^>]*HREF=["']([^"']+)["'][^>]*>(.*?)</A>|</DL>`)
-	iconRe := regexp.MustCompile(`(?is)ICON=["']([^"']+)["']`)
-	matches := tokenRe.FindAllStringSubmatchIndex(input, -1)
-	stack := []int64{}
-	folders := 0
-	bookmarks := 0
-	lastBookmarkID := int64(0)
-	for _, m := range matches {
-		token := input[m[0]:m[1]]
-		if strings.HasPrefix(strings.ToUpper(token), "</DL") {
-			if len(stack) > 0 {
-				stack = stack[:len(stack)-1]
-			}
-			continue
-		}
-		parts := tokenRe.FindStringSubmatch(token)
-		if len(parts) >= 2 && parts[1] != "" {
-			var parent *int64
-			if len(stack) > 0 {
-				v := stack[len(stack)-1]
-				parent = &v
-			}
-			id, err := s.store.CreateFolder(store.Folder{ParentID: parent, Name: strings.TrimSpace(html.UnescapeString(stripTags(parts[1]))), Sort: folders + 1})
-			if err != nil {
-				return folders, bookmarks, err
-			}
-			stack = append(stack, id)
-			folders++
-			continue
-		}
-		if len(parts) >= 4 && parts[2] != "" {
-			if len(stack) == 0 {
-				id, err := s.store.CreateFolder(store.Folder{Name: "导入书签", Sort: folders + 1})
-				if err != nil {
-					return folders, bookmarks, err
-				}
-				stack = append(stack, id)
-				folders++
-			}
-			favicon := ""
-			if icon := iconRe.FindStringSubmatch(token); len(icon) > 1 {
-				favicon = html.UnescapeString(icon[1])
-			}
-			id, err := s.store.CreateBookmark(store.Bookmark{FolderID: stack[len(stack)-1], Title: strings.TrimSpace(html.UnescapeString(stripTags(parts[3]))), URL: html.UnescapeString(parts[2]), Favicon: favicon, Sort: bookmarks + 1})
-			if err != nil {
-				return folders, bookmarks, err
-			}
-			lastBookmarkID = id
-			bookmarks++
-			_ = lastBookmarkID
-		}
-	}
-	return folders, bookmarks, nil
+	writeJSON(w, 201, result)
 }
 
 func stripTags(v string) string {

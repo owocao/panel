@@ -26,6 +26,14 @@ func main() {
 		}
 	}
 
+	// Perform initial cleanup
+	if err := st.CleanupExpiredData(30); err != nil {
+		log.Printf("Initial cleanup failed: %v", err)
+	}
+
+	// Start background cleanup task (every 24h)
+	go httpx.StartCleanupTask(st, 30)
+
 	addr := ":" + cfg.Port
 	log.Printf("biu-panel backend listening on %s", addr)
 	if err := http.ListenAndServe(addr, httpx.New(cfg, st).Routes()); err != nil {
