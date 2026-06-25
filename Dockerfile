@@ -15,7 +15,7 @@ RUN CGO_ENABLED=0 go build -o /out/biu-panel ./cmd/server
 
 FROM alpine:3.21
 WORKDIR /app
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata wget
 COPY --from=backend /out/biu-panel /app/biu-panel
 COPY --from=frontend /src/frontend/dist /app/public
 RUN mkdir -p /app/data
