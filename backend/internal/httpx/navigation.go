@@ -7,7 +7,10 @@ import (
 	"biu-panel/backend/internal/store"
 )
 
-func (s *Server) navigation(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) navigation(w http.ResponseWriter, r *http.Request) {
+	if !s.requireAuth(w, r) {
+		return
+	}
 	groups, items, err := s.store.ListNavigation()
 	if err != nil {
 		writeError(w, 500, err.Error())

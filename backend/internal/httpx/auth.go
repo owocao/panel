@@ -102,6 +102,13 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, 200, map[string]any{"username": u.Username})
 }
+func (s *Server) requireAuth(w http.ResponseWriter, r *http.Request) bool {
+	if _, err := s.currentUser(r); err != nil {
+		writeError(w, 401, "未登录")
+		return false
+	}
+	return true
+}
 func (s *Server) isLocked(username string) (bool, error) {
 	n, err := s.store.FailedLoginsSince(username, time.Now().Add(-15*time.Minute))
 	return n >= 5, err

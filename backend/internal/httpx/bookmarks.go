@@ -8,6 +8,9 @@ import (
 )
 
 func (s *Server) bookmarkFolders(w http.ResponseWriter, r *http.Request) {
+	if !s.requireAuth(w, r) {
+		return
+	}
 	parent, ok := optionalInt(r.URL.Query().Get("parentId"))
 	if !ok && r.URL.Query().Get("parentId") != "" {
 		writeError(w, 400, "parentId 格式错误")
@@ -77,6 +80,9 @@ func (s *Server) deleteBookmarkFolder(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]bool{"ok": true})
 }
 func (s *Server) bookmarks(w http.ResponseWriter, r *http.Request) {
+	if !s.requireAuth(w, r) {
+		return
+	}
 	id, err := strconv.ParseInt(r.URL.Query().Get("folderId"), 10, 64)
 	if err != nil {
 		writeError(w, 400, "folderId 必填")
@@ -146,6 +152,9 @@ func (s *Server) deleteBookmark(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]bool{"ok": true})
 }
 func (s *Server) bookmarkSearch(w http.ResponseWriter, r *http.Request) {
+	if !s.requireAuth(w, r) {
+		return
+	}
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	if q == "" {
 		writeJSON(w, 200, map[string]any{"items": []store.Bookmark{}})

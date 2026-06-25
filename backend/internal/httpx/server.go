@@ -650,6 +650,9 @@ func (s *Server) restoreNavigationBackup(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) metadata(w http.ResponseWriter, r *http.Request) {
+	if !s.requireAuth(w, r) {
+		return
+	}
 	raw := strings.TrimSpace(r.URL.Query().Get("url"))
 	if raw == "" {
 		writeError(w, 400, "url 必填")

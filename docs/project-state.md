@@ -274,6 +274,9 @@ BIU_PANEL_PORT=55088
 - 登录日志：`login_logs`
 - 失败锁定：15 分钟内失败次数达到 5 次后锁定。
 - **定期清理陈旧登录日志**：服务启动时和每 24 小时自动清理 30 天前的 `login_logs` 记录（不影响 15 分钟内的防暴力破解锁定机制）。
+- **读取类业务 API 私有化**：`GET /api/navigation`、`GET /api/bookmark/folders`、`GET /api/bookmarks`、`GET /api/bookmark/search`、`GET /api/metadata` 已改为登录后访问，未登录统一返回 401。
+- **鉴权 helper**：后端新增 `requireAuth` helper，复用现有 `currentUser` 会话校验；本轮未纳入 `/uploads/` 静态资源访问控制。
+- **鉴权测试**：已新增未登录访问上述 5 个接口返回 401，以及登录后访问 `GET /api/navigation`、`GET /api/bookmark/folders` 的最小后端测试；`go test ./...`、`go build ./...`、`npm run build` 已通过。
 - 支持环境变量首次自动创建管理员：`BIU_PANEL_ADMIN_USER`、`BIU_PANEL_ADMIN_PASSWORD`。
 
 ### 首页导航

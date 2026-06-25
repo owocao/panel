@@ -14,6 +14,14 @@ import (
 	"biu-panel/backend/internal/store"
 )
 
+func plainRequest(method, path string, cookie *http.Cookie) *http.Request {
+	req := httptest.NewRequest(method, path, nil)
+	if cookie != nil {
+		req.AddCookie(cookie)
+	}
+	return req
+}
+
 func newTestServer(t *testing.T) (*Server, *store.Store, *http.Cookie) {
 	t.Helper()
 	dir := t.TempDir()
@@ -53,6 +61,56 @@ func decodeResponse(t *testing.T, rr *httptest.ResponseRecorder) map[string]any 
 		t.Fatal(err)
 	}
 	return body
+}
+
+func TestPrivateReadAPIsRequireLogin(t *testing.T) {
+	srv, _, _ := newTestServer(t)
+	cases := []struct {
+		name string
+		path string
+		run  http.HandlerFunc
+	}{
+		{name: "navigation", path: "/api/navigation", run: srv.navigation},
+		{name: "bookmark folders", path: "/api/bookmark/folders", run: srv.bookmarkFolders},
+		{name: "bookmarks", path: "/api/bookmarks?folderId=1", run: srv.bookmarks},
+		{name: "bookmark search", path: "/api/bookmark/search?q=test", run: srv.bookmarkSearch},
+		{name: "metadata", path: "/api/metadata?url=https://example.com", run: srv.metadata},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rr := httptest.NewRecorder()
+			tc.run(rr, plainRequest(http.MethodGet, tc.path, nil))
+			if rr.Code != http.StatusUnauthorized {
+				t.Fatalf("want 401, got %d body=%s", rr.Code, rr.Body.String())
+			}
+			if got := decodeResponse(t, rr)["error"]; got != "未登录" {
+				t.Fatalf("unexpected error: %v", got)
+			}
+		})
+	}
+}
+
+func TestPrivateReadAPIsAllowLoggedInNavigationAndFolders(t *testing.T) {
+	srv, st, cookie := newTestServer(t)
+	if _, err := st.CreateNavGroup(store.NavGroup{Name: "服务", Sort: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.CreateFolder(store.Folder{Name: "资料", Sort: 1}); err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	srv.navigation(rr, plainRequest(http.MethodGet, "/api/navigation", cookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("navigation want 200, got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	rr = httptest.NewRecorder()
+	srv.bookmarkFolders(rr, plainRequest(http.MethodGet, "/api/bookmark/folders", cookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("bookmarkFolders want 200, got %d body=%s", rr.Code, rr.Body.String())
+	}
 }
 
 func TestCreateNavItemValidation(t *testing.T) {
