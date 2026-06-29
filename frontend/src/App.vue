@@ -9,6 +9,7 @@ import MoveDialog from './components/MoveDialog.vue'
 import NavDragFloat from './components/NavDragFloat.vue'
 import SettingsPanel from './components/settings/SettingsPanel.vue'
 import { useBackupRestore } from './composables/useBackupRestore'
+import { useBookmarkActions } from './composables/useBookmarkActions'
 import { useBookmarks } from './composables/useBookmarks'
 import { useContextMenu } from './composables/useContextMenu'
 import { useEditDialog } from './composables/useEditDialog'
@@ -16,7 +17,7 @@ import { useNavigation } from './composables/useNavigation'
 import { useSettings } from './composables/useSettings'
 import { cloneFolderTree, findFolderById, flattenFolders, normalizeFolder } from './utils/bookmarkTree'
 import { cardTextClass, formatDisplayDate, formatDisplayTime, getNetworkIcon, getNetworkTip, iconUrl, isImageValue, limitText } from './utils/display'
-import { ensureHttp, normalizeNetworkMode, resolveNavUrl } from './utils/navigation'
+import { normalizeNetworkMode, resolveNavUrl } from './utils/navigation'
 import {
   createBookmark,
   createBookmarkFolder,
@@ -197,6 +198,54 @@ const {
 } = useEditDialog({ navGroupOptions, isImageValue })
 
 const {
+  openMoveDialog,
+  openFolderMoveDialog,
+  confirmMoveDialog,
+  moveBookmarkItems,
+  moveFolderToParent,
+  editFolder,
+  editBookmark,
+  moveBookmark,
+  removeBookmark,
+  getVisibleBookmarkList,
+  getSelectedBookmarks,
+  deleteSelectedBookmarks,
+  openSelectedMoveDialog,
+  batchSelectBookmark,
+  openBookmarkUrl,
+} = useBookmarkActions({
+  folders,
+  bookmarks,
+  activeFolderId,
+  activeFolder,
+  bookmarkSearch,
+  bookmarkSelectionMode,
+  selectedBookmarkIds,
+  moveDialog,
+  editDialog,
+  folderFlatList,
+  foldersDraft,
+  updateBookmark,
+  updateBookmarkFolder,
+  deleteBookmark,
+  loadFolders,
+  loadAllFolderChildren,
+  selectFolder,
+  runBookmarkSearch,
+  clearBookmarkSelection,
+  isBookmarkSelected,
+  isSettingsBookmarkManager,
+  syncFoldersDraftFromFolders,
+  getFolderTreeForAction,
+  eligibleFolderParents,
+  isFolderDescendant,
+  findFolderContainerAndIndex,
+  findFolderById,
+  markFoldersDraftDirty,
+  onStatus: (message) => { statusText.value = message },
+})
+
+const {
   menu,
   menuStyle,
   closeMenu,
@@ -367,46 +416,6 @@ function folderPayloadChanged(original, payload) {
   return original.name !== payload.name || normalizeParentId(original.parentId) !== normalizeParentId(payload.parentId) || Number(original.sort || 0) !== Number(payload.sort || 0)
 }
 
-function enableBookmarkSelection(bookmark) {
-  if (!bookmarkSelectionMode.value) bookmarkSelectionMode.value = true
-  if (!isBookmarkSelected(bookmark.id)) selectedBookmarkIds.value = [...selectedBookmarkIds.value, bookmark.id]
-}
-
-async function openMoveDialog(items, title) {
-  if (!folders.value.length) await loadFolders()
-  await loadAllFolderChildren(folders.value)
-  moveDialog.value = {
-    open: true,
-    title,
-    items,
-    kind: 'bookmarks',
-    itemLabel: '收藏',
-    allowRoot: false,
-    selectableFolders: folderFlatList.value,
-    targetFolderId: activeFolderId.value || folderFlatList.value[0]?.id || null,
-  }
-}
-
-async function openFolderMoveDialog(folder) {
-  if (isSettingsBookmarkManager()) {
-    if (!foldersDraft.value.length && folders.value.length) syncFoldersDraftFromFolders()
-  } else {
-    if (!folders.value.length) await loadFolders()
-    await loadAllFolderChildren(folders.value)
-  }
-  const tree = getFolderTreeForAction()
-  moveDialog.value = {
-    open: true,
-    title: `移动收藏夹 · ${folder.name}`,
-    items: [folder],
-    kind: 'folder',
-    itemLabel: '收藏夹',
-    allowRoot: true,
-    selectableFolders: eligibleFolderParents(folder, tree),
-    targetFolderId: folder.parentId ?? null,
-  }
-}
-
 async function loadFolderNodeChildren(folder, options = {}) {
   folder.loading = true
   try {
@@ -467,62 +476,6 @@ function toggleAllBookmarkFolders() {
   else collapseFolderTree()
 }
 
-async function moveBookmarkItems(items, folderId) {
-  const targetFolderId = Number(folderId) || 0
-  if (!targetFolderId) {
-    statusText.value = '请选择目标文件夹'
-    return
-  }
-  for (const bookmark of items) {
-    await updateBookmark({ ...bookmark, folderId: targetFolderId })
-  }
-  moveDialog.value = { open: false, title: '', items: [], targetFolderId: null }
-  clearBookmarkSelection()
-  if (activeFolder.value) await selectFolder(activeFolder.value)
-}
-
-async function moveFolderToParent(folder, parentId) {
-  if (!folder) return
-  const targetParentId = parentId == null || parentId === '' ? null : parentId
-  if (targetParentId === folder.id) {
-    statusText.value = '不能移动到自身'
-    return
-  }
-  const tree = getFolderTreeForAction()
-  if (targetParentId && isFolderDescendant(targetParentId, folder.id, tree)) {
-    statusText.value = '不能移动到自己的子收藏夹内'
-    return
-  }
-  if (isSettingsBookmarkManager()) {
-    const found = findFolderContainerAndIndex(foldersDraft.value, folder.id)
-    if (!found) return
-    const moved = found.folder
-    found.siblings.splice(found.index, 1)
-    const siblings = targetParentId ? (findFolderById(foldersDraft.value, targetParentId)?.children || []) : foldersDraft.value
-    moved.parentId = targetParentId
-    moved.sort = siblings.length + 1
-    siblings.push(moved)
-    markFoldersDraftDirty()
-    moveDialog.value = { open: false, title: '', items: [], kind: '', itemLabel: '收藏', allowRoot: false, selectableFolders: [], targetFolderId: null }
-    statusText.value = `已移动收藏夹草稿：${folder.name}`
-    return
-  }
-  const siblings = targetParentId ? (findFolderById(folders.value, targetParentId)?.children || []) : folders.value
-  await updateBookmarkFolder({ ...folder, parentId: targetParentId, sort: siblings.length + 1 })
-  moveDialog.value = { open: false, title: '', items: [], kind: '', itemLabel: '收藏', allowRoot: false, selectableFolders: [], targetFolderId: null }
-  await loadFolders()
-  await loadAllFolderChildren(folders.value)
-  statusText.value = `已移动收藏夹：${folder.name}`
-}
-
-async function confirmMoveDialog() {
-  if (moveDialog.value.kind === 'folder') {
-    await moveFolderToParent(moveDialog.value.items?.[0], moveDialog.value.targetFolderId)
-    return
-  }
-  await moveBookmarkItems(moveDialog.value.items || [], moveDialog.value.targetFolderId)
-}
-
 async function convertBookmarkToNavCard(bookmark) {
   const defaultGroup = navGroups.value[0]
   editDialog.value = { open: true, type: 'bookmarkToNav', title: '首页卡片', form: { bookmark, groupId: defaultGroup?.id || null } }
@@ -545,12 +498,6 @@ async function saveBookmarkAsNavCard(bookmark, groupId) {
   })
   statusText.value = `已设为首页卡片：${bookmark.title}`
   await loadNavigation()
-}
-
-function openBookmarkUrl(bookmark) {
-  const url = ensureHttp(bookmark?.url || '')
-  if (!url) return
-  window.location.href = url
 }
 
 function showToast(message) {
@@ -1294,14 +1241,6 @@ async function addBookmark() {
   await selectFolder(activeFolder.value)
 }
 
-async function editFolder(folder) {
-  if (!isSettingsBookmarkManager()) {
-    if (!folders.value.length) await loadFolders()
-    await loadAllFolderChildren(folders.value)
-  }
-  editDialog.value = { open: true, type: 'folder', title: '编辑收藏夹', form: { ...folder } }
-}
-
 async function moveFolder(folder, offset) {
   const tree = getFolderTreeForAction()
   const found = findFolderContainerAndIndex(tree, folder.id)
@@ -1351,74 +1290,6 @@ async function removeFolder(folder) {
   }
   await loadFolders(folder.parentId ?? null)
 }
-
-function editBookmark(bookmark) {
-  editDialog.value = { open: true, type: 'bookmark', title: '编辑书签', form: { ...bookmark } }
-}
-
-async function moveBookmark(bookmark, offset) {
-  const list = [...bookmarks.value]
-  const index = list.findIndex((item) => item.id === bookmark.id)
-  const targetIndex = index + offset
-  if (index < 0 || targetIndex < 0 || targetIndex >= list.length) return
-  const target = list[targetIndex]
-  const bookmarkSort = bookmark.sort || index + 1
-  const targetSort = target.sort || targetIndex + 1
-  await updateBookmark({ ...bookmark, sort: targetSort })
-  await updateBookmark({ ...target, sort: bookmarkSort })
-  await selectFolder(activeFolder.value)
-}
-
-async function removeBookmark(bookmark) {
-  if (!confirm(`确认删除收藏「${bookmark.title}」？`)) return
-  if (!confirm('删除后无法恢复，确认永久删除？')) return
-  await deleteBookmark(bookmark.id)
-  if (bookmarkSelectionMode.value) {
-    selectedBookmarkIds.value = selectedBookmarkIds.value.filter((id) => id !== bookmark.id)
-    if (!selectedBookmarkIds.value.length) bookmarkSelectionMode.value = false
-  }
-  if (activeFolder.value) await selectFolder(activeFolder.value)
-}
-
-function getVisibleBookmarkList() {
-  return bookmarkSearch.value.q.trim() ? bookmarkSearch.value.results : bookmarks.value
-}
-
-function getSelectedBookmarks() {
-  const source = new Map(getVisibleBookmarkList().map((item) => [item.id, item]))
-  return selectedBookmarkIds.value.map((id) => source.get(id)).filter(Boolean)
-}
-
-async function deleteSelectedBookmarks() {
-  const items = getSelectedBookmarks()
-  if (!items.length) {
-    statusText.value = '请先选择要删除的收藏'
-    return
-  }
-  if (!confirm(`确认删除选中的 ${items.length} 条收藏？`)) return
-  if (!confirm('删除后无法恢复，确认永久删除？')) return
-  for (const bookmark of items) {
-    await deleteBookmark(bookmark.id)
-  }
-  clearBookmarkSelection()
-  if (activeFolder.value) await selectFolder(activeFolder.value)
-  if (bookmarkSearch.value.q.trim()) await runBookmarkSearch()
-}
-
-function openSelectedMoveDialog() {
-  const items = getSelectedBookmarks()
-  if (!items.length) {
-    statusText.value = '请先选择要移动的收藏'
-    return
-  }
-  openMoveDialog(items, '批量移动收藏')
-}
-
-async function batchSelectBookmark(bookmark) {
-  enableBookmarkSelection(bookmark)
-  statusText.value = `已加入批量选择：${bookmark.title}`
-}
-
 
 async function saveEditDialog() {
   const { type, form } = editDialog.value
