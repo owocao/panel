@@ -3,14 +3,12 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import BookmarkFolderTreeNode from './components/BookmarkFolderTreeNode.vue'
 import BookmarkRow from './components/BookmarkRow.vue'
 import ContextMenu from './components/ContextMenu.vue'
+import EditDialog from './components/EditDialog.vue'
 import FloatingActions from './components/FloatingActions.vue'
 import HomeHero from './components/HomeHero.vue'
 import MoveDialog from './components/MoveDialog.vue'
 import NavDragFloat from './components/NavDragFloat.vue'
-import SettingsMenu from './components/SettingsMenu.vue'
-import BackupRestoreSection from './components/BackupRestoreSection.vue'
-import SearchEngineManagerSection from './components/SearchEngineManagerSection.vue'
-import PersonalSettingsForm from './components/PersonalSettingsForm.vue'
+import SettingsPanel from './components/settings/SettingsPanel.vue'
 import {
   createBookmark,
   createBookmarkFolder,
@@ -2185,141 +2183,65 @@ function showBookmarkMenu(event, bookmark) {
 
       <NavDragFloat v-if="navPointerDrag.active" :item="navPointerDrag.item" :drag-style="navDragFloatStyle()" :is-image-value="isImageValue" :card-text-class="cardTextClass" :limit-text="limitText" />
 
-      <section v-if="settingsOpen" class="settings-mask" @mousedown.self.stop="closeSettings" @wheel.stop.prevent>
-        <section class="settings-panel settings-center" @click.stop @wheel.stop="handleOverlayWheel">
-          <header class="settings-head"><div><h2>系统设置</h2></div><div class="inline-actions"><button type="button" :disabled="settingsSaving" @click="submitSettings">{{ settingsSaving ? '保存中...' : '保存' }}</button><button type="button" :disabled="settingsSaving" @click="closeSettings">关闭</button></div></header>
-          <p v-if="settingsMessage" class="settings-message">{{ settingsMessage }}</p>
-          <div class="settings-layout" :class="{ collapsed: settingsMenuCollapsed }">
-            <SettingsMenu :collapsed="settingsMenuCollapsed" :active="activeSettings" @toggle-collapse="settingsMenuCollapsed = !settingsMenuCollapsed" @select="selectSettingsMenu" />
-            <div class="settings-content">
-              <section v-if="activeSettings === '分组管理'" class="setting-card manager-card"><header class="manager-head"><h3>分组管理</h3><button type="button" @click="createGroupByPrompt">新增分组</button></header><article v-for="group in navGroupsDraft" :key="`manage-${group.id}`" class="manager-row"><div><strong>{{ group.name }}</strong><p>{{ group.items?.length || 0 }} 张卡片</p></div><div class="inline-actions"><button type="button" @click="addCardFromMenu(group)">新增卡片</button><button type="button" @click="editNavGroup(group)">编辑</button><button type="button" @click="moveNavGroup(group, -1)">上移</button><button type="button" @click="moveNavGroup(group, 1)">下移</button><button type="button" @click="removeNavGroup(group, true)">删除</button></div></article><div v-if="!navGroupsDraft.length" class="empty-state">暂无导航分组</div></section>
-              <section v-if="activeSettings === '收藏夹'" class="setting-card manager-card"><header class="manager-head"><h3>收藏夹管理</h3><div class="inline-actions"><button type="button" @click="createFolderByPrompt()">新增收藏夹</button><button type="button" @click="openDrawer">打开收藏夹</button></div></header><article v-for="folder in folderManagementFlatList" :key="`manage-folder-${folder.id}`" class="manager-row" :style="{ paddingLeft: `${10 + folder.depth * 14}px` }"><strong>{{ folder.name }}</strong><div class="inline-actions"><button type="button" @click="createFolderByPrompt(folder)">新增收藏夹</button><button type="button" @click="editFolder(folder)">编辑</button><button type="button" @click="openFolderMoveDialog(folder)">移动</button><button type="button" @click="moveFolder(folder, -1)">上移</button><button type="button" @click="moveFolder(folder, 1)">下移</button><button type="button" @click="removeFolder(folder)">删除</button></div></article><div v-if="!folderManagementFlatList.length" class="empty-state">暂无收藏夹，点击新增收藏夹创建。</div></section>
-              <SearchEngineManagerSection
-                  :active="activeSettings === '搜索引擎'"
-                  :engines="settingsSearchEngines"
-                  @add="addSearchEngine"
-                  @edit="editSearchEngine"
-                  @move="moveSearchEngine"
-                  @remove="removeSearchEngine"
-                />
-              <section v-if="activeSettings === '关于'" class="setting-card"><h3>关于</h3><p>个人自用导航站和网页收藏夹。</p></section>
-              <div class="settings-grid">
-                <PersonalSettingsForm
-                  :active="activeSettings === '个性化'"
-                  :draft="settingsDraft"
-                />
-                <section v-show="activeSettings === 'S3 存储'" class="setting-card settings-card-wide"><h3>S3 存储</h3><label class="check-row"><input v-model="settingsDraft.s3Enabled" true-value="true" false-value="false" type="checkbox" /> 启用 S3 配置</label><label>Endpoint<input v-model="settingsDraft.s3Endpoint" placeholder="https://s3.example.com" /></label><label>Region<input v-model="settingsDraft.s3Region" placeholder="auto" /></label><label>Bucket<input v-model="settingsDraft.s3Bucket" placeholder="biu-panel" /></label><label>Access Key<input v-model="settingsDraft.s3AccessKey" /></label><label>Secret Key<input v-model="settingsDraft.s3SecretKey" type="password" /></label><label>上传前缀<input v-model="settingsDraft.s3Prefix" placeholder="biu-panel/" /></label><label>公开访问域名<input v-model="settingsDraft.s3PublicBase" placeholder="https://cdn.example.com/biu-panel" /></label><label class="check-row"><input v-model="settingsDraft.s3PathStyle" true-value="true" false-value="false" type="checkbox" /> Path-style 兼容模式</label><div class="inline-actions"><button type="button" :disabled="settingsSaving" @click="submitSettings">{{ settingsSaving ? '保存中...' : '保存 S3 配置' }}</button><button type="button" :disabled="settingsSaving" @click="submitTestS3">测试 S3</button></div></section>
-                <BackupRestoreSection
-                  :active="activeSettings === '备份恢复'"
-                  @restore-global="restoreBackupFile"
-                  @download-nav="downloadNavigationBackup"
-                  @restore-nav="restoreNavigationBackupFile"
-                  @export-bookmarks="exportBookmarks"
-                  @import-bookmarks="importBookmarksFile"
-                />
-              </div>
-            </div>
-          </div>
-        </section>
-      </section>
+      <SettingsPanel
+        :open="settingsOpen"
+        :active-settings="activeSettings"
+        :menu-collapsed="settingsMenuCollapsed"
+        :message="settingsMessage"
+        :saving="settingsSaving"
+        :settings-draft="settingsDraft"
+        :nav-groups-draft="navGroupsDraft"
+        :folder-management-flat-list="folderManagementFlatList"
+        :settings-search-engines="settingsSearchEngines"
+        @close="closeSettings"
+        @save="submitSettings"
+        @toggle-menu="settingsMenuCollapsed = !settingsMenuCollapsed"
+        @select-menu="selectSettingsMenu"
+        @panel-wheel="handleOverlayWheel"
+        @create-group="createGroupByPrompt"
+        @create-card="addCardFromMenu"
+        @edit-group="editNavGroup"
+        @reorder-group="moveNavGroup"
+        @remove-group="removeNavGroup"
+        @create-folder="createFolderByPrompt"
+        @open-drawer="openDrawer"
+        @edit-folder="editFolder"
+        @request-move-folder="openFolderMoveDialog"
+        @reorder-folder="moveFolder"
+        @remove-folder="removeFolder"
+        @add-search-engine="addSearchEngine"
+        @edit-search-engine="editSearchEngine"
+        @reorder-search-engine="moveSearchEngine"
+        @remove-search-engine="removeSearchEngine"
+        @test-s3="submitTestS3"
+        @restore-global="restoreBackupFile"
+        @download-nav="downloadNavigationBackup"
+        @restore-nav="restoreNavigationBackupFile"
+        @export-bookmarks="exportBookmarks"
+        @import-bookmarks="importBookmarksFile"
+      />
     </template>
 
-    <section v-if="editDialog.open" class="modal-mask" @mousedown.self.stop="closeEditDialog" @wheel.stop.prevent>
-      <form class="edit-modal" :class="{ 'bookmark-to-nav-modal': editDialog.type === 'bookmarkToNav' }" @click.stop @wheel.stop="handleOverlayWheel" @submit.prevent="saveEditDialog">
-        <header class="modal-head"><h2>{{ editDialog.title }}</h2></header>
-        <label v-if="editDialog.type === 'navGroup' || editDialog.type === 'navGroupCreate'">名称<span class="label-line"><small>{{ String(editDialog.form.name || '').length }}/10</small></span><input v-model="editDialog.form.name" maxlength="10" placeholder="请输入分组名称" @input="clampEditField('name', 10)" /></label>
-        <template v-if="editDialog.type === 'folder' || editDialog.type === 'folderCreate'">
-          <label>名称<input v-model="editDialog.form.name" placeholder="请输入收藏夹名称" /></label>
-          <label v-if="editDialog.type === 'folderCreate'">上级收藏夹
-            <select v-model="editDialog.form.parentId">
-              <option :value="null">根目录</option>
-              <option v-for="folder in folderManagementFlatList.filter((item) => item.depth < 3)" :key="`folder-parent-${folder.id}`" :value="folder.id">{{ '　'.repeat(folder.depth) }}{{ folder.name }}</option>
-            </select>
-          </label>
-          <label v-if="editDialog.type === 'folder'">移动
-            <select v-model="editDialog.form.parentId">
-              <option :value="null">根目录</option>
-              <option v-for="folder in eligibleFolderParents(editDialog.form, getFolderTreeForAction())" :key="`folder-move-parent-${folder.id}`" :value="folder.id">{{ '　'.repeat(folder.depth) }}{{ folder.name }}</option>
-            </select>
-          </label>
-        </template>
-        <template v-if="editDialog.type === 'navItem' || editDialog.type === 'navItemCreate'">
-          <label>
-            <span class="label-line"><span>标题 <em class="required">*</em></span><small>{{ String(editDialog.form.name || '').length }}/15</small></span>
-            <input v-model="editDialog.form.name" maxlength="15" required placeholder="请输入标题" @input="clampEditField('name', 15)" />
-          </label>
-          <div class="icon-mode-block">
-            <span class="icon-mode-title">图标风格</span>
-            <div class="segmented">
-              <button type="button" :class="{ active: editDialog.form.iconMode !== 'image' }" @click="setNavIconMode(editDialog.form, 'text')">文字</button>
-              <button type="button" :class="{ active: editDialog.form.iconMode === 'image' }" @click="setNavIconMode(editDialog.form, 'image')">图片</button>
-            </div>
-            <label>
-              <span class="label-line"><span>{{ editDialog.form.iconMode === 'image' ? '图片地址' : '文本内容' }}</span><small v-if="editDialog.form.iconMode !== 'image'">{{ String(editDialog.form.icon || '').length }}/5</small></span>
-              <span class="input-with-button">
-                <input v-model="editDialog.form.icon" :maxlength="editDialog.form.iconMode === 'image' ? undefined : 5" :placeholder="editDialog.form.iconMode === 'image' ? '输入图标地址或上传' : '请输入文本内容'" @input="editDialog.form.iconMode !== 'image' && clampEditField('icon', 5)" />
-                <label v-if="editDialog.form.iconMode === 'image'" class="upload-inline">上传<input type="file" accept="image/*" @change="uploadIconFile($event, editDialog.form, 'icon')" /></label>
-              </span>
-            </label>
-          </div>
-          <label>
-            <span class="label-line"><span>分组 <em class="required">*</em></span></span>
-            <div class="select-popover" :class="{ open: groupSelectOpen }">
-              <button type="button" class="select-trigger" @click="groupSelectOpen = !groupSelectOpen">
-                <span>{{ getEditGroupName() }}</span>
-                <span class="select-arrow">⌄</span>
-              </button>
-              <div v-if="groupSelectOpen" class="select-options">
-                <button v-for="group in navGroupOptions" :key="`edit-group-${group.id}`" type="button" :class="{ active: group.id === editDialog.form.groupId }" @click.stop="selectEditGroup(group)">{{ group.name }}</button>
-              </div>
-            </div>
-          </label>
-          <label>
-            <span class="label-line"><span>公网地址 <em class="required">*</em></span></span>
-            <span class="input-with-button metadata-inline">
-              <input v-model="editDialog.form.wanUrl" required placeholder="https://example.com" />
-              <button class="field-action" type="button" @click="fillMetadataFromField(editDialog.form, 'wanUrl')">{{ metadataLoading ? '抓取中' : '自动抓取标题/图标' }}</button>
-            </span>
-          </label>
-          <label>
-            <span class="label-line"><span>内网地址</span></span>
-            <span class="input-with-button metadata-inline">
-              <input v-model="editDialog.form.lanUrl" placeholder="http://192.168.x.x" />
-              <button class="field-action" type="button" @click="fillMetadataFromField(editDialog.form, 'lanUrl')">{{ metadataLoading ? '抓取中' : '自动抓取标题/图标' }}</button>
-            </span>
-          </label>
-        </template>
-        <template v-if="editDialog.type === 'bookmark' || editDialog.type === 'bookmarkCreate'">
-          <label>标题<input v-model="editDialog.form.title" /></label>
-          <label><span class="label-line"><span>网址 <b class="required">*</b></span></span><input v-model="editDialog.form.url" required /></label>
-          <label>备注<input v-model="editDialog.form.note" /></label>
-          <label>所属文件夹
-            <select v-model="editDialog.form.folderId">
-              <option v-for="folder in folderFlatList" :key="`edit-bookmark-folder-${folder.id}`" :value="folder.id">{{ '　'.repeat(folder.depth) }}{{ folder.name }}</option>
-            </select>
-          </label>
-          <button type="button" @click="fillMetadata(editDialog.form)">{{ metadataLoading ? '抓取中' : '自动抓取标题/图标' }}</button>
-        </template>
-        <template v-if="editDialog.type === 'bookmarkToNav'">
-          <label>
-            目标分组
-            <div class="select-popover" :class="{ open: groupSelectOpen }">
-              <button type="button" class="select-trigger" @click="groupSelectOpen = !groupSelectOpen"><span>{{ getEditGroupName() }}</span><span class="select-arrow">⌄</span></button>
-              <div v-if="groupSelectOpen" class="select-options">
-                <button v-for="group in navGroupOptions" :key="`bookmark-nav-group-${group.id}`" type="button" :class="{ active: group.id === editDialog.form.groupId }" @click.stop="selectEditGroup(group)">{{ group.name }}</button>
-              </div>
-            </div>
-          </label>
-          <p class="muted">将收藏「{{ editDialog.form.bookmark?.title }}」复制为首页导航卡片。</p>
-        </template>
-        <template v-if="editDialog.type === 'searchEngine' || editDialog.type === 'searchEngineCreate'"><label>标题<input v-model="editDialog.form.title" placeholder="例如 Google" /></label><label>URL<input v-model="editDialog.form.url" placeholder="https://example.com/search?q={q}" /></label><div class="icon-mode-block"><span class="icon-mode-title">图标风格</span><div class="segmented"><button type="button" :class="{ active: editDialog.form.iconMode !== 'image' }" @click="setNavIconMode(editDialog.form, 'text')">文字</button><button type="button" :class="{ active: editDialog.form.iconMode === 'image' }" @click="setNavIconMode(editDialog.form, 'image')">图片</button></div><label><span class="label-line"><span>{{ editDialog.form.iconMode === 'image' ? '图片地址' : '文本内容' }}</span></span><span class="input-with-button"><input v-model="editDialog.form.icon" :placeholder="editDialog.form.iconMode === 'image' ? '输入图标地址或上传' : '请输入文本内容'" /><label v-if="editDialog.form.iconMode === 'image'" class="upload-inline">上传<input type="file" accept="image/*" @change="uploadIconFile($event, editDialog.form, 'icon')" /></label></span></label></div></template>
-        <footer class="modal-actions">
-          <button type="submit">保存</button>
-          <button v-if="editDialog.type !== 'navItemCreate' && editDialog.type !== 'navGroupCreate' && editDialog.type !== 'searchEngineCreate' && editDialog.type !== 'folderCreate' && editDialog.type !== 'bookmarkCreate'" type="button" @click="closeEditDialog">取消</button>
-          <button v-if="editDialog.type === 'navItem'" class="danger" type="button" @click="deleteEditingNavCard">删除</button>
-        </footer>
-      </form>
-    </section>
+    <EditDialog
+      v-model:group-select-open="groupSelectOpen"
+      :dialog="editDialog"
+      :nav-group-options="navGroupOptions"
+      :folder-management-flat-list="folderManagementFlatList"
+      :folder-flat-list="folderFlatList"
+      :eligible-folder-parents="eligibleFolderParents(editDialog.form, getFolderTreeForAction())"
+      :metadata-loading="metadataLoading"
+      :edit-group-name="getEditGroupName()"
+      @close="closeEditDialog"
+      @save="saveEditDialog"
+      @delete-nav-card="deleteEditingNavCard"
+      @clamp-field="clampEditField"
+      @select-group="selectEditGroup"
+      @set-icon-mode="setNavIconMode"
+      @upload-icon="uploadIconFile"
+      @fill-metadata="fillMetadata"
+      @fill-metadata-from-field="fillMetadataFromField"
+      @panel-wheel="handleOverlayWheel"
+    />
 
 
     <MoveDialog v-model:target-folder-id="moveDialog.targetFolderId" :open="moveDialog.open" :title="moveDialog.title" :items="moveDialog.items" :folder-flat-list="moveDialog.selectableFolders || folderFlatList" :item-label="moveDialog.itemLabel || '收藏'" :allow-root="Boolean(moveDialog.allowRoot)" @close="moveDialog.open = false" @confirm="confirmMoveDialog" />
