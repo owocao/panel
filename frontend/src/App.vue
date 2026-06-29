@@ -8,10 +8,14 @@ import HomeHero from './components/HomeHero.vue'
 import MoveDialog from './components/MoveDialog.vue'
 import NavDragFloat from './components/NavDragFloat.vue'
 import SettingsPanel from './components/settings/SettingsPanel.vue'
+import { useBackupRestore } from './composables/useBackupRestore'
 import { useBookmarks } from './composables/useBookmarks'
+import { useContextMenu } from './composables/useContextMenu'
 import { useEditDialog } from './composables/useEditDialog'
+import { useNavigation } from './composables/useNavigation'
 import { cloneFolderTree, findFolderById, flattenFolders, normalizeFolder } from './utils/bookmarkTree'
 import { cardTextClass, formatDisplayDate, formatDisplayTime, getNetworkIcon, getNetworkTip, iconUrl, isImageValue, limitText } from './utils/display'
+import { ensureHttp, resolveNavUrl } from './utils/navigation'
 import {
   createBookmark,
   createBookmarkFolder,
@@ -51,26 +55,21 @@ const activeSettings = ref('个性化')
 const settingsMenuCollapsed = ref(false)
 const settingsMessage = ref('')
 const settingsSaving = ref(false)
-const menu = ref({ open: false, x: 0, y: 0, title: '', actions: [], compact: false })
 const statusText = ref('正在连接后端...')
 const toastText = ref('')
 const user = ref(null)
 const initialized = ref(false)
-const navGroups = ref([])
 const moveDialog = ref({ open: false, title: '', items: [], targetFolderId: null })
 const loginForm = ref({ username: '', password: '', remember: false })
 const setupForm = ref({ username: 'admin', password: '', confirm: '' })
 const quickNav = ref({ groupName: '', cardName: '', url: '' })
 const quickBookmark = ref({ folderName: '', title: '', url: '', note: '', favicon: '' })
-const webSearch = ref({ q: '', engine: 'google' })
-const searchPickerOpen = ref(false)
 const editingNavGroupId = ref(null)
 const metadataLoading = ref(false)
 const assetUploading = ref(false)
 const dragState = ref({ type: '', groupId: null, item: null, overId: null, saving: false, lastMoveAt: 0, settling: false })
 const navPointerDrag = ref({ active: false, moved: false, groupId: null, item: null, pointerId: null, startX: 0, startY: 0, x: 0, y: 0, offsetX: 0, offsetY: 0, lastMoveAt: 0, lastTargetId: '' })
 const suppressNextNavCardClick = ref(false)
-const networkMode = ref('lan')
 const now = ref(new Date())
 const dateMode = ref('solar')
 let clockTimer
@@ -84,12 +83,8 @@ const navDraftDirty = ref(false)
 const foldersDraft = ref([])
 const foldersDraftDirty = ref(false)
 
-const displayGroups = computed(() => navGroups.value)
-const navGroupOptions = computed(() => (settingsOpen.value ? navGroupsDraft.value : navGroups.value))
-const menuStyle = computed(() => ({ left: `${menu.value.x}px`, top: `${menu.value.y}px`, width: menu.value.width ? `${menu.value.width}px` : undefined }))
 const folderManagementTree = computed(() => (settingsOpen.value && activeSettings.value === '收藏夹' ? foldersDraft.value : folders.value))
 const folderManagementFlatList = computed(() => flattenFolders(folderManagementTree.value))
-const navItemCount = computed(() => navGroups.value.reduce((total, group) => total + (group.items?.length || 0), 0))
 const showNetworkSwitcher = computed(() => true)
 const networkTip = computed(() => getNetworkTip(networkMode.value))
 const networkIcon = computed(() => getNetworkIcon(networkMode.value))
@@ -98,23 +93,41 @@ const displayDate = computed(() => formatDisplayDate(now.value, dateMode.value))
 function toggleDateMode() {
   dateMode.value = dateMode.value === 'solar' ? 'lunar' : 'solar'
 }
-const searchEngines = computed(() => {
-  try {
-    const engines = JSON.parse(settingsForm.value.searchEngines || '[]')
-    return Array.isArray(engines) && engines.length ? engines : []
-  } catch {
-    return []
-  }
+const {
+  navGroups,
+  networkMode,
+  webSearch,
+  searchPickerOpen,
+  displayGroups,
+  navItemCount,
+  searchEngines,
+  settingsSearchEngines,
+  activeSearchEngine,
+  loadNavigation,
+  cycleNetworkMode,
+  runWebSearch,
+  selectSearchEngine,
+  addSearchEngine,
+  editSearchEngine,
+  removeSearchEngine,
+  moveSearchEngine,
+  uploadSearchEngineIcon,
+  openNavItemFromMenu,
+  openNavItem,
+  normalizeNetworkMode,
+} = useNavigation({
+  getNavigation,
+  uploadAsset,
+  settingsForm,
+  settingsDraft,
+  settingsOpen,
+  openEditDialog: (dialog) => { editDialog.value = dialog },
+  assetUploading,
+  isImageValue,
+  onStatus: (message) => { statusText.value = message },
+  onToast: (message) => showToast(message),
 })
-const settingsSearchEngines = computed(() => {
-  try {
-    const engines = JSON.parse(settingsDraft.value.searchEngines || '[]')
-    return Array.isArray(engines) && engines.length ? engines : []
-  } catch {
-    return []
-  }
-})
-const activeSearchEngine = computed(() => searchEngines.value.find((engine) => engine.key === webSearch.value.engine) || searchEngines.value[0])
+const navGroupOptions = computed(() => (settingsOpen.value ? navGroupsDraft.value : navGroups.value))
 
 const {
   folders,
@@ -153,6 +166,65 @@ const {
   selectEditGroup,
   setNavIconMode,
 } = useEditDialog({ navGroupOptions, isImageValue })
+
+const {
+  menu,
+  menuStyle,
+  closeMenu,
+  runMenuAction,
+  showCardMenu,
+  showGroupMenu,
+  showFolderMenu,
+  showBookmarkMenu,
+} = useContextMenu({
+  onError: (error) => { statusText.value = error.message },
+  onStatus: (message) => { statusText.value = message },
+  actions: {
+    isNavGroupEditing: (group) => editingNavGroupId.value === group.id,
+    openNavItemFromMenu,
+    editNavCard,
+    removeNavCard,
+    addCardFromMenu,
+    editNavGroup,
+    removeNavGroup,
+    getFolderFlatList: () => folderFlatList.value,
+    createFolderByPrompt,
+    createBookmarkByPrompt,
+    openFolderMoveDialog,
+    editFolder,
+    removeFolder,
+    ensureHttp,
+    openMoveDialog,
+    convertBookmarkToNavCard,
+    editBookmark,
+    removeBookmark,
+  },
+})
+
+const {
+  restoreBackupFile,
+  downloadNavigationBackup,
+  restoreNavigationBackupFile,
+  importBookmarksFile,
+  exportBookmarks,
+} = useBackupRestore({
+  downloadFile,
+  restoreBackup,
+  restoreNavigationBackup,
+  importBookmarkHTML,
+  loadNavigation,
+  loadFolders,
+  drawerOpen,
+  settingsOpen,
+  navGroups,
+  navGroupsDraft,
+  navDraftDirty,
+  folders,
+  activeFolderId,
+  bookmarks,
+  statusText,
+  settingsMessage,
+})
 
 function handleOverlayWheel(event) {
   const target = event.target instanceof Element ? event.target : event.target?.parentElement
@@ -454,86 +526,10 @@ async function saveBookmarkAsNavCard(bookmark, groupId) {
   await loadNavigation()
 }
 
-function normalizeNetworkMode(value) {
-  return value === 'wan' ? 'wan' : 'lan'
-}
-
-function ensureHttp(url) {
-  url = String(url || '').trim()
-  if (!url || url === '#') return url
-  if (!/^https?:\/\//i.test(url) && !url.startsWith('/')) {
-    return 'http://' + url
-  }
-  return url
-}
-
-function navUrlCandidates(item) {
-  const lanUrl = ensureHttp(item?.lanUrl)
-  const wanUrl = ensureHttp(item?.wanUrl)
-  if (networkMode.value === 'lan') return { primary: lanUrl, fallback: wanUrl }
-  return { primary: wanUrl, fallback: lanUrl }
-}
-
-function resolveNavUrl(item) {
-  const { primary, fallback } = navUrlCandidates(item)
-  return primary || fallback || '#'
-}
-
-function openResolvedUrl(url, target = '_self', openedWindow = null) {
-  if (!url || url === '#') return
-  if (target === '_self') {
-    window.location.href = url
-    return
-  }
-  if (openedWindow) {
-    openedWindow.location.href = url
-    return
-  }
-  window.open(url, target, 'noopener,noreferrer')
-}
-
-function openNavItemFromMenu(item, target = '_blank', features = 'noopener,noreferrer') {
-  const url = resolveNavUrl(item)
-  if (!url || url === '#') return
-  window.open(url, target, features)
-}
-
-async function probeUrl(url) {
-  if (!url || url === '#') return false
-  const timeout = Math.max(200, Number(settingsForm.value.lanDetectTimeout || 800) || 800)
-  const controller = new AbortController()
-  const timer = window.setTimeout(() => controller.abort(), timeout)
-  try {
-    await fetch(url, { mode: 'no-cors', cache: 'no-store', signal: controller.signal })
-    return true
-  } catch {
-    return false
-  } finally {
-    window.clearTimeout(timer)
-  }
-}
-
 function openBookmarkUrl(bookmark) {
   const url = ensureHttp(bookmark?.url || '')
   if (!url) return
   window.location.href = url
-}
-
-async function openNavItem(item, target = '_self', features = 'noopener,noreferrer') {
-  const { primary, fallback } = navUrlCandidates(item)
-  const firstUrl = primary || fallback
-  if (!firstUrl) return
-  let openedWindow = null
-  if (target !== '_self') openedWindow = window.open('about:blank', target, features)
-  if (!primary || !fallback) {
-    openResolvedUrl(firstUrl, target, openedWindow)
-    return
-  }
-  if (await probeUrl(primary)) {
-    openResolvedUrl(primary, target, openedWindow)
-    return
-  }
-  openResolvedUrl(fallback, target, openedWindow)
 }
 
 function openSettings() {
@@ -610,73 +606,6 @@ function removeNavDraftItem(itemId) {
   markNavDraftDirty()
 }
 
-function cycleNetworkMode() {
-  networkMode.value = networkMode.value === 'lan' ? 'wan' : 'lan'
-  localStorage.setItem('biu-network-mode', networkMode.value)
-  const message = networkMode.value === 'lan' ? '已经切换到优先内网' : '已经切换到优先公网'
-  statusText.value = message
-  showToast(message)
-}
-
-function runWebSearch() {
-  const q = webSearch.value.q.trim()
-  const engine = activeSearchEngine.value
-  if (!q || !engine) return
-  const url = (engine.url || '').replace('{q}', encodeURIComponent(q))
-  if (url) window.open(url, '_blank')
-}
-
-function selectSearchEngine(engine) {
-  webSearch.value.engine = engine.key
-  searchPickerOpen.value = false
-}
-
-function writeSearchEngines(engines) {
-  if (settingsOpen.value) settingsDraft.value.searchEngines = JSON.stringify(engines)
-  else settingsForm.value.searchEngines = JSON.stringify(engines)
-}
-
-function addSearchEngine() {
-  editDialog.value = { open: true, type: 'searchEngineCreate', title: '增加搜索引擎', form: { key: `custom-${Date.now()}`, title: '', url: '', icon: '', iconMode: 'text' } }
-}
-
-function editSearchEngine(engine) {
-  editDialog.value = { open: true, type: 'searchEngine', title: '编辑搜索引擎', form: { ...engine, iconMode: isImageValue(engine.icon) ? 'image' : 'text' } }
-}
-
-function removeSearchEngine(engine) {
-  if (!confirm(`确认删除搜索引擎「${engine.title}」？`)) return
-  const engines = settingsSearchEngines.value.filter((item) => item.key !== engine.key)
-  writeSearchEngines(engines)
-  if (webSearch.value.engine === engine.key) webSearch.value.engine = engines[0]?.key || ''
-}
-
-function moveSearchEngine(engine, offset) {
-  const engines = [...settingsSearchEngines.value]
-  const index = engines.findIndex((item) => item.key === engine.key)
-  const targetIndex = index + offset
-  if (index < 0 || targetIndex < 0 || targetIndex >= engines.length) return
-  const target = engines[targetIndex]
-  engines[targetIndex] = engine
-  engines[index] = target
-  writeSearchEngines(engines)
-}
-
-async function uploadSearchEngineIcon(event, engine) {
-  const file = event.target.files?.[0]
-  if (!file) return
-  assetUploading.value = true
-  try {
-    const result = await uploadAsset(file)
-    writeSearchEngines(settingsSearchEngines.value.map((item) => item.key === engine.key ? { ...item, icon: result.url } : item))
-  } catch (error) {
-    statusText.value = error.message
-  } finally {
-    assetUploading.value = false
-    event.target.value = ''
-  }
-}
-
 async function refreshBootstrap() {
   try {
     const setupInfo = await setupStatus()
@@ -725,58 +654,6 @@ async function submitTestS3() {
     statusText.value = `S3 测试成功：${data.key}`
   } catch (error) {
     statusText.value = error.message
-  }
-}
-
-async function restoreBackupFile(event) {
-  const file = event.target.files?.[0]
-  if (!file) return
-  if (!confirm('恢复备份会覆盖当前数据目录中的同名文件，确认继续？')) {
-    event.target.value = ''
-    return
-  }
-  try {
-    const data = await restoreBackup(file)
-    statusText.value = `恢复完成：${data.files} 个文件，请重启容器后确认数据`
-    await loadNavigation()
-    if (drawerOpen.value) await loadFolders()
-  } catch (error) {
-    statusText.value = error.message
-  } finally {
-    event.target.value = ''
-  }
-}
-
-async function downloadNavigationBackup() {
-  try {
-    await downloadFile('/api/navigation/backup')
-  } catch (error) {
-    statusText.value = error.message
-    settingsMessage.value = error.message
-  }
-}
-
-async function restoreNavigationBackupFile(event) {
-  const file = event.target.files?.[0]
-  if (!file) return
-  if (!confirm('恢复导航页备份会替换当前全部导航分组和卡片，确认继续？')) {
-    event.target.value = ''
-    return
-  }
-  try {
-    const data = await restoreNavigationBackup(file)
-    statusText.value = `导航恢复完成：${data.groups} 个分组，${data.items} 张卡片`
-    settingsMessage.value = statusText.value
-    await loadNavigation()
-    if (settingsOpen.value) {
-      navGroupsDraft.value = navGroups.value.map((group) => ({ ...group, items: [...(group.items || [])] }))
-      navDraftDirty.value = false
-    }
-  } catch (error) {
-    statusText.value = error.message
-    settingsMessage.value = error.message
-  } finally {
-    event.target.value = ''
   }
 }
 
@@ -895,37 +772,6 @@ async function saveFolderDraftOrder() {
   await saveFolderNodes(foldersDraft.value)
   await loadFolders()
   syncFoldersDraftFromFolders()
-}
-
-async function loadNavigation() {
-  try {
-    const data = await getNavigation()
-    navGroups.value = data.groups || []
-  } catch {
-    navGroups.value = []
-  }
-}
-
-
-async function importBookmarksFile(event) {
-  const file = event.target.files?.[0]
-  if (!file) return
-  try {
-    const data = await importBookmarkHTML(file)
-    statusText.value = `导入完成：${data.folders} 个文件夹，${data.bookmarks} 条收藏`
-    folders.value = []
-    activeFolderId.value = null
-    bookmarks.value = []
-    await loadFolders()
-  } catch (error) {
-    statusText.value = error.message
-  } finally {
-    event.target.value = ''
-  }
-}
-
-function exportBookmarks() {
-  window.location.href = '/api/bookmark/export'
 }
 
 async function openDrawer() {
@@ -1763,42 +1609,6 @@ async function saveEditDialog() {
   }
 }
 
-function showMenu(event, title, actions, options = {}) {
-  event.preventDefault()
-  const point = event.touches?.[0] || event
-  const menuWidth = options.width || (options.compact ? 128 : 220)
-  const x = Math.min(point.clientX, window.innerWidth - menuWidth - 8)
-  const menuHeight = options.height || (actions.length * 38 + (title ? 36 : 0) + 16)
-  const y = Math.min(point.clientY, window.innerHeight - menuHeight - 8)
-  menu.value = { open: true, x: Math.max(8, x), y: Math.max(8, y), title, actions, compact: Boolean(options.compact), width: options.width || null }
-}
-function closeMenu() { menu.value.open = false }
-async function runMenuAction(action) {
-  closeMenu()
-  try {
-    if (action?.run) await action.run()
-  } catch (error) {
-    statusText.value = error.message
-  }
-}
-async function copyText(value) {
-  try {
-    if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(value)
-    else {
-      const textarea = document.createElement('textarea')
-      textarea.value = value
-      textarea.style.position = 'fixed'
-      textarea.style.left = '-1000px'
-      document.body.appendChild(textarea)
-      textarea.select()
-      document.execCommand('copy')
-      textarea.remove()
-    }
-    statusText.value = '链接已复制'
-  } catch {
-    statusText.value = '复制失败，请手动复制'
-  }
-}
 async function createGroupByPrompt() {
   editDialog.value = { open: true, type: 'navGroupCreate', title: '新增导航分组', form: { name: '' } }
 }
@@ -1829,62 +1639,6 @@ async function createBookmarkByPrompt(folder = activeFolder.value || folders.val
     return
   }
   editDialog.value = { open: true, type: 'bookmarkCreate', title: `新增书签 · ${targetFolder.name}`, form: { folderId: targetFolder.id, title: '', url: '', favicon: '', note: '', sort: bookmarks.value.length + 1 } }
-}
-function showCardMenu(event, item, group = null) {
-  if (group && editingNavGroupId.value === group.id) {
-    event.preventDefault()
-    closeMenu()
-    return
-  }
-  showMenu(event, item.name, [
-    { label: '新标签页打开', icon: 'window', variant: 'icon', run: () => openNavItemFromMenu(item, '_blank', 'noopener,noreferrer') },
-    { label: '新窗口打开', icon: 'external-link-alt', variant: 'icon', run: () => openNavItemFromMenu(item, `biu-nav-window-${item.id || Date.now()}`, 'popup=yes,width=1200,height=800') },
-    { divider: true },
-    { label: '编辑', icon: 'edit', run: () => editNavCard(item, group) },
-    { label: '删除', icon: 'trash-alt', run: () => removeNavCard(item) },
-  ], { compact: true })
-}
-function showGroupMenu(event, group) {
-  if (editingNavGroupId.value === group.id) {
-    event.preventDefault()
-    closeMenu()
-    return
-  }
-  showMenu(event, group.name, [
-    { label: '新增卡片', icon: 'plus', run: () => addCardFromMenu(group) },
-    { label: '编辑分组', icon: 'edit', run: () => editNavGroup(group) },
-    { label: '删除分组', icon: 'trash-alt', run: () => removeNavGroup(group) },
-  ])
-}
-function showFolderMenu(event, folder) {
-  event.preventDefault()
-  event.stopPropagation()
-  const current = folderFlatList.value.find((item) => item.id === folder.id)
-  const canCreateChild = !current || current.depth < 3
-  showMenu(event, folder.name, [
-    ...(canCreateChild ? [{ label: '新增收藏夹', icon: 'plus', run: () => createFolderByPrompt(folder) }] : []),
-    { label: '新增书签', icon: 'plus', run: () => createBookmarkByPrompt(folder) },
-    { divider: true },
-    { label: '移动', icon: 'folder', run: () => openFolderMoveDialog(folder) },
-    { label: '编辑', icon: 'edit', run: () => editFolder(folder) },
-    { label: '删除', icon: 'trash-alt', run: () => removeFolder(folder) },
-  ], { width: 148 })
-}
-
-function showBookmarkMenu(event, bookmark) {
-  event.preventDefault()
-  event.stopPropagation()
-  showMenu(event, bookmark.title, [
-    { label: '新标签页打开', icon: 'window', variant: 'icon', run: () => window.open(ensureHttp(bookmark.url), '_blank', 'noopener,noreferrer') },
-    { label: '新窗口打开', icon: 'external-link-alt', variant: 'icon', run: () => window.open(ensureHttp(bookmark.url), `biu-bookmark-window-${bookmark.id || Date.now()}`, 'popup=yes,width=1200,height=800') },
-    { divider: true },
-    { label: '复制链接', icon: 'link', run: () => copyText(bookmark.url) },
-    { label: '移动', icon: 'folder', run: () => openMoveDialog([bookmark], '移动') },
-    { label: '首页卡片', icon: 'plus', run: () => convertBookmarkToNavCard(bookmark) },
-    { divider: true },
-    { label: '编辑', icon: 'edit', run: () => editBookmark(bookmark) },
-    { label: '删除', icon: 'trash-alt', run: () => removeBookmark(bookmark) },
-  ], { width: 148 })
 }
 </script>
 
@@ -1944,7 +1698,7 @@ function showBookmarkMenu(event, bookmark) {
       <section v-if="activeView === 'home'" class="home-panel sun-panel">
         <HomeHero :settings-form="settingsForm" :display-time="displayTime" :display-date="displayDate" :date-mode="dateMode" :web-search="webSearch" :active-search-engine="activeSearchEngine" :search-engines="searchEngines" :search-picker-open="searchPickerOpen" :is-image-value="isImageValue" :icon-url="iconUrl" @toggle-date-mode="toggleDateMode" @run-web-search="runWebSearch" @toggle-search-picker="searchPickerOpen = !searchPickerOpen" @select-search-engine="selectSearchEngine" @update-search-query="webSearch.q = $event" />
 
-        <section v-for="group in displayGroups" :key="group.id || group.name" class="nav-group" :class="{ editing: editingNavGroupId === group.id, 'drag-saving': dragState.saving && dragState.groupId === group.id, 'dragging-card': navPointerDrag.active && navPointerDrag.groupId === group.id }" :data-nav-group-id="group.id" :draggable="typeof group.id === 'number'" @dragstart="typeof group.id === 'number' && startDrag('navGroup', group, null, $event)" @dragend="clearDragState" @dragover.prevent @drop="typeof group.id === 'number' && dropNavGroup(group)"><header class="group-head" @contextmenu="showGroupMenu($event, group)"><h2>{{ group.name }}</h2><div class="group-tools"><button type="button" title="新增卡片" @click="addCardFromMenu(group)"><img :src="iconUrl('plus')" alt="" /></button><button type="button" title="编辑分组" @click="toggleNavGroupEdit(group)"><img :src="iconUrl('edit')" alt="" /></button></div></header><TransitionGroup tag="div" class="card-grid" name="nav-card-list"><a v-for="item in group.items" :key="item.id || item.name" class="app-tile" :class="{ dragging: navPointerDrag.active && navPointerDrag.item?.id === item.id }" :data-nav-item-id="item.id" :href="editingNavGroupId === group.id ? '#' : resolveNavUrl(item)" :draggable="false" @pointerdown.stop="startNavPointerSort($event, group, item)" @click="handleNavCardClick($event, group, item)" @contextmenu="showCardMenu($event, item, group)"><span class="nav-card"><span v-if="isImageValue(item.icon)" class="card-icon image-icon"><img :src="item.icon" alt="" /></span><span v-else class="card-text-icon" :class="cardTextClass(item.icon || item.name)">{{ limitText(item.icon || item.name, 5) }}</span></span><span class="card-title">{{ limitText(item.name, 10) }}</span></a></TransitionGroup></section>
+        <section v-for="group in displayGroups" :key="group.id || group.name" class="nav-group" :class="{ editing: editingNavGroupId === group.id, 'drag-saving': dragState.saving && dragState.groupId === group.id, 'dragging-card': navPointerDrag.active && navPointerDrag.groupId === group.id }" :data-nav-group-id="group.id" :draggable="typeof group.id === 'number'" @dragstart="typeof group.id === 'number' && startDrag('navGroup', group, null, $event)" @dragend="clearDragState" @dragover.prevent @drop="typeof group.id === 'number' && dropNavGroup(group)"><header class="group-head" @contextmenu="showGroupMenu($event, group)"><h2>{{ group.name }}</h2><div class="group-tools"><button type="button" title="新增卡片" @click="addCardFromMenu(group)"><img :src="iconUrl('plus')" alt="" /></button><button type="button" title="编辑分组" @click="toggleNavGroupEdit(group)"><img :src="iconUrl('edit')" alt="" /></button></div></header><TransitionGroup tag="div" class="card-grid" name="nav-card-list"><a v-for="item in group.items" :key="item.id || item.name" class="app-tile" :class="{ dragging: navPointerDrag.active && navPointerDrag.item?.id === item.id }" :data-nav-item-id="item.id" :href="editingNavGroupId === group.id ? '#' : resolveNavUrl(item, networkMode)" :draggable="false" @pointerdown.stop="startNavPointerSort($event, group, item)" @click="handleNavCardClick($event, group, item)" @contextmenu="showCardMenu($event, item, group)"><span class="nav-card"><span v-if="isImageValue(item.icon)" class="card-icon image-icon"><img :src="item.icon" alt="" /></span><span v-else class="card-text-icon" :class="cardTextClass(item.icon || item.name)">{{ limitText(item.icon || item.name, 5) }}</span></span><span class="card-title">{{ limitText(item.name, 10) }}</span></a></TransitionGroup></section>
         <div v-if="!displayGroups.length" class="empty-state nav-empty">暂无导航分组，请在系统设置的分组管理中新增。</div>
       </section>
 
