@@ -8,6 +8,7 @@ import HomeHero from './components/HomeHero.vue'
 import MoveDialog from './components/MoveDialog.vue'
 import NavDragFloat from './components/NavDragFloat.vue'
 import SettingsPanel from './components/settings/SettingsPanel.vue'
+import { useBookmarks } from './composables/useBookmarks'
 import { useEditDialog } from './composables/useEditDialog'
 import { cloneFolderTree, findFolderById, flattenFolders, normalizeFolder } from './utils/bookmarkTree'
 import { cardTextClass, formatDisplayDate, formatDisplayTime, getNetworkIcon, getNetworkTip, iconUrl, isImageValue, limitText } from './utils/display'
@@ -56,12 +57,6 @@ const toastText = ref('')
 const user = ref(null)
 const initialized = ref(false)
 const navGroups = ref([])
-const folders = ref([])
-const bookmarks = ref([])
-const bookmarkCache = ref({})
-const activeFolderId = ref(null)
-const bookmarkSelectionMode = ref(false)
-const selectedBookmarkIds = ref([])
 const moveDialog = ref({ open: false, title: '', items: [], targetFolderId: null })
 const loginForm = ref({ username: '', password: '', remember: false })
 const setupForm = ref({ username: 'admin', password: '', confirm: '' })
@@ -69,7 +64,6 @@ const quickNav = ref({ groupName: '', cardName: '', url: '' })
 const quickBookmark = ref({ folderName: '', title: '', url: '', note: '', favicon: '' })
 const webSearch = ref({ q: '', engine: 'google' })
 const searchPickerOpen = ref(false)
-const bookmarkSearch = ref({ q: '', loading: false, results: [] })
 const editingNavGroupId = ref(null)
 const metadataLoading = ref(false)
 const assetUploading = ref(false)
@@ -93,12 +87,8 @@ const foldersDraftDirty = ref(false)
 const displayGroups = computed(() => navGroups.value)
 const navGroupOptions = computed(() => (settingsOpen.value ? navGroupsDraft.value : navGroups.value))
 const menuStyle = computed(() => ({ left: `${menu.value.x}px`, top: `${menu.value.y}px`, width: menu.value.width ? `${menu.value.width}px` : undefined }))
-const activeFolder = computed(() => findFolderById(folders.value, activeFolderId.value))
-const bookmarkCount = computed(() => bookmarks.value.length)
-const folderFlatList = computed(() => flattenFolders(folders.value))
 const folderManagementTree = computed(() => (settingsOpen.value && activeSettings.value === '收藏夹' ? foldersDraft.value : folders.value))
 const folderManagementFlatList = computed(() => flattenFolders(folderManagementTree.value))
-const folderCount = computed(() => folderFlatList.value.length)
 const navItemCount = computed(() => navGroups.value.reduce((total, group) => total + (group.items?.length || 0), 0))
 const showNetworkSwitcher = computed(() => true)
 const networkTip = computed(() => getNetworkTip(networkMode.value))
@@ -125,6 +115,24 @@ const settingsSearchEngines = computed(() => {
   }
 })
 const activeSearchEngine = computed(() => searchEngines.value.find((engine) => engine.key === webSearch.value.engine) || searchEngines.value[0])
+
+const {
+  folders,
+  bookmarks,
+  bookmarkCache,
+  activeFolderId,
+  bookmarkSearch,
+  bookmarkSelectionMode,
+  selectedBookmarkIds,
+  activeFolder,
+  folderFlatList,
+  folderCount,
+  bookmarkCount,
+  getBookmarkSelectionIds,
+  isBookmarkSelected,
+  clearBookmarkSelection,
+  toggleBookmarkSelection,
+} = useBookmarks()
 
 const {
   editDialog,
@@ -254,27 +262,6 @@ function normalizeParentId(value) {
 function folderPayloadChanged(original, payload) {
   if (!original) return true
   return original.name !== payload.name || normalizeParentId(original.parentId) !== normalizeParentId(payload.parentId) || Number(original.sort || 0) !== Number(payload.sort || 0)
-}
-
-function getBookmarkSelectionIds() {
-  return selectedBookmarkIds.value
-}
-
-function isBookmarkSelected(bookmarkId) {
-  return selectedBookmarkIds.value.includes(bookmarkId)
-}
-
-function clearBookmarkSelection() {
-  bookmarkSelectionMode.value = false
-  selectedBookmarkIds.value = []
-}
-
-function toggleBookmarkSelection(bookmark) {
-  const ids = new Set(selectedBookmarkIds.value)
-  if (ids.has(bookmark.id)) ids.delete(bookmark.id)
-  else ids.add(bookmark.id)
-  selectedBookmarkIds.value = Array.from(ids)
-  bookmarkSelectionMode.value = selectedBookmarkIds.value.length > 0
 }
 
 function enableBookmarkSelection(bookmark) {
