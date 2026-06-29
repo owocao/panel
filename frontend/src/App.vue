@@ -8,6 +8,7 @@ import HomeHero from './components/HomeHero.vue'
 import MoveDialog from './components/MoveDialog.vue'
 import NavDragFloat from './components/NavDragFloat.vue'
 import SettingsPanel from './components/settings/SettingsPanel.vue'
+import { useEditDialog } from './composables/useEditDialog'
 import {
   createBookmark,
   createBookmarkFolder,
@@ -67,8 +68,6 @@ const quickBookmark = ref({ folderName: '', title: '', url: '', note: '', favico
 const webSearch = ref({ q: '', engine: 'google' })
 const searchPickerOpen = ref(false)
 const bookmarkSearch = ref({ q: '', loading: false, results: [] })
-const editDialog = ref({ open: false, type: '', title: '', form: {} })
-const groupSelectOpen = ref(false)
 const editingNavGroupId = ref(null)
 const metadataLoading = ref(false)
 const assetUploading = ref(false)
@@ -139,6 +138,16 @@ const settingsSearchEngines = computed(() => {
 const activeSearchEngine = computed(() => searchEngines.value.find((engine) => engine.key === webSearch.value.engine) || searchEngines.value[0])
 const iconUrl = (name) => `https://api.iconify.design/uil/${name}.svg?color=%2368707a`
 
+const {
+  editDialog,
+  groupSelectOpen,
+  closeEditDialog,
+  clampEditField,
+  getEditGroupName,
+  selectEditGroup,
+  setNavIconMode,
+} = useEditDialog({ navGroupOptions, isImageValue })
+
 function limitText(value, size) {
   return String(value || '').trim().slice(0, size)
 }
@@ -162,10 +171,6 @@ function handleOverlayWheel(event) {
   if ((event.deltaY < 0 && atTop) || (event.deltaY > 0 && atBottom)) event.preventDefault()
 }
 
-function clampEditField(field, max) {
-  const value = String(editDialog.value.form[field] || '')
-  if (value.length > max) editDialog.value.form[field] = value.slice(0, max)
-}
 const shellStyle = computed(() => ({
   '--runtime-bg': settingsForm.value.backgroundColor || '#02030a',
 }))
@@ -1182,24 +1187,6 @@ async function fillMetadataFromField(target, field) {
   else target.url = previousUrl
 }
 
-function setNavIconMode(form, mode) {
-  if (form.iconMode === mode) return
-
-  if (form.iconMode === 'text') {
-    form.__textIcon = form.icon
-  } else if (form.iconMode === 'image') {
-    form.__imageIcon = form.icon
-  }
-
-  form.iconMode = mode
-
-  if (mode === 'text') {
-    form.icon = form.__textIcon !== undefined ? form.__textIcon : (isImageValue(form.icon) ? '' : form.icon)
-  } else if (mode === 'image') {
-    form.icon = form.__imageIcon !== undefined ? form.__imageIcon : (!isImageValue(form.icon) ? '' : form.icon)
-  }
-}
-
 async function fillQuickBookmarkMetadata() {
   await fillMetadata(quickBookmark.value)
 }
@@ -1809,21 +1796,6 @@ async function batchSelectBookmark(bookmark) {
   statusText.value = `已加入批量选择：${bookmark.title}`
 }
 
-
-function closeEditDialog() {
-  groupSelectOpen.value = false
-  editDialog.value = { open: false, type: '', title: '', form: {} }
-}
-
-function getEditGroupName() {
-  return navGroupOptions.value.find((group) => group.id === editDialog.value.form.groupId)?.name || '请选择分组'
-}
-
-function selectEditGroup(group) {
-  editDialog.value.form.groupId = group.id
-  groupSelectOpen.value = false
-  window.setTimeout(() => { groupSelectOpen.value = false }, 0)
-}
 
 async function saveEditDialog() {
   const { type, form } = editDialog.value
