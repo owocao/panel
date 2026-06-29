@@ -15,7 +15,7 @@
 - 已具备 Go 后端、Vue 前端、SQLite 数据库和 Docker 交付结构。
 - 首页导航、系统设置、搜索引擎管理、收藏夹、书签导入导出、备份恢复等核心模块已有实现。
 - 项目不再是静态原型，当前进入 V1 整理、稳定性修复和维护性提升阶段。
-- 当前主要问题是文档曾经滞后、前端 `App.vue` 偏大、部分后端接口校验不足、部分关键流程缺少事务和测试。
+- 当前主要问题是部分后端接口校验不足、部分关键流程缺少事务和测试；前端已完成一轮模块化拆分，后续需继续保持模块边界。
 
 ## 2. 技术栈
 
@@ -145,31 +145,60 @@ API 封装：
 
 - `frontend/src/style.css`
 
-已拆分组件：
+当前前端模块边界：
 
-- `BackupRestoreSection.vue`
-- `BookmarkFolderTreeNode.vue`
-- `BookmarkRow.vue`
-- `ContextMenu.vue`
-- `FloatingActions.vue`
-- `HomeHero.vue`
-- `MoveDialog.vue`
-- `NavDragFloat.vue`
-- `PersonalSettingsForm.vue`
-- `SearchEngineManagerSection.vue`
-- `SettingsMenu.vue`
+- `frontend/src/App.vue`：前端顶层入口，负责登录/初始化视图切换、页面级状态、顶层组件组合、生命周期、全局快捷键、模块依赖注入和少量尚未拆分的导航草稿保存逻辑。
+- `frontend/src/components/`：负责页面和弹窗展示层，包括首页、收藏夹抽屉、编辑弹窗、右键菜单、移动弹窗、浮动操作按钮、设置页分区等。
+- `frontend/src/components/settings/`：负责设置页整体面板和收藏夹管理展示。
+- `frontend/src/composables/`：负责业务状态、业务动作和跨组件交互编排。
+- `frontend/src/utils/`：负责不依赖 Vue 状态、不调用 API 的纯工具函数。
 
-`App.vue` 当前仍负责：
+主要组件：
 
-- 登录/初始化视图切换。
-- 首页布局组合。
-- 导航分组和卡片状态。
-- 系统设置弹窗状态和草稿机制。
-- 导航草稿批量保存。
-- 收藏夹管理文件夹草稿保存。
-- 收藏夹抽屉状态、树加载、书签列表和搜索。
-- 右键菜单、编辑弹窗、拖拽排序。
-- 上传、metadata 抓取、备份恢复动作编排。
+- `HomeHero.vue`：首页导航展示。
+- `FloatingActions.vue`：首页浮动操作入口。
+- `BookmarkDrawer.vue`、`BookmarkFolderTreeNode.vue`、`BookmarkRow.vue`：收藏夹抽屉、文件夹树和书签行展示。
+- `SettingsPanel.vue`、`BookmarkManager.vue`、`PersonalSettingsForm.vue`、`SearchEngineManagerSection.vue`、`BackupRestoreSection.vue`、`SettingsMenu.vue`：设置页布局和分区展示。
+- `EditDialog.vue`、`MoveDialog.vue`、`ContextMenu.vue`、`NavDragFloat.vue`：编辑、移动、右键菜单和拖拽浮层展示。
+
+Composable 职责：
+
+- `useNavigation.js`：首页导航数据、网络模式、搜索引擎、搜索执行和导航链接打开逻辑。
+- `useBookmarks.js`：收藏夹基础状态、当前文件夹、书签列表、搜索、防抖和选择态。
+- `useBookmarkActions.js`：书签/收藏夹移动、删除、批量操作、编辑入口和打开书签。
+- `useFolderDrafts.js`：设置页收藏夹草稿、收藏夹管理树、草稿同步、草稿保存、收藏夹移动和删除。
+- `useDragSort.js`：首页导航、收藏夹和书签的拖拽排序状态、悬停排序、落点保存和失败刷新。
+- `useEditDialog.js`：编辑弹窗 UI 状态、关闭、字段限制、分组选择和图标模式切换。
+- `useEditSave.js`：编辑弹窗保存、删除导航卡片、上传图标、metadata 抓取，以及新增分组、卡片、收藏夹、书签。
+- `useSettings.js`：设置页打开关闭、菜单切换、设置加载、S3 测试和设置保存。
+- `useContextMenu.js`：右键菜单状态、位置、菜单项生成和菜单动作触发。
+- `useBackupRestore.js`：整站备份恢复、导航备份导入导出、收藏夹导入导出。
+
+Utils 职责：
+
+- `bookmarkTree.js`：收藏夹树标准化、扁平化、查找和克隆。
+- `display.js`：图标值判断、卡片文本截断、图标 URL、时间日期和网络模式展示文案。
+- `navigation.js`：网络模式标准化、URL 补协议、内外网候选 URL 和最终打开 URL 解析。
+
+后续排查优先读取：
+
+- 首页导航、内外网打开、搜索引擎：先读 `useNavigation.js` 和 `utils/navigation.js`，再读 `HomeHero.vue`。
+- 收藏夹加载、文件夹选择、书签搜索和选择态：先读 `useBookmarks.js`，再读 `BookmarkDrawer.vue`。
+- 收藏夹/书签移动、删除和批量操作：先读 `useBookmarkActions.js`。
+- 设置页收藏夹管理、草稿移动删除和保存：先读 `useFolderDrafts.js`，再读 `useSettings.js` 和 `BookmarkManager.vue`。
+- 编辑弹窗字段、保存、上传图标和 metadata 抓取：先读 `EditDialog.vue`、`useEditDialog.js` 和 `useEditSave.js`。
+- 拖拽排序：先读 `useDragSort.js`，再读相关展示组件。
+- 右键菜单：先读 `useContextMenu.js` 和 `ContextMenu.vue`。
+- 备份恢复、导入导出：先读 `useBackupRestore.js` 和 `BackupRestoreSection.vue`。
+- 纯展示异常：先读 `utils/display.js`。
+
+维护约束：
+
+- `App.vue` 已降到 1000 行以下，但仍是前端顶层入口。后续不要继续堆业务流程，新逻辑优先放入对应 composable 或组件。
+- `useDragSort.js` 已承载复杂拖拽状态和保存逻辑，只应继续维护拖拽相关逻辑，不要混入非拖拽业务。
+- `useEditSave.js` 保存分支较多，新增编辑类型时应评估是否继续拆分为更小的保存模块。
+- `useBookmarkActions.js` 已包含移动、删除和批量操作，后续批量功能应避免继续无边界扩张。
+- `SettingsPanel.vue` 和 `EditDialog.vue` 仍需保持展示层职责；如果设置页或编辑表单继续扩展，应优先拆子组件。
 
 ## 6. 数据库现状
 
@@ -287,7 +316,7 @@ API 封装：
 
 中优先级：
 
-- `frontend/src/App.vue` 偏大，后续维护成本高。
+- 前端部分 composable 已接近变大风险，后续新增逻辑需要按模块边界拆分。
 - `backend/internal/httpx/server.go` 仍包含多个模块的逻辑。
 - Store 层缺少领域服务和事务封装。
 - 数据库迁移缺少版本化机制。
