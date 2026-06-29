@@ -59,6 +59,8 @@ func Open(path string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
 	st := &Store{DB: db}
 	return st, st.Migrate()
 }
@@ -76,6 +78,10 @@ func (s *Store) Migrate() error {
 		`CREATE TABLE IF NOT EXISTS assets (id INTEGER PRIMARY KEY, name TEXT, source TEXT NOT NULL, path TEXT NOT NULL, mime TEXT, size INTEGER, created_at TEXT NOT NULL);`,
 		`CREATE TABLE IF NOT EXISTS storage_configs (id INTEGER PRIMARY KEY, kind TEXT NOT NULL, name TEXT NOT NULL, config_json TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 0);`,
 		`CREATE TABLE IF NOT EXISTS backup_records (id INTEGER PRIMARY KEY, file_name TEXT NOT NULL, target TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);`,
+		`CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_nav_items_group_sort ON nav_items(group_id, sort, id);`,
+		`CREATE INDEX IF NOT EXISTS idx_bookmark_folders_parent_sort ON bookmark_folders(parent_id, sort, id);`,
+		`CREATE INDEX IF NOT EXISTS idx_bookmarks_folder_sort ON bookmarks(folder_id, sort, id);`,
 	}
 	for _, stmt := range stmts {
 		if _, err := s.DB.Exec(stmt); err != nil {

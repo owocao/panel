@@ -8,17 +8,12 @@ defineProps({
     type: Object,
     required: true,
   },
-  statusText: {
-    type: String,
-    default: '',
-  },
 })
 </script>
 
 <template>
   <section v-show="active" class="setting-card settings-card-wide">
     <h3>个性化</h3>
-    <p v-if="statusText">{{ statusText }}</p>
     <label class="check-row">
       <input v-model="draft.showTitle" true-value="true" false-value="false" type="checkbox" /> 显示标题
     </label>
