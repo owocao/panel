@@ -1,7 +1,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import BookmarkFolderTreeNode from './components/BookmarkFolderTreeNode.vue'
-import BookmarkRow from './components/BookmarkRow.vue'
+import BookmarkDrawer from './components/BookmarkDrawer.vue'
 import ContextMenu from './components/ContextMenu.vue'
 import EditDialog from './components/EditDialog.vue'
 import FloatingActions from './components/FloatingActions.vue'
@@ -2096,83 +2095,41 @@ function showBookmarkMenu(event, bookmark) {
     <template v-else>
       <FloatingActions :drawer-open="drawerOpen" :show-network-switcher="showNetworkSwitcher" :network-tip="networkTip" :network-icon="networkIcon" :toast-text="toastText" :icon-url="iconUrl" @open-drawer="openDrawer" @cycle-network-mode="cycleNetworkMode" @open-settings="openSettings" />
 
-      <aside v-if="drawerOpen" class="bookmark-drawer" aria-label="收藏夹" @click.stop="closeMenu" @wheel.stop="handleOverlayWheel">
-        <div class="drawer-head">
-          <div>
-            <span>收藏夹</span>
-            <small>{{ folderCount }} 个文件夹 · {{ bookmarkCount }} 条收藏</small>
-          </div>
-        </div>
-
-        <div class="bookmark-toolbar">
-          <div class="bookmark-search-row">
-          <label class="bookmark-search">
-            <input v-model="bookmarkSearch.q" placeholder="输入标题、网址或备注搜索" @input="handleBookmarkSearchInput" />
-          </label>
-          <div class="inline-actions search-actions">
-            <span v-if="bookmarkSearch.loading">搜索中...</span>
-            <span v-else-if="bookmarkSearch.results.length">找到 {{ bookmarkSearch.results.length }} 条</span>
-          </div>
-          </div>
-          <div class="inline-actions bookmark-primary-actions">
-            <button type="button" @click="createFolderByPrompt()">新增收藏夹</button>
-            <button type="button" @click="createBookmarkByPrompt(activeFolder)">新增书签</button>
-            <button type="button" @click="bookmarkSelectionMode ? clearBookmarkSelection() : bookmarkSelectionMode = true" :class="{ 'active': bookmarkSelectionMode }">
-              {{ bookmarkSelectionMode ? '退出批量' : '批量操作' }}
-            </button>
-            <template v-if="bookmarkSelectionMode">
-              <button type="button" @click="openSelectedMoveDialog">批量移动</button>
-              <button type="button" @click="deleteSelectedBookmarks">批量删除</button>
-            </template>
-          </div>
-        </div>
-
-        <section class="bookmark-body explorer-layout">
-          <nav class="folder-tree explorer-sidebar">
-            <div class="folder-tree-head">
-              <button type="button" class="folder-tree-title" @click="toggleAllBookmarkFolders">收藏夹</button>
-              <small>{{ folderCount }}</small>
-            </div>
-            <TransitionGroup tag="div" class="tree-root" name="tree-list">
-              <BookmarkFolderTreeNode
-                v-for="folder in folders"
-                :key="folder.id"
-                :folder="folder"
-                :active-folder-id="activeFolderId"
-                :selection-mode="bookmarkSelectionMode"
-                :selected-ids="selectedBookmarkIds"
-                :is-image-value="isImageValue"
-                @select="selectFolder"
-                @toggle="toggleFolderExpanded"
-                @context-menu="showFolderMenu"
-                @drag-start="(item, event) => startDrag('folder', item, null, event)"
-                @drag-over="hoverFolder"
-                @drop="dropFolder"
-              />
-            </TransitionGroup>
-            <div v-if="!folders.length" class="empty-state compact-empty">暂无文件夹。</div>
-          </nav>
-
-          <main class="explorer-content bookmark-list">
-            <header class="explorer-section-head">
-              <div>
-                <strong>{{ bookmarkSearch.q.trim() ? '搜索结果' : (activeFolder?.name || '选择文件夹') }}</strong>
-              </div>
-              <small>{{ bookmarkSearch.q.trim() ? `${bookmarkSearch.results.length} 条匹配` : `${bookmarks.length} 条收藏` }}</small>
-            </header>
-            <template v-if="bookmarkSearch.q.trim()">
-              <BookmarkRow v-for="bookmark in bookmarkSearch.results" :key="`search-${bookmark.id}`" :bookmark="bookmark" :selection-mode="bookmarkSelectionMode" :selected="isBookmarkSelected(bookmark.id)" path-fallback="搜索结果" :is-image-value="isImageValue" compact @toggle-selection="toggleBookmarkSelection" @context-menu="showBookmarkMenu" @open="openBookmarkUrl" />
-              <div v-if="!bookmarkSearch.loading && !bookmarkSearch.results.length" class="empty-state compact-empty">没有匹配的收藏。</div>
-            </template>
-            <template v-else>
-              <BookmarkRow v-for="bookmark in bookmarks" :key="bookmark.id" :bookmark="bookmark" :selection-mode="bookmarkSelectionMode" :selected="isBookmarkSelected(bookmark.id)" draggable :is-image-value="isImageValue" compact @toggle-selection="toggleBookmarkSelection" @context-menu="showBookmarkMenu" @drag-start="(item, event) => startDrag('bookmark', item, null, event)" @drag-over="hoverBookmark" @drop="dropBookmark" @open="openBookmarkUrl" />
-              <div v-if="activeFolderId && !bookmarks.length" class="empty-state compact-empty">这个文件夹还没有收藏。</div>
-              <div v-if="!activeFolderId" class="empty-state compact-empty">选择左侧文件夹查看收藏。</div>
-            </template>
-          </main>
-
-        </section>
-      </aside>
+      <BookmarkDrawer
+        :open="drawerOpen"
+        :folders="folders"
+        :bookmarks="bookmarks"
+        :bookmark-search="bookmarkSearch"
+        :active-folder="activeFolder"
+        :active-folder-id="activeFolderId"
+        :folder-count="folderCount"
+        :bookmark-count="bookmarkCount"
+        :selection-mode="bookmarkSelectionMode"
+        :selected-bookmark-ids="selectedBookmarkIds"
+        :is-image-value="isImageValue"
+        @close-menu="closeMenu"
+        @panel-wheel="handleOverlayWheel"
+        @create-folder="createFolderByPrompt"
+        @create-bookmark="createBookmarkByPrompt(activeFolder)"
+        @toggle-selection-mode="bookmarkSelectionMode = true"
+        @clear-selection="clearBookmarkSelection"
+        @batch-move="openSelectedMoveDialog"
+        @batch-delete="deleteSelectedBookmarks"
+        @search-input="handleBookmarkSearchInput"
+        @toggle-all-folders="toggleAllBookmarkFolders"
+        @select-folder="selectFolder"
+        @toggle-folder="toggleFolderExpanded"
+        @folder-context-menu="showFolderMenu"
+        @folder-drag-start="(item, event) => startDrag('folder', item, null, event)"
+        @folder-drag-over="hoverFolder"
+        @folder-drop="dropFolder"
+        @toggle-bookmark-selection="toggleBookmarkSelection"
+        @bookmark-context-menu="showBookmarkMenu"
+        @bookmark-drag-start="(item, event) => startDrag('bookmark', item, null, event)"
+        @bookmark-drag-over="hoverBookmark"
+        @bookmark-drop="dropBookmark"
+        @open-bookmark="openBookmarkUrl"
+      />
 
       <section v-if="activeView === 'home'" class="home-panel sun-panel">
         <HomeHero :settings-form="settingsForm" :display-time="displayTime" :display-date="displayDate" :date-mode="dateMode" :web-search="webSearch" :active-search-engine="activeSearchEngine" :search-engines="searchEngines" :search-picker-open="searchPickerOpen" :is-image-value="isImageValue" :icon-url="iconUrl" @toggle-date-mode="toggleDateMode" @run-web-search="runWebSearch" @toggle-search-picker="searchPickerOpen = !searchPickerOpen" @select-search-engine="selectSearchEngine" @update-search-query="webSearch.q = $event" />
