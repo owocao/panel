@@ -12,12 +12,15 @@ import { useBackupRestore } from './composables/useBackupRestore'
 import { useBookmarkActions } from './composables/useBookmarkActions'
 import { useBookmarks } from './composables/useBookmarks'
 import { useContextMenu } from './composables/useContextMenu'
+import { useDragSort } from './composables/useDragSort'
 import { useEditDialog } from './composables/useEditDialog'
+import { useEditSave } from './composables/useEditSave'
+import { useFolderDrafts } from './composables/useFolderDrafts'
 import { useNavigation } from './composables/useNavigation'
 import { useSettings } from './composables/useSettings'
-import { cloneFolderTree, findFolderById, flattenFolders, normalizeFolder } from './utils/bookmarkTree'
+import { findFolderById, normalizeFolder } from './utils/bookmarkTree'
 import { cardTextClass, formatDisplayDate, formatDisplayTime, getNetworkIcon, getNetworkTip, iconUrl, isImageValue, limitText } from './utils/display'
-import { normalizeNetworkMode, resolveNavUrl } from './utils/navigation'
+import { ensureHttp, normalizeNetworkMode, resolveNavUrl } from './utils/navigation'
 import {
   createBookmark,
   createBookmarkFolder,
@@ -64,22 +67,14 @@ const quickBookmark = ref({ folderName: '', title: '', url: '', note: '', favico
 const editingNavGroupId = ref(null)
 const metadataLoading = ref(false)
 const assetUploading = ref(false)
-const dragState = ref({ type: '', groupId: null, item: null, overId: null, saving: false, lastMoveAt: 0, settling: false })
-const navPointerDrag = ref({ active: false, moved: false, groupId: null, item: null, pointerId: null, startX: 0, startY: 0, x: 0, y: 0, offsetX: 0, offsetY: 0, lastMoveAt: 0, lastTargetId: '' })
-const suppressNextNavCardClick = ref(false)
 const now = ref(new Date())
 const dateMode = ref('solar')
 let clockTimer
 let toastTimer
-let navLongPressTimer
 let draftIdSeed = 0
 const navGroupsDraft = ref([])
 const navDraftDirty = ref(false)
-const foldersDraft = ref([])
-const foldersDraftDirty = ref(false)
 
-const folderManagementTree = computed(() => (settingsOpen.value && activeSettings.value === '收藏夹' ? foldersDraft.value : folders.value))
-const folderManagementFlatList = computed(() => flattenFolders(folderManagementTree.value))
 const showNetworkSwitcher = computed(() => true)
 const networkTip = computed(() => getNetworkTip(networkMode.value))
 const networkIcon = computed(() => getNetworkIcon(networkMode.value))
@@ -139,9 +134,10 @@ const {
   setNetworkMode: (mode) => { networkMode.value = mode },
   navGroupsDraft,
   navDraftDirty,
-  foldersDraft,
-  foldersDraftDirty,
   folders,
+  getFoldersDraftDirty: () => foldersDraftDirty.value,
+  setFoldersDraft: (value) => { foldersDraft.value = value },
+  setFoldersDraftDirty: (value) => { foldersDraftDirty.value = value },
   getNavGroups: () => navGroups.value,
   closeMenu: () => closeMenu(),
   loadFolders,
@@ -173,6 +169,7 @@ const {
   uploadSearchEngineIcon,
   openNavItemFromMenu,
   openNavItem,
+  writeSearchEngines,
 } = useNavigation({
   getNavigation,
   uploadAsset,
@@ -188,6 +185,34 @@ const {
 const navGroupOptions = computed(() => (settingsOpen.value ? navGroupsDraft.value : navGroups.value))
 
 const {
+  foldersDraft,
+  foldersDraftDirty,
+  folderManagementTree,
+  folderManagementFlatList,
+  syncFoldersDraftFromFolders,
+  isSettingsBookmarkManager,
+  getFolderTreeForAction,
+  markFoldersDraftDirty,
+  eligibleFolderParents,
+  isFolderDescendant,
+  findFolderContainerAndIndex,
+  saveFolderDraftOrder,
+  moveFolder,
+  removeFolder,
+} = useFolderDrafts({
+  settingsOpen,
+  activeSettings,
+  folders,
+  bookmarks,
+  activeFolderId,
+  loadFolders,
+  createBookmarkFolder,
+  updateBookmarkFolder,
+  deleteBookmarkFolder,
+  onStatus: (message) => { statusText.value = message },
+})
+
+const {
   editDialog,
   groupSelectOpen,
   closeEditDialog,
@@ -196,6 +221,71 @@ const {
   selectEditGroup,
   setNavIconMode,
 } = useEditDialog({ navGroupOptions, isImageValue })
+
+const {
+  saveEditDialog,
+  deleteEditingNavCard,
+  uploadIconFile,
+  fillMetadata,
+  fillMetadataFromField,
+  fillQuickBookmarkMetadata,
+  fillQuickNavMetadata,
+  createGroupByPrompt,
+  addCardFromMenu,
+  createFolderByPrompt,
+  createBookmarkByPrompt,
+} = useEditSave({
+  editDialog,
+  quickNav,
+  quickBookmark,
+  metadataLoading,
+  assetUploading,
+  settingsOpen,
+  navGroups,
+  navGroupsDraft,
+  settingsSearchEngines,
+  webSearch,
+  folders,
+  foldersDraft,
+  folderFlatList,
+  folderManagementFlatList,
+  activeFolder,
+  activeFolderId,
+  bookmarks,
+  bookmarkSearch,
+  createNavGroup,
+  createNavItem,
+  createBookmarkFolder,
+  createBookmark,
+  updateNavGroup,
+  updateNavItem,
+  updateBookmarkFolder,
+  updateBookmark,
+  deleteNavItem,
+  uploadAsset,
+  fetchMetadata,
+  loadNavigation,
+  loadFolders,
+  loadAllFolderChildren,
+  selectFolder,
+  runBookmarkSearch,
+  closeEditDialog,
+  isImageValue,
+  isSettingsBookmarkManager,
+  getFolderTreeForAction,
+  isFolderDescendant,
+  findFolderContainerAndIndex,
+  markFoldersDraftDirty,
+  markNavDraftDirty,
+  updateNavDraftGroup,
+  upsertNavDraftItem,
+  removeNavDraftItem,
+  createDraftId,
+  writeSearchEngines,
+  saveBookmarkAsNavCard,
+  onStatus: (message) => { statusText.value = message },
+  getStatus: () => statusText.value,
+})
 
 const {
   openMoveDialog,
@@ -277,6 +367,41 @@ const {
     editBookmark,
     removeBookmark,
   },
+})
+
+const {
+  dragState,
+  navPointerDrag,
+  suppressNextNavCardClick,
+  startDrag,
+  hoverBookmark,
+  hoverFolder,
+  clearDragState,
+  hoverNavCard,
+  navDragFloatStyle,
+  stopNavPointerListeners,
+  clearNavLongPressTimer,
+  startNavPointerSort,
+  dropNavGroup,
+  dropNavCard,
+  dropFolder,
+  dropBookmark,
+} = useDragSort({
+  folders,
+  bookmarks,
+  activeFolder,
+  displayGroups,
+  editingNavGroupId,
+  updateBookmark,
+  updateBookmarkFolder,
+  updateNavGroup,
+  updateNavItem,
+  loadFolders,
+  loadNavigation,
+  selectFolder,
+  closeMenu,
+  editNavCard,
+  onStatus: (message) => { statusText.value = message },
 })
 
 const {
@@ -364,56 +489,6 @@ function handleAuthExpired() {
   statusText.value = '登录已失效，请重新登录'
   settingsMessage.value = ''
   settingsSaving.value = false
-}
-
-function syncFoldersDraftFromFolders() {
-  foldersDraft.value = cloneFolderTree(folders.value)
-  foldersDraftDirty.value = false
-}
-
-function findFolderContainerAndIndex(nodes, id, parent = null) {
-  for (let i = 0; i < (nodes || []).length; i += 1) {
-    const folder = nodes[i]
-    if (folder.id === id) return { folder, siblings: nodes, index: i, parent }
-    const nested = findFolderContainerAndIndex(folder.children, id, folder)
-    if (nested) return nested
-  }
-  return null
-}
-
-function isFolderDescendant(folderId, ancestorId, nodes = folders.value) {
-  for (const folder of nodes || []) {
-    if (folder.id === ancestorId) {
-      return Boolean(findFolderById(folder.children || [], folderId))
-    }
-    if (isFolderDescendant(folderId, ancestorId, folder.children || [])) return true
-  }
-  return false
-}
-
-function eligibleFolderParents(folder, nodes = folders.value) {
-  return flattenFolders(nodes).filter((item) => item.id !== folder.id && item.depth < 3 && !isFolderDescendant(item.id, folder.id, nodes))
-}
-
-function isSettingsBookmarkManager() {
-  return settingsOpen.value && activeSettings.value === '收藏夹'
-}
-
-function getFolderTreeForAction() {
-  return isSettingsBookmarkManager() ? foldersDraft.value : folders.value
-}
-
-function markFoldersDraftDirty() {
-  if (isSettingsBookmarkManager()) foldersDraftDirty.value = true
-}
-
-function normalizeParentId(value) {
-  return value == null || value === '' ? null : value
-}
-
-function folderPayloadChanged(original, payload) {
-  if (!original) return true
-  return original.name !== payload.name || normalizeParentId(original.parentId) !== normalizeParentId(payload.parentId) || Number(original.sort || 0) !== Number(payload.sort || 0)
 }
 
 async function loadFolderNodeChildren(folder, options = {}) {
@@ -621,45 +696,6 @@ async function saveNavGroupDraftOrder() {
   await loadNavigation()
 }
 
-async function saveFolderDraftOrder() {
-  const originalFlat = flattenFolders(folders.value)
-  const draftFlat = flattenFolders(foldersDraft.value)
-  const originalIds = originalFlat.map((folder) => folder.id)
-  const originalById = new Map(originalFlat.map((folder) => [folder.id, folder]))
-  const draftExistingIds = draftFlat.filter((folder) => typeof folder.id === 'number').map((folder) => folder.id)
-  const idMap = new Map()
-
-  const removedIds = new Set(originalFlat.filter((folder) => !draftExistingIds.includes(folder.id)).map((folder) => folder.id))
-  const removedFolders = originalFlat
-    .filter((folder) => removedIds.has(folder.id) && !removedIds.has(folder.parentId))
-    .sort((a, b) => a.depth - b.depth)
-  for (const folder of removedFolders) {
-    await deleteBookmarkFolder(folder.id)
-  }
-
-  async function saveFolderNodes(nodes, parentId = null) {
-    for (let index = 0; index < (nodes || []).length; index += 1) {
-      const folder = nodes[index]
-      const targetParentId = parentId == null ? null : idMap.get(parentId) || parentId
-      const payload = { name: folder.name, parentId: targetParentId, sort: index + 1 }
-      if (typeof folder.id === 'number' && originalIds.includes(folder.id)) {
-        if (folderPayloadChanged(originalById.get(folder.id), payload)) {
-          await updateBookmarkFolder({ id: folder.id, ...payload })
-        }
-        idMap.set(folder.id, folder.id)
-      } else {
-        const created = await createBookmarkFolder(payload)
-        idMap.set(folder.id, created.id || created)
-      }
-      await saveFolderNodes(folder.children || [], folder.id)
-    }
-  }
-
-  await saveFolderNodes(foldersDraft.value)
-  await loadFolders()
-  syncFoldersDraftFromFolders()
-}
-
 async function openDrawer() {
   drawerOpen.value = true
   if (!folders.value.length) await loadFolders()
@@ -695,97 +731,6 @@ async function submitSetup() {
 
 
 
-async function uploadIconFile(event, target, field = 'icon') {
-  const file = event.target.files?.[0]
-  if (!file) return
-  assetUploading.value = true
-  try {
-    const data = await uploadAsset(file)
-    target[field] = data.url
-    statusText.value = '图片已上传到本地数据目录'
-  } catch (error) {
-    statusText.value = error.message
-  } finally {
-    assetUploading.value = false
-    event.target.value = ''
-  }
-}
-
-async function fillMetadata(target) {
-  const url = target.url || target.wanUrl || target.lanUrl || ''
-  if (!url.trim()) {
-    statusText.value = '请先填写网址'
-    return
-  }
-  let fetchUrl = url.trim()
-  if (!/^https?:\/\//i.test(fetchUrl)) {
-    fetchUrl = 'http://' + fetchUrl
-  }
-  
-  metadataLoading.value = true
-  try {
-    const data = await fetchMetadata(fetchUrl)
-    if ('title' in target && data.title && !target.title) target.title = data.title
-    if ('name' in target && data.title && !target.name) target.name = data.title
-    if ('favicon' in target && data.favicon) target.favicon = data.favicon
-    if ('icon' in target && data.favicon) {
-      target.icon = data.favicon
-      target.iconMode = 'image'
-    }
-    statusText.value = '已自动抓取标题和图标'
-  } catch (error) {
-    statusText.value = error.message || '抓取失败'
-    // 弹窗内的提示直接使用浏览器的 alert 进行兜底反馈，确保用户能看到
-    alert(statusText.value)
-    // 强制显示提示信息以便看到失败反馈
-    setTimeout(() => { if (statusText.value === error.message || statusText.value === '抓取失败') statusText.value = '' }, 3000)
-  } finally {
-    metadataLoading.value = false
-  }
-}
-
-async function fillMetadataFromField(target, field) {
-  const url = target[field] || ''
-  if (!url.trim()) {
-    statusText.value = '请先填写对应网址'
-    return
-  }
-  const previousUrl = target.url
-  target.url = url
-  await fillMetadata(target)
-  if (previousUrl === undefined) delete target.url
-  else target.url = previousUrl
-}
-
-async function fillQuickBookmarkMetadata() {
-  await fillMetadata(quickBookmark.value)
-}
-
-async function fillQuickNavMetadata() {
-  const target = { name: quickNav.value.cardName, wanUrl: quickNav.value.url, lanUrl: quickNav.value.url, icon: '' }
-  await fillMetadata(target)
-  quickNav.value.cardName = target.name || quickNav.value.cardName
-}
-
-async function addNavGroup() {
-  if (!quickNav.value.groupName.trim()) return
-  await createNavGroup({ name: quickNav.value.groupName.trim(), sort: navGroups.value.length + 1 })
-  quickNav.value.groupName = ''
-  await loadNavigation()
-}
-
-async function addNavCard() {
-  const group = navGroups.value[0]
-  if (!group || !quickNav.value.cardName.trim() || !quickNav.value.url.trim()) {
-    statusText.value = '请先创建分组，并填写卡片名称和网址'
-    return
-  }
-  await createNavItem({ groupId: group.id, name: quickNav.value.cardName.trim(), icon: quickNav.value.cardName.trim().slice(0, 1), lanUrl: quickNav.value.url.trim(), wanUrl: quickNav.value.url.trim(), urlMode: 'wan', sort: (group.items || []).length + 1 })
-  quickNav.value.cardName = ''
-  quickNav.value.url = ''
-  await loadNavigation()
-}
-
 function editNavGroup(group) {
   editDialog.value = { open: true, type: 'navGroup', title: '编辑导航分组', form: { ...group } }
 }
@@ -816,309 +761,6 @@ function handleShellClick(event) {
   if (!editingNavGroupId.value) return
   if (event.target.closest?.('.nav-group.editing')) return
   editingNavGroupId.value = null
-}
-
-function startDrag(type, item, groupId = null, event = null) {
-  dragState.value = { type, item, groupId, overId: null, saving: false, lastMoveAt: 0, settling: false }
-  if (type === 'folder' && item?.expanded) {
-    item.expanded = false
-  }
-  if (event?.dataTransfer) {
-    event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', String(item?.id || ''))
-    if (type !== 'navItem' && type !== 'navGroup') {
-      const canvas = document.createElement('canvas')
-      canvas.width = 1
-      canvas.height = 1
-      canvas.style.position = 'fixed'
-      canvas.style.left = '-1000px'
-      canvas.style.top = '-1000px'
-      document.body.appendChild(canvas)
-      event.dataTransfer.setDragImage(canvas, 0, 0)
-      window.setTimeout(() => canvas.remove(), 0)
-      return
-    }
-    try {
-      const dragNode = event.currentTarget?.cloneNode(true)
-      if (dragNode) {
-        dragNode.classList.add('drag-preview')
-        dragNode.style.position = 'fixed'
-        dragNode.style.left = '-1000px'
-        dragNode.style.top = '-1000px'
-        dragNode.style.pointerEvents = 'none'
-        document.body.appendChild(dragNode)
-        event.dataTransfer.setDragImage(dragNode, 30, 38)
-        window.setTimeout(() => dragNode.remove(), 0)
-      }
-    } catch {}
-  }
-}
-
-function reorderListByTarget(list, source, target) {
-  const next = [...list]
-  const sourceIndex = next.findIndex((item) => item.id === source.id)
-  const targetIndex = next.findIndex((item) => item.id === target.id)
-  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return null
-  const [moved] = next.splice(sourceIndex, 1)
-  next.splice(targetIndex, 0, moved)
-  return next.map((item, index) => ({ ...item, sort: index + 1 }))
-}
-
-function hoverBookmark(target) {
-  const source = dragState.value.item
-  if (dragState.value.type !== 'bookmark' || !source || source.id === target.id) return
-  const next = reorderListByTarget(bookmarks.value, source, target)
-  if (!next) return
-  bookmarks.value = next
-  dragState.value.item = next.find((item) => item.id === source.id) || source
-  dragState.value.overId = target.id
-}
-
-function folderSiblings(folder) {
-  if (!folder.parentId) return folders.value
-  const parent = findFolderById(folders.value, folder.parentId)
-  return parent?.children || []
-}
-
-function replaceFolderSiblings(folder, next) {
-  if (!folder.parentId) {
-    folders.value = next
-    return
-  }
-  const parent = findFolderById(folders.value, folder.parentId)
-  if (parent) parent.children = next
-}
-
-function hoverFolder(target) {
-  const source = dragState.value.item
-  if (dragState.value.settling || dragState.value.type !== 'folder' || !source || source.id === target.id || source.parentId !== target.parentId) return
-  const now = Date.now()
-  if (dragState.value.overId === target.id || now - (dragState.value.lastMoveAt || 0) < 220) return
-  const next = reorderListByTarget(folderSiblings(target), source, target)
-  if (!next) return
-  replaceFolderSiblings(target, next)
-  dragState.value.item = next.find((item) => item.id === source.id) || source
-  dragState.value.overId = target.id
-  dragState.value.lastMoveAt = now
-  dragState.value.settling = true
-  window.setTimeout(() => {
-    if (dragState.value.type === 'folder') dragState.value.settling = false
-  }, 260)
-}
-
-function clearDragState() {
-  dragState.value = { type: '', groupId: null, item: null, overId: null, saving: false, lastMoveAt: 0, settling: false }
-}
-
-function hoverNavCard(group, target, event = null) {
-  const source = dragState.value.item
-  if (dragState.value.settling || dragState.value.type !== 'navItem' || dragState.value.groupId !== group.id || !source || source.id === target.id) return
-  const list = [...(group.items || [])]
-  const sourceIndex = list.findIndex((item) => item.id === source.id)
-  const targetIndex = list.findIndex((item) => item.id === target.id)
-  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return
-  const now = Date.now()
-  if (now - (dragState.value.lastMoveAt || 0) < 220) return
-  const [moved] = list.splice(sourceIndex, 1)
-  list.splice(targetIndex, 0, moved)
-  group.items = list.map((item, index) => ({ ...item, sort: index + 1 }))
-  dragState.value.item = moved
-  dragState.value.overId = target.id
-  dragState.value.lastMoveAt = now
-  dragState.value.settling = true
-  window.setTimeout(() => {
-    if (dragState.value.type === 'navItem') dragState.value.settling = false
-  }, 260)
-}
-
-function navDragFloatStyle() {
-  if (!navPointerDrag.value.active) return {}
-  return {
-    left: `${navPointerDrag.value.x}px`,
-    top: `${navPointerDrag.value.y}px`,
-  }
-}
-
-function stopNavPointerListeners() {
-  window.removeEventListener('pointermove', handleNavPointerMove)
-  window.removeEventListener('pointerup', handleNavPointerUp)
-  window.removeEventListener('pointercancel', handleNavPointerCancel)
-}
-
-function clearNavLongPressTimer() {
-  if (navLongPressTimer) {
-    window.clearTimeout(navLongPressTimer)
-    navLongPressTimer = null
-  }
-}
-
-function startNavPointerSort(event, group, item) {
-  if (editingNavGroupId.value !== group.id || !item.id) return
-  if (event.button != null && event.button !== 0) return
-  event.preventDefault()
-  closeMenu()
-  const rect = event.currentTarget.getBoundingClientRect()
-  clearNavLongPressTimer()
-  event.currentTarget.setPointerCapture?.(event.pointerId)
-  navPointerDrag.value = {
-    active: true,
-    moved: false,
-    groupId: group.id,
-    item,
-    pointerId: event.pointerId,
-    startX: event.clientX,
-    startY: event.clientY,
-    x: rect.left,
-    y: rect.top,
-    offsetX: event.clientX - rect.left,
-    offsetY: event.clientY - rect.top,
-    lastMoveAt: 0,
-    lastTargetId: '',
-  }
-  window.addEventListener('pointermove', handleNavPointerMove, { passive: false })
-  window.addEventListener('pointerup', handleNavPointerUp)
-  window.addEventListener('pointercancel', handleNavPointerCancel)
-}
-
-function handleNavPointerMove(event) {
-  const state = navPointerDrag.value
-  if (!state.active || event.pointerId !== state.pointerId) return
-  event.preventDefault()
-  const dx = event.clientX - state.startX
-  const dy = event.clientY - state.startY
-  if (!state.moved && Math.hypot(dx, dy) > 4) state.moved = true
-  state.x = event.clientX - state.offsetX
-  state.y = event.clientY - state.offsetY
-  if (!state.moved) return
-  const group = displayGroups.value.find((entry) => entry.id === state.groupId)
-  if (!group) return
-  const groupNode = document.querySelector(`[data-nav-group-id="${CSS.escape(String(state.groupId))}"]`)
-  const targetTile = document.elementFromPoint(event.clientX, event.clientY)?.closest?.('[data-nav-item-id]')
-  if (!targetTile || !groupNode?.contains(targetTile)) {
-    state.lastTargetId = ''
-    return
-  }
-  const targetId = targetTile?.dataset?.navItemId || ''
-  if (!targetId || targetId === String(state.item?.id)) return
-  if (state.lastTargetId === targetId) return
-  const now = Date.now()
-  if (now - (state.lastMoveAt || 0) < 110) return
-  const list = [...(group.items || [])]
-  const sourceIndex = list.findIndex((entry) => String(entry.id) === String(state.item.id))
-  const targetIndex = list.findIndex((entry) => String(entry.id) === targetId)
-  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return
-  const [moved] = list.splice(sourceIndex, 1)
-  list.splice(targetIndex, 0, moved)
-  group.items = list.map((entry, index) => ({ ...entry, sort: index + 1 }))
-  state.item = moved
-  state.lastTargetId = targetId
-  state.lastMoveAt = now
-}
-
-function resetNavPointerDrag() {
-  navPointerDrag.value = { active: false, moved: false, groupId: null, item: null, pointerId: null, startX: 0, startY: 0, x: 0, y: 0, offsetX: 0, offsetY: 0, lastMoveAt: 0, lastTargetId: '' }
-}
-
-function handleNavPointerCancel() {
-  clearNavLongPressTimer()
-  stopNavPointerListeners()
-  resetNavPointerDrag()
-}
-
-async function handleNavPointerUp(event) {
-  const state = navPointerDrag.value
-  if (!state.active || event.pointerId !== state.pointerId) return
-  stopNavPointerListeners()
-  const group = displayGroups.value.find((entry) => entry.id === state.groupId)
-  const moved = state.moved
-  const item = state.item
-  resetNavPointerDrag()
-  if (!group || !item) return
-  if (!moved) {
-    suppressNextNavCardClick.value = true
-    window.setTimeout(() => { suppressNextNavCardClick.value = false }, 0)
-    editNavCard(item)
-    return
-  }
-  suppressNextNavCardClick.value = true
-  window.setTimeout(() => { suppressNextNavCardClick.value = false }, 0)
-  const reordered = [...(group.items || [])].map((entry, index) => ({ ...entry, sort: index + 1 }))
-  group.items = reordered
-  if (typeof group.id === 'number') {
-    try {
-      await Promise.all(reordered.map((entry) => updateNavItem(entry)))
-      statusText.value = '卡片排序已保存'
-    } catch (error) {
-      statusText.value = `排序保存失败：${error.message}`
-      await loadNavigation()
-    }
-  }
-}
-
-
-async function dropNavGroup(target) {
-  const source = dragState.value.item
-  if (dragState.value.type !== 'navGroup' || !source || source.id === target.id) return
-  await swapSort(source, target, updateNavGroup, loadNavigation)
-  clearDragState()
-}
-
-async function dropNavCard(group) {
-  if (dragState.value.type !== 'navItem' || dragState.value.groupId !== group.id) {
-    clearDragState()
-    return
-  }
-  const reordered = [...(group.items || [])].map((item, index) => ({ ...item, sort: index + 1 }))
-  group.items = reordered
-  dragState.value = { ...dragState.value, overId: null, saving: true }
-  try {
-    await Promise.all(reordered.map((item) => updateNavItem(item)))
-    statusText.value = '卡片排序已保存'
-  } catch (error) {
-    statusText.value = `排序保存失败：${error.message}`
-    await loadNavigation()
-  } finally {
-    clearDragState()
-  }
-}
-
-async function dropFolder(target) {
-  const source = dragState.value.item
-  if (!source) return
-  if (dragState.value.type === 'bookmark') {
-    await updateBookmark({ ...source, folderId: target.id })
-    if (activeFolder.value) await selectFolder(activeFolder.value)
-    statusText.value = `已移动到「${target.name}」`
-    clearDragState()
-    return
-  }
-  if (dragState.value.type !== 'folder') return
-  const siblings = folderSiblings(source)
-  const reordered = siblings.map((folder, index) => ({ ...folder, sort: index + 1 }))
-  clearDragState()
-  try {
-    await Promise.all(reordered.map((folder) => updateBookmarkFolder(folder)))
-    statusText.value = '收藏夹排序已保存'
-  } catch (error) {
-    statusText.value = `收藏夹排序保存失败：${error.message}`
-    await loadFolders(source.parentId)
-  }
-}
-
-async function dropBookmark(target) {
-  const source = dragState.value.item
-  if (dragState.value.type !== 'bookmark' || !source) return
-  await Promise.all(bookmarks.value.map((bookmark, index) => updateBookmark({ ...bookmark, sort: index + 1 })))
-  if (activeFolder.value) await selectFolder(activeFolder.value)
-  clearDragState()
-}
-
-async function swapSort(source, target, updater, refresh) {
-  const sourceSort = source.sort || 1
-  const targetSort = target.sort || 1
-  await updater({ ...source, sort: targetSort })
-  await updater({ ...target, sort: sourceSort })
-  await refresh()
 }
 
 async function moveNavGroup(group, offset) {
@@ -1204,252 +846,6 @@ async function removeNavCard(item) {
   await loadNavigation()
 }
 
-async function deleteEditingNavCard() {
-  const item = editDialog.value.form
-  if (!item?.id || !confirm(`确认删除卡片「${item.name}」？`)) return
-  try {
-    if (settingsOpen.value) {
-      removeNavDraftItem(item.id)
-      closeEditDialog()
-      return
-    }
-    await deleteNavItem(item.id)
-    await loadNavigation()
-    closeEditDialog()
-  } catch (error) {
-    statusText.value = error.message
-  }
-}
-
-async function addFolder() {
-  if (!quickBookmark.value.folderName.trim()) return
-  await createBookmarkFolder({ name: quickBookmark.value.folderName.trim(), sort: folderFlatList.value.length + 1 })
-  quickBookmark.value.folderName = ''
-  await loadFolders()
-}
-
-async function addBookmark() {
-  if (!activeFolderId.value || !quickBookmark.value.title.trim() || !quickBookmark.value.url.trim()) {
-    statusText.value = '请选择文件夹，并填写标题和网址'
-    return
-  }
-  await createBookmark({ folderId: activeFolderId.value, title: quickBookmark.value.title.trim(), url: quickBookmark.value.url.trim(), note: quickBookmark.value.note.trim(), favicon: quickBookmark.value.favicon || '', sort: bookmarks.value.length + 1 })
-  quickBookmark.value.title = ''
-  quickBookmark.value.url = ''
-  quickBookmark.value.note = ''
-  quickBookmark.value.favicon = ''
-  await selectFolder(activeFolder.value)
-}
-
-async function moveFolder(folder, offset) {
-  const tree = getFolderTreeForAction()
-  const found = findFolderContainerAndIndex(tree, folder.id)
-  if (!found) return
-  const { siblings, index } = found
-  const targetIndex = index + offset
-  if (index < 0 || targetIndex < 0 || targetIndex >= siblings.length) return
-  const moved = found.folder
-  const target = siblings[targetIndex]
-  const folderSort = moved.sort || index + 1
-  const targetSort = target.sort || targetIndex + 1
-  siblings.splice(index, 1)
-  siblings.splice(targetIndex, 0, moved)
-  moved.sort = targetSort
-  target.sort = folderSort
-  if (isSettingsBookmarkManager()) {
-    markFoldersDraftDirty()
-    return
-  }
-  try {
-    await Promise.all([
-      updateBookmarkFolder({ ...moved, sort: moved.sort }),
-      updateBookmarkFolder({ ...target, sort: target.sort }),
-    ])
-  } catch (error) {
-    statusText.value = `排序保存失败：${error.message}`
-    await loadFolders(moved.parentId ?? null)
-  }
-}
-
-async function removeFolder(folder) {
-  if (isSettingsBookmarkManager()) {
-    if (!confirm(`确认在草稿中删除文件夹「${folder.name}」及其内容？点击保存后才会真正删除。`)) return
-    const found = findFolderContainerAndIndex(foldersDraft.value, folder.id)
-    if (!found) return
-    found.siblings.splice(found.index, 1)
-    markFoldersDraftDirty()
-    statusText.value = `已删除收藏夹草稿：${folder.name}`
-    return
-  }
-  if (!confirm(`确认删除文件夹「${folder.name}」及其内容？`)) return
-  if (!confirm('删除后无法恢复，确认永久删除？')) return
-  await deleteBookmarkFolder(folder.id)
-  if (activeFolderId.value === folder.id) {
-    activeFolderId.value = null
-    bookmarks.value = []
-  }
-  await loadFolders(folder.parentId ?? null)
-}
-
-async function saveEditDialog() {
-  const { type, form } = editDialog.value
-  try {
-    if (type === 'navGroup' || type === 'navGroupCreate') {
-      if (!form.name?.trim()) return
-      if (form.name.trim().length > 10) {
-        statusText.value = '分组名称最多 10 个字'
-        return
-      }
-      if (settingsOpen.value) {
-        if (type === 'navGroupCreate') {
-          navGroupsDraft.value = [...navGroupsDraft.value, { id: createDraftId('draft-group'), name: form.name.trim(), sort: navGroupsDraft.value.length + 1, items: [] }]
-          markNavDraftDirty()
-        }
-        else updateNavDraftGroup(form.id, (group) => ({ ...group, name: form.name.trim() }))
-        closeEditDialog()
-        return
-      }
-      if (type === 'navGroupCreate') await createNavGroup({ name: form.name.trim(), sort: navGroups.value.length + 1 })
-      else await updateNavGroup({ ...form, name: form.name.trim() })
-      await loadNavigation()
-    }
-    if (type === 'navItem' || type === 'navItemCreate') {
-      if (!form.name?.trim()) {
-        statusText.value = '请填写标题'
-        return
-      }
-      if (!form.groupId) {
-        statusText.value = '请选择分组'
-        return
-      }
-      if (!form.wanUrl?.trim()) {
-        statusText.value = '请填写公网地址'
-        return
-      }
-      const name = form.name.trim()
-      if (name.length > 15) {
-        statusText.value = '标题最多 15 个字'
-        return
-      }
-      const iconMode = form.iconMode || (isImageValue(form.icon) ? 'image' : 'text')
-      const icon = iconMode === 'image' ? (form.icon || '') : (form.icon || name)
-      if (iconMode === 'text' && icon.length > 5) {
-        statusText.value = '文本内容最多 5 个字'
-        return
-      }
-      const payload = { groupId: form.groupId, name, icon, lanUrl: form.lanUrl || '', wanUrl: form.wanUrl || '', urlMode: 'wan', sort: form.sort || 0 }
-      if (settingsOpen.value) {
-        upsertNavDraftItem({ id: form.id || createDraftId('draft-card'), ...payload })
-        closeEditDialog()
-        return
-      }
-      if (type === 'navItemCreate') await createNavItem(payload)
-      else await updateNavItem({ id: form.id, ...payload })
-      await loadNavigation()
-    }
-    if (type === 'folder' || type === 'folderCreate') {
-      if (!form.name?.trim()) return
-      const parentId = form.parentId == null || form.parentId === '' ? null : form.parentId
-      if (type === 'folder' && parentId === form.id) {
-        statusText.value = '不能移动到自身'
-        return
-      }
-      const tree = getFolderTreeForAction()
-      if (type === 'folder' && parentId && isFolderDescendant(parentId, form.id, tree)) {
-        statusText.value = '不能移动到自己的子收藏夹内'
-        return
-      }
-      if (isSettingsBookmarkManager()) {
-        if (type === 'folderCreate') {
-          const siblings = parentId ? (findFolderById(foldersDraft.value, parentId)?.children || []) : foldersDraft.value
-          siblings.push(normalizeFolder({ id: createDraftId('draft-folder'), parentId, name: form.name.trim(), sort: siblings.length + 1, children: [], childrenLoaded: true }, parentId))
-        } else {
-          const found = findFolderContainerAndIndex(foldersDraft.value, form.id)
-          if (found) {
-            const moved = found.folder
-            if (moved.parentId !== parentId) {
-              found.siblings.splice(found.index, 1)
-              const siblings = parentId ? (findFolderById(foldersDraft.value, parentId)?.children || []) : foldersDraft.value
-              moved.parentId = parentId
-              moved.sort = siblings.length + 1
-              siblings.push(moved)
-            }
-            moved.name = form.name.trim()
-          }
-        }
-        markFoldersDraftDirty()
-        closeEditDialog()
-        return
-      }
-      if (type === 'folderCreate') await createBookmarkFolder({ parentId, name: form.name.trim(), sort: form.sort || folderFlatList.value.length + 1 })
-      else await updateBookmarkFolder({ ...form, parentId, name: form.name.trim() })
-      await loadFolders()
-      await loadAllFolderChildren(folders.value)
-    }
-    if (type === 'bookmark' || type === 'bookmarkCreate') {
-      if (!form.title?.trim() || !form.url?.trim()) return
-      const folderId = form.folderId || activeFolderId.value
-      if (!folderId) {
-        statusText.value = '请选择要新增到的文件夹'
-        return
-      }
-      const payload = { ...form, title: form.title.trim(), url: form.url.trim(), note: form.note || '', favicon: form.favicon || form.title.trim().slice(0, 1), folderId }
-      if (type === 'bookmarkCreate') await createBookmark(payload)
-      else await updateBookmark(payload)
-      if (activeFolder.value) await selectFolder(activeFolder.value)
-      if (bookmarkSearch.value.q.trim()) await runBookmarkSearch()
-    }
-    if (type === 'bookmarkToNav') {
-      if (!form.bookmark) return
-      await saveBookmarkAsNavCard(form.bookmark, form.groupId)
-    }
-    if (type === 'searchEngine' || type === 'searchEngineCreate') {
-      if (!form.title?.trim() || !form.url?.trim()) {
-        statusText.value = '请填写搜索引擎标题和 URL'
-        return
-      }
-      const next = { key: form.key || `custom-${Date.now()}`, title: form.title.trim(), url: form.url.trim(), icon: form.icon || form.title.trim().slice(0, 1) }
-      const engines = type === 'searchEngineCreate' ? [...settingsSearchEngines.value, next] : settingsSearchEngines.value.map((item) => item.key === next.key ? next : item)
-      writeSearchEngines(engines)
-      if (!webSearch.value.engine) webSearch.value.engine = next.key
-    }
-    closeEditDialog()
-  } catch (error) {
-    statusText.value = error.message
-  }
-}
-
-async function createGroupByPrompt() {
-  editDialog.value = { open: true, type: 'navGroupCreate', title: '新增导航分组', form: { name: '' } }
-}
-async function addCardFromMenu(group) {
-  editDialog.value = {
-    open: true,
-    type: 'navItemCreate',
-    title: `新增卡片 · ${group.name}`,
-    form: { groupId: group.id, name: '', iconMode: 'text', icon: '', lanUrl: '', wanUrl: '', urlMode: 'wan', sort: (group.items?.length || 0) + 1 },
-  }
-}
-async function createFolderByPrompt(parent = null) {
-  const list = isSettingsBookmarkManager() ? folderManagementFlatList.value : folderFlatList.value
-  editDialog.value = { open: true, type: 'folderCreate', title: parent ? `新增收藏夹 · ${parent.name}` : '新增收藏夹', form: { parentId: parent?.id || null, name: '', sort: parent ? (parent.children?.length || 0) + 1 : list.length + 1 } }
-}
-async function createBookmarkByPrompt(folder = activeFolder.value || folders.value[0]) {
-  if (isSettingsBookmarkManager()) {
-    statusText.value = '设置页内暂不直接新增书签，请保存后在收藏夹抽屉中新增'
-    return
-  }
-  let targetFolder = folder
-  if (!targetFolder) {
-    editDialog.value = { open: true, type: 'folderCreate', title: '请先创建收藏夹', form: { parentId: null, name: '默认收藏', sort: folderFlatList.value.length + 1 } }
-    return
-  }
-  if (!targetFolder) {
-    statusText.value = '请先创建收藏夹'
-    return
-  }
-  editDialog.value = { open: true, type: 'bookmarkCreate', title: `新增书签 · ${targetFolder.name}`, form: { folderId: targetFolder.id, title: '', url: '', favicon: '', note: '', sort: bookmarks.value.length + 1 } }
-}
 </script>
 
 <template>

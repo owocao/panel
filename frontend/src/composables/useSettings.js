@@ -34,9 +34,10 @@ export function useSettings({
   setNetworkMode,
   navGroupsDraft,
   navDraftDirty,
-  foldersDraft,
-  foldersDraftDirty,
   folders,
+  getFoldersDraftDirty,
+  setFoldersDraft,
+  setFoldersDraftDirty,
   getNavGroups,
   closeMenu,
   loadFolders,
@@ -62,8 +63,8 @@ export function useSettings({
     settingsDraft.value = { ...settingsForm.value }
     navGroupsDraft.value = getNavGroups().map((group) => ({ ...group, items: [...(group.items || [])] }))
     navDraftDirty.value = false
-    foldersDraft.value = []
-    foldersDraftDirty.value = false
+    setFoldersDraft([])
+    setFoldersDraftDirty(false)
     settingsOpen.value = true
   }
 
@@ -72,8 +73,8 @@ export function useSettings({
     closeMenu()
     settingsMessage.value = ''
     settingsOpen.value = false
-    foldersDraft.value = []
-    foldersDraftDirty.value = false
+    setFoldersDraft([])
+    setFoldersDraftDirty(false)
   }
 
   async function selectSettingsMenu(item) {
@@ -126,11 +127,11 @@ export function useSettings({
       const shouldSaveSettings = !settingsOpen.value || settingsDraftDirty()
       const data = shouldSaveSettings ? await saveSettings(source) : settingsForm.value
       if (settingsOpen.value && navDraftDirty.value) await saveNavGroupDraftOrder()
-      if (settingsOpen.value && foldersDraftDirty.value) await saveFolderDraftOrder()
+      if (settingsOpen.value && getFoldersDraftDirty()) await saveFolderDraftOrder()
       settingsForm.value = { ...settingsForm.value, ...data }
       settingsDraft.value = { ...settingsForm.value }
       navDraftDirty.value = false
-      foldersDraftDirty.value = false
+      setFoldersDraftDirty(false)
       if (settingsForm.value.siteTitle) document.title = settingsForm.value.siteTitle
       onStatus?.('设置已保存')
       settingsMessage.value = `设置已保存：${new Date().toLocaleTimeString('zh-CN', { hour12: false })}`
