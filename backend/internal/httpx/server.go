@@ -2,11 +2,8 @@ package httpx
 
 import (
 	"archive/tar"
-	"bytes"
 	"compress/gzip"
-	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -14,9 +11,7 @@ import (
 	"html"
 	"io"
 	"log"
-	"mime"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -204,211 +199,6 @@ func (s *Server) importBookmarks(w http.ResponseWriter, r *http.Request) {
 
 func stripTags(v string) string {
 	return regexp.MustCompile(`(?is)<[^>]+>`).ReplaceAllString(v, "")
-}
-
-func (s *Server) uploadAsset(w http.ResponseWriter, r *http.Request) {
-	if _, err := s.currentUser(r); err != nil {
-		writeError(w, 401, "未登录")
-		return
-	}
-	if err := r.ParseMultipartForm(8 * 1024 * 1024); err != nil {
-		writeError(w, 400, "文件最大支持 8MB")
-		return
-	}
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		writeError(w, 400, "请选择上传文件")
-		return
-	}
-	defer file.Close()
-	contentType := header.Header.Get("Content-Type")
-	ext := strings.ToLower(filepath.Ext(header.Filename))
-	if contentType == "" {
-		contentType = mime.TypeByExtension(ext)
-	}
-	if !strings.HasPrefix(contentType, "image/") {
-		writeError(w, 400, "仅支持图片文件")
-		return
-	}
-	if ext == "" {
-		ext = ".bin"
-	}
-	name := time.Now().Format("20060102-150405") + "-" + randomShort() + ext
-	dir := filepath.Join(s.cfg.DataDir, "uploads")
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		writeError(w, 500, err.Error())
-		return
-	}
-	path := filepath.Join(dir, name)
-	out, err := os.Create(path)
-	if err != nil {
-		writeError(w, 500, err.Error())
-		return
-	}
-	defer out.Close()
-	written, err := io.Copy(out, io.LimitReader(file, 8*1024*1024+1))
-	if err != nil {
-		writeError(w, 500, err.Error())
-		return
-	}
-	if written > 8*1024*1024 {
-		_ = os.Remove(path)
-		writeError(w, 400, "文件最大支持 8MB")
-		return
-	}
-	publicPath := "/uploads/" + name
-	source := "local"
-	if settings, err := s.store.ListSettings(); err == nil && settings["s3Enabled"] == "true" {
-		prefix := strings.Trim(settings["s3Prefix"], "/")
-		key := "uploads/" + name
-		if prefix != "" {
-			key = prefix + "/" + key
-		}
-		if err := s.s3PutObject(settings, key, contentType, mustReadFile(path)); err == nil {
-			publicPath = s.s3PublicURL(settings, key)
-			source = "s3"
-		}
-	}
-	_, _ = s.store.DB.Exec(`INSERT INTO assets(name,source,path,mime,size,created_at) VALUES(?,?,?,?,?,?)`, header.Filename, source, publicPath, contentType, written, time.Now().Format(time.RFC3339))
-	writeJSON(w, 201, map[string]any{"url": publicPath, "name": header.Filename, "size": written, "mime": contentType, "source": source})
-}
-
-func randomShort() string {
-	b := make([]byte, 4)
-	if _, err := rand.Read(b); err != nil {
-		return fmt.Sprint(time.Now().UnixNano())
-	}
-	return hex.EncodeToString(b)
-}
-
-func mustReadFile(path string) []byte {
-	data, _ := os.ReadFile(path)
-	return data
-}
-
-func (s *Server) s3PublicURL(settings map[string]string, key string) string {
-	if base := strings.TrimRight(settings["s3PublicBase"], "/"); base != "" {
-		return base + "/" + key
-	}
-	endpoint := strings.TrimRight(settings["s3Endpoint"], "/")
-	bucket := settings["s3Bucket"]
-	if settings["s3PathStyle"] == "false" {
-		if u, err := url.Parse(endpoint); err == nil {
-			u.Host = bucket + "." + u.Host
-			u.Path = "/" + key
-			return u.String()
-		}
-	}
-	return endpoint + "/" + bucket + "/" + key
-}
-
-func (s *Server) testS3(w http.ResponseWriter, r *http.Request) {
-	if _, err := s.currentUser(r); err != nil {
-		writeError(w, 401, "未登录")
-		return
-	}
-	settings, err := s.store.ListSettings()
-	if err != nil {
-		writeError(w, 500, err.Error())
-		return
-	}
-	key := strings.Trim(settings["s3Prefix"], "/")
-	if key != "" {
-		key += "/"
-	}
-	key += "test/connection-check.txt"
-	payload := []byte("biu-panel s3 connectivity check\n")
-	if err := s.s3PutObject(settings, key, "text/plain; charset=utf-8", payload); err != nil {
-		writeError(w, 502, err.Error())
-		return
-	}
-	writeJSON(w, 200, map[string]any{"key": key, "url": s.s3PublicURL(settings, key), "size": len(payload)})
-}
-
-func (s *Server) s3PutObject(settings map[string]string, key, contentType string, payload []byte) error {
-	endpoint := strings.TrimRight(settings["s3Endpoint"], "/")
-	bucket := settings["s3Bucket"]
-	accessKey := settings["s3AccessKey"]
-	secretKey := settings["s3SecretKey"]
-	region := settings["s3Region"]
-	if region == "" {
-		region = "auto"
-	}
-	if endpoint == "" || bucket == "" || accessKey == "" || secretKey == "" {
-		return errors.New("S3 配置不完整")
-	}
-	base, err := url.Parse(endpoint)
-	if err != nil || base.Scheme == "" || base.Host == "" {
-		return errors.New("S3 Endpoint 格式错误")
-	}
-	pathStyle := settings["s3PathStyle"] != "false"
-	objectPath := "/" + bucket + "/" + key
-	if !pathStyle {
-		base.Host = bucket + "." + base.Host
-		objectPath = "/" + key
-	}
-	base.Path = objectPath
-	now := time.Now().UTC()
-	amzDate := now.Format("20060102T150405Z")
-	dateStamp := now.Format("20060102")
-	payloadHash := sha256Hex(payload)
-	headers := map[string]string{
-		"host":                 base.Host,
-		"x-amz-content-sha256": payloadHash,
-		"x-amz-date":           amzDate,
-		"content-type":         contentType,
-	}
-	canonicalHeaders := "content-type:" + headers["content-type"] + "\n" + "host:" + headers["host"] + "\n" + "x-amz-content-sha256:" + payloadHash + "\n" + "x-amz-date:" + amzDate + "\n"
-	signedHeaders := "content-type;host;x-amz-content-sha256;x-amz-date"
-	canonicalRequest := strings.Join([]string{"PUT", uriEncodePath(objectPath), "", canonicalHeaders, signedHeaders, payloadHash}, "\n")
-	credentialScope := dateStamp + "/" + region + "/s3/aws4_request"
-	stringToSign := "AWS4-HMAC-SHA256\n" + amzDate + "\n" + credentialScope + "\n" + sha256Hex([]byte(canonicalRequest))
-	signature := hex.EncodeToString(hmacSHA256(signingKey(secretKey, dateStamp, region), []byte(stringToSign)))
-	authorization := "AWS4-HMAC-SHA256 Credential=" + accessKey + "/" + credentialScope + ", SignedHeaders=" + signedHeaders + ", Signature=" + signature
-	req, err := http.NewRequest(http.MethodPut, base.String(), bytes.NewReader(payload))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", contentType)
-	req.Header.Set("X-Amz-Date", amzDate)
-	req.Header.Set("X-Amz-Content-Sha256", payloadHash)
-	req.Header.Set("Authorization", authorization)
-	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-		return fmt.Errorf("S3 上传失败：%s %s", resp.Status, strings.TrimSpace(string(body)))
-	}
-	return nil
-}
-
-func sha256Hex(payload []byte) string {
-	sum := sha256.Sum256(payload)
-	return hex.EncodeToString(sum[:])
-}
-
-func signingKey(secret, date, region string) []byte {
-	kDate := hmacSHA256([]byte("AWS4"+secret), []byte(date))
-	kRegion := hmacSHA256(kDate, []byte(region))
-	kService := hmacSHA256(kRegion, []byte("s3"))
-	return hmacSHA256(kService, []byte("aws4_request"))
-}
-
-func hmacSHA256(key, data []byte) []byte {
-	h := hmac.New(sha256.New, key)
-	h.Write(data)
-	return h.Sum(nil)
-}
-
-func uriEncodePath(v string) string {
-	parts := strings.Split(v, "/")
-	for i, part := range parts {
-		parts[i] = strings.ReplaceAll(url.QueryEscape(part), "+", "%20")
-	}
-	return strings.Join(parts, "/")
 }
 
 func (s *Server) writeDataTar(tw *tar.Writer) error {
@@ -647,72 +437,6 @@ func (s *Server) restoreNavigationBackup(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	writeJSON(w, 200, map[string]int{"groups": len(backup.Groups), "items": len(backup.Items)})
-}
-
-func (s *Server) metadata(w http.ResponseWriter, r *http.Request) {
-	if !s.requireAuth(w, r) {
-		return
-	}
-	raw := strings.TrimSpace(r.URL.Query().Get("url"))
-	if raw == "" {
-		writeError(w, 400, "url 必填")
-		return
-	}
-	u, err := url.Parse(raw)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		writeError(w, 400, "仅支持 http/https 地址")
-		return
-	}
-	client := &http.Client{Timeout: 5 * time.Second}
-	req, err := http.NewRequest(http.MethodGet, raw, nil)
-	if err != nil {
-		writeError(w, 400, "网址格式错误")
-		return
-	}
-	req.Header.Set("User-Agent", "biu-panel/0.1 metadata fetcher")
-	resp, err := client.Do(req)
-	if err != nil {
-		writeError(w, 502, "抓取网页失败")
-		return
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 400 {
-		writeError(w, 502, "网页返回错误状态")
-		return
-	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 512*1024))
-	if err != nil {
-		writeError(w, 502, "读取网页失败")
-		return
-	}
-	html := string(body)
-	title := extractFirst(html, `(?is)<title[^>]*>(.*?)</title>`)
-	favicon := extractFirst(html, `(?is)<link[^>]+rel=["'][^"']*(?:icon|shortcut icon|apple-touch-icon)[^"']*["'][^>]*href=["']([^"']+)["']`)
-	if favicon == "" {
-		favicon = extractFirst(html, `(?is)<link[^>]+href=["']([^"']+)["'][^>]*rel=["'][^"']*(?:icon|shortcut icon|apple-touch-icon)[^"']*["']`)
-	}
-	if favicon != "" {
-		if ref, err := url.Parse(favicon); err == nil {
-			favicon = u.ResolveReference(ref).String()
-		}
-	} else {
-		favicon = u.Scheme + "://" + u.Host + "/favicon.ico"
-	}
-	writeJSON(w, 200, map[string]string{"title": strings.TrimSpace(htmlUnescape(title)), "favicon": favicon})
-}
-
-func extractFirst(input, pattern string) string {
-	re := regexp.MustCompile(pattern)
-	match := re.FindStringSubmatch(input)
-	if len(match) < 2 {
-		return ""
-	}
-	return match[1]
-}
-
-func htmlUnescape(v string) string {
-	replacer := strings.NewReplacer("&amp;", "&", "&lt;", "<", "&gt;", ">", "&quot;", "\"", "&#39;", "'")
-	return replacer.Replace(v)
 }
 
 func randomToken() (string, error) {
