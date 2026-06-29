@@ -3,7 +3,7 @@
 > 整理时间：2026-06-26
 > 项目路径：`/project/panel`
 > 当前分支：`master`
-> 当前最新提交：`f425aaa chore: refine docker deployment setup`
+> 当前最新提交：`1df48e9 refactor: split httpx bookmark transfer and navigation backup`
 > 整理前工作区：干净
 
 ## 1. 项目概览
@@ -62,11 +62,16 @@
     cmd/server/main.go
     internal/config/config.go
     internal/httpx/
+      assets.go
       auth.go
-      bookmarks.go
       bookmark_import.go
+      bookmark_transfer.go
+      bookmarks.go
       health.go
+      metadata.go
       navigation.go
+      navigation_backup.go
+      s3.go
       server.go
       server_test.go
       settings.go
@@ -102,11 +107,16 @@
 
 HTTP 层：
 
-- `backend/internal/httpx/server.go`：路由注册、静态文件、上传、S3、metadata、备份恢复、书签导入导出、通用工具。
+- `backend/internal/httpx/server.go`：`Server` 结构、路由注册、静态文件服务、初始化管理员、定时清理任务、全局备份下载/恢复、通用 HTTP 工具函数。当前不再承载 metadata、上传、S3、书签导入导出和导航备份恢复逻辑。
 - `backend/internal/httpx/auth.go`：初始化、登录、登出、当前用户、会话校验。
 - `backend/internal/httpx/navigation.go`：导航分组和卡片基础 API。
+- `backend/internal/httpx/navigation_backup.go`：导航页 JSON 备份下载、导航页 JSON 恢复、导航备份文件结构和恢复校验。
 - `backend/internal/httpx/bookmarks.go`：收藏夹文件夹、书签、搜索基础 API。
 - `backend/internal/httpx/bookmark_import.go`：书签 HTML 导入解析逻辑。
+- `backend/internal/httpx/bookmark_transfer.go`：浏览器书签 HTML 导出 HTTP 入口、书签 HTML 导入 HTTP 入口；解析逻辑仍在 `bookmark_import.go`。
+- `backend/internal/httpx/metadata.go`：网页 metadata 抓取，包括标题提取、favicon 解析和 HTML 实体还原。
+- `backend/internal/httpx/assets.go`：图片上传 HTTP 入口、本地上传文件保存、上传资源记录、上传后可选 S3 同步触发。
+- `backend/internal/httpx/s3.go`：S3 连接测试、Public URL 生成、S3 PUT Object、AWS V4 签名相关辅助函数。
 - `backend/internal/httpx/settings.go`：系统设置读写。
 - `backend/internal/httpx/health.go`：健康检查。
 - `backend/internal/httpx/server_test.go`：现有后端测试。
@@ -114,6 +124,26 @@ HTTP 层：
 存储层：
 
 - `backend/internal/store/store.go`：SQLite 打开、建表迁移、基础 CRUD、搜索、导航替换等。
+
+后续后端问题排查优先读取：
+
+- 路由是否注册、静态文件、全局备份恢复、通用响应/解析工具：先读 `server.go`。
+- 初始化、登录、登出、会话、登录失败锁定：先读 `auth.go`，再读 `store.go` 的用户、session、登录日志相关方法。
+- 首页导航分组和卡片 CRUD：先读 `navigation.go`，再读 `store.go` 的导航相关方法。
+- 导航页备份下载和恢复：先读 `navigation_backup.go`，再读 `store.go` 的 `ListNavigation`、`ReplaceNavigation`。
+- 收藏夹文件夹、书签 CRUD 和搜索：先读 `bookmarks.go`，再读 `store.go` 的收藏夹和书签相关方法。
+- 浏览器书签导入解析异常：先读 `bookmark_import.go`；导入/导出 HTTP 入口异常：先读 `bookmark_transfer.go`。
+- metadata 标题/favicon 抓取：先读 `metadata.go`。
+- 图片上传、本地上传路径、上传资源记录：先读 `assets.go`；S3 同步和连接测试：先读 `s3.go`。
+- 系统设置读写和 S3 配置保存：先读 `settings.go`，再读 `store.go` 的 settings 方法。
+
+维护约束：
+
+- `server.go` 当前仍保留路由、静态文件、全局备份恢复和通用工具，暂时不要继续为了行数拆分路由注册或通用工具。
+- 全局备份恢复仍在 `server.go`，涉及文件覆盖和路径安全；在备份 manifest、版本校验和恢复策略明确前，暂时不要仅为拆分而移动或重写。
+- `auth.go`、`navigation.go`、`bookmarks.go`、`settings.go` 当前边界清晰，除非处理对应领域问题，否则不要继续拆。
+- `metadata.go`、`assets.go`、`s3.go`、`bookmark_transfer.go`、`navigation_backup.go` 是同包保守拆分结果，后续维护应保持 API 行为不变。
+- `backend/internal/store/store.go` 当前仍未拆分，继续集中承载连接、迁移、模型和各领域 SQL。后续应保守处理：优先补必要查询/校验方法和测试，不要直接引入 repository/interface 或大规模重构；如需拆文件，也应保持同包、只移动代码、不改变调用方和事务行为。
 
 当前 API 大类：
 
