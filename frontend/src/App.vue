@@ -132,7 +132,17 @@ const {
   isBookmarkSelected,
   clearBookmarkSelection,
   toggleBookmarkSelection,
-} = useBookmarks()
+  loadFolders,
+  selectFolder,
+  runBookmarkSearch,
+  handleBookmarkSearchInput,
+  clearBookmarkSearch,
+} = useBookmarks({
+  getBookmarkFolders,
+  getBookmarks,
+  searchBookmarks,
+  onError: (error) => { statusText.value = error.message },
+})
 
 const {
   editDialog,
@@ -921,97 +931,6 @@ function exportBookmarks() {
 async function openDrawer() {
   drawerOpen.value = true
   if (!folders.value.length) await loadFolders()
-}
-
-async function loadFolders(parentId = null) {
-  try {
-    const data = await getBookmarkFolders(parentId || undefined)
-    const list = (data.folders || []).map((folder) => normalizeFolder(folder, parentId))
-    if (parentId == null) {
-      folders.value = list
-      if (!folders.value.length) {
-        activeFolderId.value = null
-        bookmarks.value = []
-        clearBookmarkSelection()
-        return
-      }
-      if (!activeFolderId.value) await selectFolder(folders.value[0])
-    } else {
-      const parent = findFolderById(folders.value, parentId)
-      if (parent) {
-        parent.children = list
-        parent.childrenLoaded = true
-        parent.hasChildren = list.length > 0
-        parent.expanded = true
-        parent.loading = false
-      }
-    }
-  } catch (error) {
-    statusText.value = error.message
-  }
-}
-
-async function selectFolder(folder) {
-  const cached = bookmarkCache.value[folder.id]
-  activeFolderId.value = folder.id
-  bookmarkSearch.value.q = ''
-  bookmarkSearch.value.results = []
-  clearBookmarkSelection()
-  bookmarks.value = cached ? [...cached] : []
-  try {
-    const data = await getBookmarks(folder.id)
-    const items = data.items || []
-    bookmarkCache.value = { ...bookmarkCache.value, [folder.id]: items }
-    if (activeFolderId.value === folder.id) {
-      bookmarks.value = items
-    }
-  } catch (error) {
-    statusText.value = error.message
-  }
-}
-
-let bookmarkSearchTimer
-
-async function runBookmarkSearch() {
-  const q = bookmarkSearch.value.q.trim()
-  if (!q) {
-    bookmarkSearch.value.results = []
-    return
-  }
-  
-  // 保存当前搜索词，防止旧请求覆盖新请求
-  const currentQ = q
-  
-  bookmarkSearch.value.loading = true
-  try {
-    const data = await searchBookmarks(q)
-    if (bookmarkSearch.value.q.trim() === currentQ) {
-      bookmarkSearch.value.results = data.items || []
-    }
-  } catch (error) {
-    statusText.value = error.message
-  } finally {
-    if (bookmarkSearch.value.q.trim() === currentQ) {
-      bookmarkSearch.value.loading = false
-    }
-  }
-}
-
-function handleBookmarkSearchInput() {
-  clearTimeout(bookmarkSearchTimer)
-  const q = bookmarkSearch.value.q.trim()
-  if (!q) {
-    bookmarkSearch.value.results = []
-    return
-  }
-  bookmarkSearchTimer = setTimeout(() => {
-    runBookmarkSearch()
-  }, 250)
-}
-
-function clearBookmarkSearch() {
-  bookmarkSearch.value.q = ''
-  bookmarkSearch.value.results = []
 }
 
 async function submitLogin() {
