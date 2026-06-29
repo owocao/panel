@@ -10,6 +10,7 @@ import NavDragFloat from './components/NavDragFloat.vue'
 import SettingsPanel from './components/settings/SettingsPanel.vue'
 import { useEditDialog } from './composables/useEditDialog'
 import { cloneFolderTree, findFolderById, flattenFolders, normalizeFolder } from './utils/bookmarkTree'
+import { cardTextClass, formatDisplayDate, formatDisplayTime, getNetworkIcon, getNetworkTip, iconUrl, isImageValue, limitText } from './utils/display'
 import {
   createBookmark,
   createBookmarkFolder,
@@ -100,23 +101,10 @@ const folderManagementFlatList = computed(() => flattenFolders(folderManagementT
 const folderCount = computed(() => folderFlatList.value.length)
 const navItemCount = computed(() => navGroups.value.reduce((total, group) => total + (group.items?.length || 0), 0))
 const showNetworkSwitcher = computed(() => true)
-const networkTip = computed(() => (networkMode.value === 'lan' ? '优先内网，超时后打开公网' : '优先公网，超时后打开内网'))
-const networkIcon = computed(() => (networkMode.value === 'lan' ? 'wifi-router' : 'globe'))
-const displayTime = computed(() => now.value.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: settingsForm.value.showSeconds === 'true' ? '2-digit' : undefined, hour12: false }))
-const lunarDays = ['', '初一', '初二', '初三', '初四', '初五', '初六', '初七', '初八', '初九', '初十', '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十', '廿一', '廿二', '廿三', '廿四', '廿五', '廿六', '廿七', '廿八', '廿九', '三十']
-const displayDate = computed(() => {
-  const date = now.value
-  const weekday = date.toLocaleDateString('zh-CN', { weekday: 'long' })
-  if (dateMode.value === 'lunar') {
-    const parts = new Intl.DateTimeFormat('zh-CN-u-ca-chinese', { month: 'long', day: 'numeric' }).formatToParts(date)
-    const month = parts.find((part) => part.type === 'month')?.value || ''
-    const day = Number(parts.find((part) => part.type === 'day')?.value || 0)
-    return `${month}${lunarDays[day] || ''}  ${weekday}`
-  }
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${month}-${day}  ${weekday}`
-})
+const networkTip = computed(() => getNetworkTip(networkMode.value))
+const networkIcon = computed(() => getNetworkIcon(networkMode.value))
+const displayTime = computed(() => formatDisplayTime(now.value, settingsForm.value.showSeconds === 'true'))
+const displayDate = computed(() => formatDisplayDate(now.value, dateMode.value))
 function toggleDateMode() {
   dateMode.value = dateMode.value === 'solar' ? 'lunar' : 'solar'
 }
@@ -137,7 +125,6 @@ const settingsSearchEngines = computed(() => {
   }
 })
 const activeSearchEngine = computed(() => searchEngines.value.find((engine) => engine.key === webSearch.value.engine) || searchEngines.value[0])
-const iconUrl = (name) => `https://api.iconify.design/uil/${name}.svg?color=%2368707a`
 
 const {
   editDialog,
@@ -148,16 +135,6 @@ const {
   selectEditGroup,
   setNavIconMode,
 } = useEditDialog({ navGroupOptions, isImageValue })
-
-function limitText(value, size) {
-  return String(value || '').trim().slice(0, size)
-}
-function cardTextClass(value) {
-  const len = limitText(value, 5).length
-  if (len <= 2) return 'text-xl'
-  if (len <= 4) return 'text-md'
-  return 'text-sm'
-}
 
 function handleOverlayWheel(event) {
   const target = event.target instanceof Element ? event.target : event.target?.parentElement
@@ -193,10 +170,6 @@ onUnmounted(() => {
   clearNavLongPressTimer()
   stopNavPointerListeners()
 })
-
-function isImageValue(value) {
-  return typeof value === 'string' && (value.startsWith('/uploads/') || value.startsWith('http://') || value.startsWith('https://') || value.startsWith('data:image/'))
-}
 
 function handleGlobalKeydown(event) {
   if (event.key !== 'Escape') return
