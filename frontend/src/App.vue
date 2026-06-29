@@ -13,9 +13,10 @@ import { useBookmarks } from './composables/useBookmarks'
 import { useContextMenu } from './composables/useContextMenu'
 import { useEditDialog } from './composables/useEditDialog'
 import { useNavigation } from './composables/useNavigation'
+import { useSettings } from './composables/useSettings'
 import { cloneFolderTree, findFolderById, flattenFolders, normalizeFolder } from './utils/bookmarkTree'
 import { cardTextClass, formatDisplayDate, formatDisplayTime, getNetworkIcon, getNetworkTip, iconUrl, isImageValue, limitText } from './utils/display'
-import { ensureHttp, resolveNavUrl } from './utils/navigation'
+import { ensureHttp, normalizeNetworkMode, resolveNavUrl } from './utils/navigation'
 import {
   createBookmark,
   createBookmarkFolder,
@@ -50,11 +51,6 @@ import {
 
 const activeView = ref('boot')
 const drawerOpen = ref(false)
-const settingsOpen = ref(false)
-const activeSettings = ref('个性化')
-const settingsMenuCollapsed = ref(false)
-const settingsMessage = ref('')
-const settingsSaving = ref(false)
 const statusText = ref('正在连接后端...')
 const toastText = ref('')
 const user = ref(null)
@@ -76,8 +72,6 @@ let clockTimer
 let toastTimer
 let navLongPressTimer
 let draftIdSeed = 0
-const settingsForm = ref({ siteTitle: 'biu-panel', showTitle: 'true', showClock: 'true', showSeconds: 'false', showSearch: 'true', searchEngines: JSON.stringify([{ key: 'google', title: 'Google', icon: 'G', url: 'https://www.google.com/search?q={q}' }, { key: 'baidu', title: '百度', icon: '百', url: 'https://www.baidu.com/s?wd={q}' }, { key: 'bing', title: 'Bing', icon: 'B', url: 'https://www.bing.com/search?q={q}' }]), backgroundUrl: '', backgroundColor: '#02030a', lanDetectTimeout: '800', s3Endpoint: '', s3Region: 'auto', s3Bucket: '', s3AccessKey: '', s3SecretKey: '', s3Prefix: 'biu-panel/', s3PathStyle: 'true', s3Enabled: 'false', s3PublicBase: '' })
-const settingsDraft = ref({ ...settingsForm.value })
 const navGroupsDraft = ref([])
 const navDraftDirty = ref(false)
 const foldersDraft = ref([])
@@ -93,42 +87,6 @@ const displayDate = computed(() => formatDisplayDate(now.value, dateMode.value))
 function toggleDateMode() {
   dateMode.value = dateMode.value === 'solar' ? 'lunar' : 'solar'
 }
-const {
-  navGroups,
-  networkMode,
-  webSearch,
-  searchPickerOpen,
-  displayGroups,
-  navItemCount,
-  searchEngines,
-  settingsSearchEngines,
-  activeSearchEngine,
-  loadNavigation,
-  cycleNetworkMode,
-  runWebSearch,
-  selectSearchEngine,
-  addSearchEngine,
-  editSearchEngine,
-  removeSearchEngine,
-  moveSearchEngine,
-  uploadSearchEngineIcon,
-  openNavItemFromMenu,
-  openNavItem,
-  normalizeNetworkMode,
-} = useNavigation({
-  getNavigation,
-  uploadAsset,
-  settingsForm,
-  settingsDraft,
-  settingsOpen,
-  openEditDialog: (dialog) => { editDialog.value = dialog },
-  assetUploading,
-  isImageValue,
-  onStatus: (message) => { statusText.value = message },
-  onToast: (message) => showToast(message),
-})
-const navGroupOptions = computed(() => (settingsOpen.value ? navGroupsDraft.value : navGroups.value))
-
 const {
   folders,
   bookmarks,
@@ -156,6 +114,77 @@ const {
   searchBookmarks,
   onError: (error) => { statusText.value = error.message },
 })
+
+const {
+  settingsOpen,
+  activeSettings,
+  settingsMenuCollapsed,
+  settingsMessage,
+  settingsSaving,
+  settingsForm,
+  settingsDraft,
+  openSettings,
+  closeSettings,
+  selectSettingsMenu,
+  loadSettings,
+  submitTestS3,
+  submitSettings,
+  settingsDraftDirty,
+} = useSettings({
+  getSettings,
+  saveSettings,
+  testS3,
+  getNetworkMode: () => networkMode.value,
+  setNetworkMode: (mode) => { networkMode.value = mode },
+  navGroupsDraft,
+  navDraftDirty,
+  foldersDraft,
+  foldersDraftDirty,
+  folders,
+  getNavGroups: () => navGroups.value,
+  closeMenu: () => closeMenu(),
+  loadFolders,
+  loadAllFolderChildren,
+  syncFoldersDraftFromFolders,
+  saveNavGroupDraftOrder,
+  saveFolderDraftOrder,
+  onStatus: (message) => { statusText.value = message },
+})
+
+const {
+  navGroups,
+  networkMode,
+  webSearch,
+  searchPickerOpen,
+  displayGroups,
+  navItemCount,
+  searchEngines,
+  settingsSearchEngines,
+  activeSearchEngine,
+  loadNavigation,
+  cycleNetworkMode,
+  runWebSearch,
+  selectSearchEngine,
+  addSearchEngine,
+  editSearchEngine,
+  removeSearchEngine,
+  moveSearchEngine,
+  uploadSearchEngineIcon,
+  openNavItemFromMenu,
+  openNavItem,
+} = useNavigation({
+  getNavigation,
+  uploadAsset,
+  settingsForm,
+  settingsDraft,
+  settingsOpen,
+  openEditDialog: (dialog) => { editDialog.value = dialog },
+  assetUploading,
+  isImageValue,
+  onStatus: (message) => { statusText.value = message },
+  onToast: (message) => showToast(message),
+})
+const navGroupOptions = computed(() => (settingsOpen.value ? navGroupsDraft.value : navGroups.value))
 
 const {
   editDialog,
@@ -327,14 +356,6 @@ function getFolderTreeForAction() {
 
 function markFoldersDraftDirty() {
   if (isSettingsBookmarkManager()) foldersDraftDirty.value = true
-}
-
-function settingsDraftDirty() {
-  const keys = new Set([...Object.keys(settingsForm.value), ...Object.keys(settingsDraft.value)])
-  for (const key of keys) {
-    if (String(settingsForm.value[key] ?? '') !== String(settingsDraft.value[key] ?? '')) return true
-  }
-  return false
 }
 
 function normalizeParentId(value) {
@@ -532,37 +553,6 @@ function openBookmarkUrl(bookmark) {
   window.location.href = url
 }
 
-function openSettings() {
-  closeMenu()
-  settingsMessage.value = ''
-  settingsSaving.value = false
-  activeSettings.value = '个性化'
-  settingsDraft.value = { ...settingsForm.value }
-  navGroupsDraft.value = navGroups.value.map((group) => ({ ...group, items: [...(group.items || [])] }))
-  navDraftDirty.value = false
-  foldersDraft.value = []
-  foldersDraftDirty.value = false
-  settingsOpen.value = true
-}
-function closeSettings() {
-  if (settingsSaving.value) return
-  closeMenu()
-  settingsMessage.value = ''
-  settingsOpen.value = false
-  foldersDraft.value = []
-  foldersDraftDirty.value = false
-}
-
-async function selectSettingsMenu(item) {
-  closeMenu()
-  activeSettings.value = item
-  if (item === '收藏夹') {
-    await loadFolders()
-    await loadAllFolderChildren(folders.value)
-    syncFoldersDraftFromFolders()
-  }
-}
-
 function showToast(message) {
   toastText.value = message
   if (toastTimer) window.clearTimeout(toastTimer)
@@ -631,57 +621,6 @@ async function refreshBootstrap() {
   }
 }
 
-
-async function loadSettings() {
-  try {
-    const data = await getSettings()
-    settingsForm.value = { ...settingsForm.value, ...data }
-    settingsDraft.value = { ...settingsForm.value }
-    networkMode.value = normalizeNetworkMode(networkMode.value)
-    localStorage.setItem('biu-network-mode', networkMode.value)
-    if (settingsForm.value.siteTitle) document.title = settingsForm.value.siteTitle
-  } catch {
-    // Settings require login; keep defaults for public views.
-  }
-}
-
-
-
-
-async function submitTestS3() {
-  try {
-    const data = await testS3()
-    statusText.value = `S3 测试成功：${data.key}`
-  } catch (error) {
-    statusText.value = error.message
-  }
-}
-
-async function submitSettings() {
-  if (settingsSaving.value) return
-  settingsSaving.value = true
-  settingsMessage.value = '正在保存，请稍候...'
-  try {
-    const source = settingsOpen.value ? settingsDraft.value : settingsForm.value
-    const shouldSaveSettings = !settingsOpen.value || settingsDraftDirty()
-    const data = shouldSaveSettings ? await saveSettings(source) : settingsForm.value
-    if (settingsOpen.value && navDraftDirty.value) await saveNavGroupDraftOrder()
-    if (settingsOpen.value && foldersDraftDirty.value) await saveFolderDraftOrder()
-    settingsForm.value = { ...settingsForm.value, ...data }
-    settingsDraft.value = { ...settingsForm.value }
-    navDraftDirty.value = false
-    foldersDraftDirty.value = false
-    if (settingsForm.value.siteTitle) document.title = settingsForm.value.siteTitle
-    statusText.value = '设置已保存'
-    settingsMessage.value = `设置已保存：${new Date().toLocaleTimeString('zh-CN', { hour12: false })}`
-    settingsOpen.value = false
-  } catch (error) {
-    statusText.value = error.message
-    settingsMessage.value = `保存失败：${error.message}`
-  } finally {
-    settingsSaving.value = false
-  }
-}
 
 async function saveNavGroupDraftOrder() {
   const originalGroups = navGroups.value
