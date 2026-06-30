@@ -284,3 +284,368 @@
 - 导入导出样例测试。
 - 前后端大文件拆分。
 - 文档和发布流程一致性。
+
+## 9. v0.3-ui 页面体验优化计划
+
+> 基线：`v0.2-stable` 之后的 `master`
+> 范围：只做前端 UI/交互体验优化，不做后端功能、不做性能优化、不改变数据结构。
+> 原则：小步推进、每轮可人工回归；优先保持现有草稿机制、懒加载机制和模块边界。
+
+### v0.3-ui 设计约束补充
+
+- 操作按钮优先保持外露，不默认收纳到“更多”菜单。
+- 收藏夹管理、分组管理等高频管理页面，保留直接操作按钮，减少二次点击。
+- 不追求极简到隐藏操作入口，优先保证非开发用户可直接理解和操作。
+- 页面整体需要适配深色背景图片场景。
+- 所有面板、卡片、按钮、弹窗、输入框、菜单都要考虑背景图上的可读性。
+- 避免大面积纯白、强灰后台风格，优先使用半透明、毛玻璃、柔和描边、适度阴影。
+- 主题色应贯穿按钮、选中态、hover、焦点态、开关、标签等状态。
+- 深色背景下，文字、边框、按钮需要保持足够对比度。
+- UI 优化不得牺牲现有操作效率。
+- 不要把收藏夹管理、分组管理的操作按钮收纳到更多菜单。
+
+### P0 收藏夹管理层级显示优化
+
+目标：
+
+- 提升“系统设置 - 收藏夹管理”中多层收藏夹的可读性。
+- 明确父子层级、当前行、可移动位置和禁用状态。
+- 不改变收藏夹草稿保存逻辑。
+
+涉及文件：
+
+- `frontend/src/components/settings/BookmarkManager.vue`
+- `frontend/src/components/settings/SettingsPanel.vue`
+- `frontend/src/composables/useFolderDrafts.js`
+- `frontend/src/style.css`
+
+风险：
+
+- 中等。该区域和 `foldersDraft` 草稿机制绑定紧密。
+- 需避免把展示优化误做成保存逻辑调整。
+- 需避免破坏“未保存不影响抽屉和后端”的规则。
+
+小任务：
+
+1. 优化收藏夹管理列表层级视觉
+   - 增加更清晰的缩进、层级线或轻量层级标识。
+   - 保持现有按钮、字号、行高体系。
+   - 验收：三级以上收藏夹可清楚辨认父子关系；无横向溢出；保存逻辑不变。
+
+2. 优化收藏夹行状态
+   - 当前悬停行、选中移动目标、禁用移动目标应有一致状态。
+   - 验收：鼠标悬停、不可移动到自身/子级时状态清楚；无新增误操作入口。
+
+3. 优化空状态和长名称显示
+   - 收藏夹为空时提示清晰。
+   - 长名称不撑破布局，必要时省略。
+   - 验收：长收藏夹名称、深层目录、空列表在桌面和移动宽度下均不溢出。
+
+4. 复核收藏夹管理按钮区
+   - 上移、下移、编辑、移动、删除按钮排列更稳定。
+   - 验收：按钮不换行挤压正文；禁用状态清楚；点击行为不变。
+
+### P0 设置页交互一致性优化
+
+目标：
+
+- 让系统设置更像稳定的工作面板。
+- 强化菜单、保存状态、滚动区域和弹窗层级的一致性。
+- 不改变设置保存流程，不新增设置项。
+
+涉及文件：
+
+- `frontend/src/components/settings/SettingsPanel.vue`
+- `frontend/src/components/SettingsMenu.vue`
+- `frontend/src/components/PersonalSettingsForm.vue`
+- `frontend/src/components/SearchEngineManagerSection.vue`
+- `frontend/src/components/BackupRestoreSection.vue`
+- `frontend/src/components/settings/BookmarkManager.vue`
+- `frontend/src/composables/useSettings.js`
+- `frontend/src/style.css`
+
+风险：
+
+- 中等。设置页菜单和保存状态涉及多个分区。
+- 需避免把 UI 状态改成保存状态或实际设置状态。
+- 需避免破坏“打开设置默认进入个性化”。
+
+小任务：
+
+1. 优化设置页头部与保存状态
+   - 保存中、保存失败、保存成功信息位置更稳定。
+   - 验收：保存中按钮不可重复提交；状态文案不挤压布局；保存成功仍关闭设置页。
+
+2. 优化左侧菜单体验
+   - 当前菜单、hover、收起状态更清晰。
+   - 移动端下菜单可用。
+   - 验收：每次打开仍默认“个性化”；切换菜单不丢草稿；收起/展开不影响内容区。
+
+3. 统一设置页表单间距
+   - 个性化、搜索引擎、S3、备份恢复、分组管理、收藏夹管理的输入框、按钮、说明文本间距保持一致。
+   - 验收：同类输入高度一致；按钮视觉一致；无局部风格突兀。
+
+4. 优化设置页滚动区域
+   - 左侧菜单和右侧内容滚动边界清楚。
+   - 验收：滚动不穿透首页；长内容区域底部按钮可达；移动端可滚动操作。
+
+### P0 移动端基础适配
+
+目标：
+
+- 保证手机和平板宽度下主要功能可操作。
+- 不做独立移动版页面。
+- 不改变桌面端主体验。
+
+涉及文件：
+
+- `frontend/src/App.vue`
+- `frontend/src/components/HomeHero.vue`
+- `frontend/src/components/BookmarkDrawer.vue`
+- `frontend/src/components/BookmarkFolderTreeNode.vue`
+- `frontend/src/components/BookmarkRow.vue`
+- `frontend/src/components/EditDialog.vue`
+- `frontend/src/components/MoveDialog.vue`
+- `frontend/src/components/settings/SettingsPanel.vue`
+- `frontend/src/style.css`
+
+风险：
+
+- 中高。全局样式调整容易影响桌面布局。
+- 需避免用 viewport 字体缩放造成文字不稳定。
+- 需避免弹窗、抽屉、右键菜单层级互相遮挡。
+
+小任务：
+
+1. 首页移动端卡片布局复核
+   - 小屏下卡片网格、搜索框、浮动按钮不重叠。
+   - 验收：375px 宽度下首页可浏览、卡片标题不溢出、浮动按钮可点击。
+
+2. 收藏夹抽屉移动端布局
+   - 小屏下文件夹树和书签列表布局可操作。
+   - 可考虑上下分区或横向切换，但不得改变加载逻辑。
+   - 验收：可展开文件夹、选择文件夹、打开书签、搜索、批量操作；无横向滚动失控。
+
+3. 设置页移动端布局
+   - 设置菜单和内容区在手机宽度下可切换、可滚动、可保存。
+   - 验收：个性化、收藏夹、备份恢复至少可完整操作；保存按钮可见可点。
+
+4. 编辑弹窗移动端布局
+   - 编辑导航卡片、收藏夹、书签时表单不溢出。
+   - 验收：输入框、下拉、上传按钮、保存/删除/取消按钮均可触达；遮罩点击关闭行为不变。
+
+5. 移动弹窗和右键菜单适配
+   - 移动目标选择框、小屏菜单不超出视口。
+   - 验收：书签移动、批量移动、收藏夹移动在手机宽度可完成。
+
+### P1 统一确认和提示体验
+
+目标：
+
+- 逐步替换影响体验的原生 `confirm()` / `alert()`。
+- 优先覆盖高风险操作。
+- 不改变确认流程和二次确认规则。
+
+涉及文件：
+
+- `frontend/src/components/MoveDialog.vue`
+- `frontend/src/components/EditDialog.vue`
+- `frontend/src/components/ContextMenu.vue`
+- `frontend/src/composables/useBookmarkActions.js`
+- `frontend/src/composables/useFolderDrafts.js`
+- `frontend/src/composables/useEditSave.js`
+- `frontend/src/composables/useBackupRestore.js`
+- `frontend/src/style.css`
+
+风险：
+
+- 中高。确认弹窗会影响删除、恢复、导入等高风险流程。
+- 需避免一次性替换全部确认逻辑。
+- 需保持原有二次确认语义。
+
+小任务：
+
+1. 设计统一确认弹窗组件
+   - 只覆盖确认/取消，不引入复杂状态库。
+   - 验收：支持标题、正文、危险按钮、取消按钮；视觉与现有弹窗一致。
+
+2. 替换书签/收藏夹删除确认
+   - 优先替换 `useBookmarkActions.js`、`useFolderDrafts.js` 中删除确认。
+   - 验收：删除仍需确认；取消不产生任何数据变化。
+
+3. 替换备份恢复确认
+   - 覆盖全局恢复、导航恢复等高风险操作。
+   - 验收：恢复前确认文案清楚；确认后原流程不变。
+
+4. 替换 metadata 抓取失败 alert
+   - 改为页面内 toast 或统一提示。
+   - 验收：失败可见但不阻塞用户继续编辑。
+
+### P1 收藏夹抽屉细节优化
+
+目标：
+
+- 提升抽屉内树、列表、搜索、批量状态的可读性。
+- 不改变收藏夹加载、搜索 API、拖拽和移动逻辑。
+
+涉及文件：
+
+- `frontend/src/components/BookmarkDrawer.vue`
+- `frontend/src/components/BookmarkFolderTreeNode.vue`
+- `frontend/src/components/BookmarkRow.vue`
+- `frontend/src/components/MoveDialog.vue`
+- `frontend/src/composables/useBookmarks.js`
+- `frontend/src/composables/useBookmarkActions.js`
+- `frontend/src/style.css`
+
+风险：
+
+- 中等。抽屉涉及右键、拖拽、搜索、批量选择。
+- 需避免视觉调整影响拖拽命中区域。
+- 需避免搜索态和普通列表态混淆。
+
+小任务：
+
+1. 优化搜索态展示
+   - 搜索中、无结果、结果路径展示更清楚。
+   - 验收：搜索结果仍只显示书签；路径信息可读；清空后回到当前文件夹。
+
+2. 优化批量选择状态
+   - 批量工具栏、已选数量、退出批量状态更明显。
+   - 验收：批量移动/删除可用；退出后选择态清空。
+
+3. 优化书签行信息密度
+   - 标题、URL、备注、favicon 对齐更稳定。
+   - 验收：长 URL 不撑破布局；行 hover 和右键菜单不冲突。
+
+4. 优化文件夹展开图标和加载态
+   - 展开/收起、loading、空子目录表达更清晰。
+   - 验收：按需加载逻辑不变；展开后子节点位置稳定。
+
+### P1 首页导航编辑态体验优化
+
+目标：
+
+- 让导航分组编辑态、卡片排序和右键菜单体验更清楚。
+- 不改变首页布局方向，不做视觉重做。
+
+涉及文件：
+
+- `frontend/src/components/HomeHero.vue`
+- `frontend/src/components/NavDragFloat.vue`
+- `frontend/src/components/ContextMenu.vue`
+- `frontend/src/composables/useNavigation.js`
+- `frontend/src/composables/useDragSort.js`
+- `frontend/src/composables/useContextMenu.js`
+- `frontend/src/style.css`
+
+风险：
+
+- 中等。首页是核心页面，不能牺牲加载速度和信息密度。
+- 需避免恢复明显分组背景卡片。
+- 需避免拖拽排序手感回退。
+
+小任务：
+
+1. 优化导航分组编辑态边界
+   - 编辑态边框、按钮、拖拽提示更轻量清楚。
+   - 验收：非编辑态仍保持轻量；编辑态可识别可退出。
+
+2. 优化卡片拖拽反馈
+   - 拖拽浮层、目标位置、保存中状态更稳定。
+   - 验收：拖拽排序后刷新保持；点击卡片打开不受影响。
+
+3. 优化右键菜单菜单项文案和分组
+   - 高风险操作和普通操作视觉区分。
+   - 验收：打开、编辑、删除、新增卡片等入口仍存在且行为不变。
+
+### P2 表单与上传控件统一
+
+目标：
+
+- 统一编辑弹窗和设置页中的输入、下拉、上传按钮体验。
+- 不新增字段，不改变 API。
+
+涉及文件：
+
+- `frontend/src/components/EditDialog.vue`
+- `frontend/src/components/PersonalSettingsForm.vue`
+- `frontend/src/components/SearchEngineManagerSection.vue`
+- `frontend/src/components/settings/SettingsPanel.vue`
+- `frontend/src/composables/useEditDialog.js`
+- `frontend/src/composables/useEditSave.js`
+- `frontend/src/style.css`
+
+风险：
+
+- 中等。编辑弹窗覆盖多种类型。
+- 需避免按钮类型和表单提交行为变化。
+
+小任务：
+
+1. 统一上传按钮样式
+   - 卡片图标、搜索引擎图标、背景图上传风格统一。
+   - 验收：上传仍触发原 `uploadAsset`；上传中状态不丢失。
+
+2. 统一下拉选择控件
+   - 分组选择、收藏夹父级选择、移动目标选择视觉一致。
+   - 验收：选择行为不变；点击外部收起不受影响。
+
+3. 统一表单错误和限制提示
+   - 标题长度、必填项、URL 等提示位置一致。
+   - 验收：原有限制仍生效；提示不遮挡输入框。
+
+### P2 文档同步与验收清单补充
+
+目标：
+
+- v0.3-ui 每完成一批 UI 优化后同步文档。
+- 不让文档再次滞后。
+
+涉及文件：
+
+- `docs/tasks.md`
+- `docs/project-state.md`
+- `docs/current-direction.md`
+- `docs/release-checklist.md`
+
+风险：
+
+- 低。主要是文档维护。
+- 需避免把未完成事项写成已完成。
+
+小任务：
+
+1. 更新 `docs/tasks.md`
+   - 标记 v0.3-ui 已完成/未完成项。
+   - 验收：任务状态和代码一致。
+
+2. 更新 `docs/project-state.md`
+   - 仅记录当前真实结构和当前已完成 UI 优化。
+   - 验收：不写过程流水账。
+
+3. 补充人工回归清单
+   - 增加移动端设置页、收藏夹抽屉、编辑弹窗验收项。
+   - 验收：能指导人工测试，不声称已通过。
+
+### v0.3-ui 推荐执行顺序
+
+1. 收藏夹管理层级显示优化。
+2. 设置页交互一致性优化。
+3. 移动端基础适配。
+4. 统一确认和提示体验。
+5. 收藏夹抽屉细节优化。
+6. 首页导航编辑态体验优化。
+7. 表单与上传控件统一。
+8. 文档同步与人工回归清单补充。
+
+### v0.3-ui 不做事项
+
+- 不做后端功能。
+- 不做数据库结构调整。
+- 不做性能优化。
+- 不改变收藏夹懒加载策略。
+- 不改变设置页草稿保存机制。
+- 不引入 Pinia/Vuex。
+- 不重做整体视觉品牌。
+- 不移动 `v0.2-stable` 标签。
