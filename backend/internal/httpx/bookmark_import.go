@@ -2,6 +2,8 @@ package httpx
 
 import (
 	"bytes"
+	"database/sql"
+	"strconv"
 	"strings"
 
 	"biu-panel/backend/internal/store"
@@ -17,6 +19,16 @@ type ImportResult struct {
 func (s *Server) parseBookmarkHTML(input string) (ImportResult, error) {
 	var result ImportResult
 	doc, err := html.Parse(strings.NewReader(input))
+	if err != nil {
+		return result, err
+	}
+	tx, err := s.store.DB.Begin()
+	if err != nil {
+		return result, err
+	}
+	defer tx.Rollback()
+
+	existing, err := loadBookmarkImportExistingURLs(tx)
 	if err != nil {
 		return result, err
 	}
@@ -62,7 +74,7 @@ func (s *Server) parseBookmarkHTML(input string) (ImportResult, error) {
 				folderName := extractText(h3)
 
 				// Create the folder
-				id, err := s.store.CreateFolder(store.Folder{
+				id, err := createImportFolder(tx, store.Folder{
 					ParentID: currentFolderID,
 					Name:     folderName,
 					Sort:     result.Folders + 1,
@@ -112,7 +124,7 @@ func (s *Server) parseBookmarkHTML(input string) (ImportResult, error) {
 					targetFolderID := currentFolderID
 					if targetFolderID == nil {
 						if defaultFolderID == nil {
-							id, err := s.store.CreateFolder(store.Folder{
+							id, err := createImportFolder(tx, store.Folder{
 								Name: "导入书签",
 								Sort: result.Folders + 1,
 							})
@@ -126,15 +138,11 @@ func (s *Server) parseBookmarkHTML(input string) (ImportResult, error) {
 					}
 
 					// Check for duplicates in the current folder
-					exists, err := s.store.BookmarkExistsInFolder(*targetFolderID, url)
-					if err != nil {
-						return err
-					}
-
-					if exists {
+					key := bookmarkImportKey(*targetFolderID, url)
+					if existing[key] {
 						result.Skipped++
 					} else {
-						_, err := s.store.CreateBookmark(store.Bookmark{
+						_, err := createImportBookmark(tx, store.Bookmark{
 							FolderID: *targetFolderID,
 							Title:    title,
 							URL:      url,
@@ -145,6 +153,7 @@ func (s *Server) parseBookmarkHTML(input string) (ImportResult, error) {
 						if err != nil {
 							return err
 						}
+						existing[key] = true
 						result.Bookmarks++
 					}
 				}
@@ -161,7 +170,52 @@ func (s *Server) parseBookmarkHTML(input string) (ImportResult, error) {
 	}
 
 	err = traverse(doc, nil)
-	return result, err
+	if err != nil {
+		return result, err
+	}
+	return result, tx.Commit()
+}
+
+func loadBookmarkImportExistingURLs(tx *sql.Tx) (map[string]bool, error) {
+	rows, err := tx.Query(`SELECT folder_id,url FROM bookmarks`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	existing := map[string]bool{}
+	for rows.Next() {
+		var folderID int64
+		var url string
+		if err := rows.Scan(&folderID, &url); err != nil {
+			return nil, err
+		}
+		existing[bookmarkImportKey(folderID, url)] = true
+	}
+	return existing, rows.Err()
+}
+
+func bookmarkImportKey(folderID int64, url string) string {
+	return strconv.FormatInt(folderID, 10) + "\x00" + url
+}
+
+func createImportFolder(tx *sql.Tx, f store.Folder) (int64, error) {
+	var parent any
+	if f.ParentID != nil {
+		parent = *f.ParentID
+	}
+	res, err := tx.Exec(`INSERT INTO bookmark_folders(parent_id,name,sort) VALUES(?,?,?)`, parent, f.Name, f.Sort)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+func createImportBookmark(tx *sql.Tx, b store.Bookmark) (int64, error) {
+	res, err := tx.Exec(`INSERT INTO bookmarks(folder_id,title,url,favicon,note,sort) VALUES(?,?,?,?,?,?)`, b.FolderID, b.Title, b.URL, b.Favicon, b.Note, b.Sort)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
 }
 
 func extractText(n *html.Node) string {

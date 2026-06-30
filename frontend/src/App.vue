@@ -142,9 +142,9 @@ const {
   closeMenu: () => closeMenu(),
   loadFolders,
   loadAllFolderChildren,
-  syncFoldersDraftFromFolders,
+  syncFoldersDraftFromFolders: () => syncFoldersDraftFromFolders(),
   saveNavGroupDraftOrder,
-  saveFolderDraftOrder,
+  saveFolderDraftOrder: () => saveFolderDraftOrder(),
   onStatus: (message) => { statusText.value = message },
 })
 
