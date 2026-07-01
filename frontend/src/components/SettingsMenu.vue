@@ -10,8 +10,8 @@ const items = ['个性化', '搜索引擎', '分组管理', '收藏夹', '备份
 </script>
 
 <template>
-  <button class="menu-collapse" type="button" :title="collapsed ? '展开菜单' : '收起菜单'" @click="emit('toggle-collapse')">{{ collapsed ? '›' : '‹' }}</button>
-  <aside v-if="!collapsed" class="settings-menu">
-    <button v-for="item in items" :key="item" type="button" :class="{ active: active === item }" @click="emit('select', item)">{{ item }}</button>
+  <button class="menu-collapse" type="button" :aria-expanded="!collapsed" :title="collapsed ? '展开菜单' : '收起菜单'" @click="emit('toggle-collapse')">{{ collapsed ? '›' : '‹' }}</button>
+  <aside v-if="!collapsed" class="settings-menu" aria-label="设置菜单">
+    <button v-for="item in items" :key="item" type="button" :aria-current="active === item ? 'page' : undefined" :class="{ active: active === item }" @click="emit('select', item)">{{ item }}</button>
   </aside>
 </template>

@@ -51,13 +51,15 @@ const emit = defineEmits([
   <section v-if="open" class="settings-mask" @mousedown.self.stop="emit('close')" @wheel.stop.prevent>
     <section class="settings-panel settings-center" @click.stop @wheel.stop="emit('panel-wheel', $event)">
       <header class="settings-head">
-        <div><h2>系统设置</h2></div>
+        <div class="settings-title-block">
+          <h2>系统设置</h2>
+          <p :class="{ visible: message || saving }" class="settings-message" aria-live="polite">{{ saving ? '正在保存...' : message }}</p>
+        </div>
         <div class="inline-actions">
           <button type="button" :disabled="saving" @click="emit('save')">{{ saving ? '保存中...' : '保存' }}</button>
           <button type="button" :disabled="saving" @click="emit('close')">关闭</button>
         </div>
       </header>
-      <p v-if="message" class="settings-message">{{ message }}</p>
       <div class="settings-layout" :class="{ collapsed: menuCollapsed }">
         <SettingsMenu :collapsed="menuCollapsed" :active="activeSettings" @toggle-collapse="emit('toggle-menu')" @select="emit('select-menu', $event)" />
         <div class="settings-content">
