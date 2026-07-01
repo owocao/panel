@@ -1,11 +1,12 @@
 <script setup>
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import BackupRestoreSection from '../BackupRestoreSection.vue'
 import PersonalSettingsForm from '../PersonalSettingsForm.vue'
 import SearchEngineManagerSection from '../SearchEngineManagerSection.vue'
 import SettingsMenu from '../SettingsMenu.vue'
 import BookmarkManager from './BookmarkManager.vue'
 
-defineProps({
+const props = defineProps({
   open: { type: Boolean, default: false },
   activeSettings: { type: String, default: '个性化' },
   menuCollapsed: { type: Boolean, default: false },
@@ -45,6 +46,48 @@ const emit = defineEmits([
   'export-bookmarks',
   'import-bookmarks',
 ])
+
+const isMobileSettings = ref(false)
+const mobileContentOpen = ref(false)
+let mobileQuery
+
+const effectiveMenuCollapsed = computed(() => (isMobileSettings.value ? mobileContentOpen.value : props.menuCollapsed))
+
+function syncMobileSettings() {
+  isMobileSettings.value = Boolean(mobileQuery?.matches)
+}
+
+function handleToggleMenu() {
+  if (isMobileSettings.value && mobileContentOpen.value) {
+    mobileContentOpen.value = false
+    return
+  }
+  emit('toggle-menu')
+}
+
+function handleSelectMenu(item) {
+  emit('select-menu', item)
+  if (isMobileSettings.value) mobileContentOpen.value = true
+}
+
+onMounted(() => {
+  mobileQuery = window.matchMedia('(max-width: 600px)')
+  syncMobileSettings()
+  mobileQuery.addEventListener('change', syncMobileSettings)
+})
+
+onBeforeUnmount(() => {
+  mobileQuery?.removeEventListener('change', syncMobileSettings)
+})
+
+watch(() => props.open, (open) => {
+  if (open && isMobileSettings.value) mobileContentOpen.value = false
+})
+
+watch(isMobileSettings, (mobile) => {
+  if (mobile && props.open) mobileContentOpen.value = false
+  if (!mobile) mobileContentOpen.value = false
+})
 </script>
 
 <template>
@@ -53,6 +96,7 @@ const emit = defineEmits([
       <header class="settings-head">
         <div class="settings-title-block">
           <h2>系统设置</h2>
+          <strong class="settings-mobile-title">{{ mobileContentOpen ? activeSettings : '设置菜单' }}</strong>
           <p :class="{ visible: message || saving }" class="settings-message" aria-live="polite">{{ saving ? '正在保存...' : message }}</p>
         </div>
         <div class="inline-actions">
@@ -60,8 +104,8 @@ const emit = defineEmits([
           <button type="button" :disabled="saving" @click="emit('close')">关闭</button>
         </div>
       </header>
-      <div class="settings-layout" :class="{ collapsed: menuCollapsed }">
-        <SettingsMenu :collapsed="menuCollapsed" :active="activeSettings" @toggle-collapse="emit('toggle-menu')" @select="emit('select-menu', $event)" />
+      <div class="settings-layout" :class="{ collapsed: effectiveMenuCollapsed, 'mobile-menu-page': isMobileSettings && !mobileContentOpen, 'mobile-content-page': isMobileSettings && mobileContentOpen }">
+        <SettingsMenu :collapsed="effectiveMenuCollapsed" :active="activeSettings" @toggle-collapse="handleToggleMenu" @select="handleSelectMenu" />
         <div class="settings-content">
           <section v-if="activeSettings === '分组管理'" class="setting-card manager-card">
             <header class="manager-head">
