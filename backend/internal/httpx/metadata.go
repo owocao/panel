@@ -1,6 +1,7 @@
 package httpx
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/url"
@@ -9,41 +10,63 @@ import (
 	"time"
 )
 
+type metadataResult struct {
+	Title   string
+	Favicon string
+}
+
+type metadataFetchError struct {
+	status  int
+	message string
+}
+
+func (e metadataFetchError) Error() string {
+	return e.message
+}
+
 func (s *Server) metadata(w http.ResponseWriter, r *http.Request) {
 	if !s.requireAuth(w, r) {
 		return
 	}
 	raw := strings.TrimSpace(r.URL.Query().Get("url"))
-	if raw == "" {
-		writeError(w, 400, "url 必填")
+	data, err := fetchMetadata(r.Context(), raw)
+	if err != nil {
+		if fetchErr, ok := err.(metadataFetchError); ok {
+			writeError(w, fetchErr.status, fetchErr.message)
+			return
+		}
+		writeError(w, 502, "抓取网页失败")
 		return
+	}
+	writeJSON(w, 200, map[string]string{"title": data.Title, "favicon": data.Favicon})
+}
+
+func fetchMetadata(ctx context.Context, raw string) (metadataResult, error) {
+	var result metadataResult
+	if raw == "" {
+		return result, metadataFetchError{status: 400, message: "url 必填"}
 	}
 	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		writeError(w, 400, "仅支持 http/https 地址")
-		return
+		return result, metadataFetchError{status: 400, message: "仅支持 http/https 地址"}
 	}
 	client := &http.Client{Timeout: 5 * time.Second}
-	req, err := http.NewRequest(http.MethodGet, raw, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
 	if err != nil {
-		writeError(w, 400, "网址格式错误")
-		return
+		return result, metadataFetchError{status: 400, message: "网址格式错误"}
 	}
 	req.Header.Set("User-Agent", "biu-panel/0.1 metadata fetcher")
 	resp, err := client.Do(req)
 	if err != nil {
-		writeError(w, 502, "抓取网页失败")
-		return
+		return result, metadataFetchError{status: 502, message: "抓取网页失败"}
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
-		writeError(w, 502, "网页返回错误状态")
-		return
+		return result, metadataFetchError{status: 502, message: "网页返回错误状态"}
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 512*1024))
 	if err != nil {
-		writeError(w, 502, "读取网页失败")
-		return
+		return result, metadataFetchError{status: 502, message: "读取网页失败"}
 	}
 	html := string(body)
 	title := extractFirst(html, `(?is)<title[^>]*>(.*?)</title>`)
@@ -58,7 +81,7 @@ func (s *Server) metadata(w http.ResponseWriter, r *http.Request) {
 	} else {
 		favicon = u.Scheme + "://" + u.Host + "/favicon.ico"
 	}
-	writeJSON(w, 200, map[string]string{"title": strings.TrimSpace(htmlUnescape(title)), "favicon": favicon})
+	return metadataResult{Title: strings.TrimSpace(htmlUnescape(title)), Favicon: favicon}, nil
 }
 
 func extractFirst(input, pattern string) string {

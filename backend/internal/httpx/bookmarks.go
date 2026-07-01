@@ -2,7 +2,9 @@ package httpx
 
 import (
 	"biu-panel/backend/internal/store"
+	"database/sql"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -135,6 +137,99 @@ func (s *Server) updateBookmark(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, 200, b)
 }
+func (s *Server) refreshBookmarkFavicon(w http.ResponseWriter, r *http.Request) {
+	if _, err := s.currentUser(r); err != nil {
+		writeError(w, 401, "未登录")
+		return
+	}
+	id, err := bookmarkIDFromRefreshRequest(w, r)
+	if err != nil {
+		return
+	}
+	if id == 0 {
+		writeError(w, 400, "id 必填")
+		return
+	}
+	bookmark, err := s.store.GetBookmark(id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			writeError(w, 404, "书签不存在")
+			return
+		}
+		writeError(w, 500, err.Error())
+		return
+	}
+	if isBookmarkFaviconImage(bookmark.Favicon) {
+		writeJSON(w, 200, map[string]any{"ok": true, "favicon": bookmark.Favicon})
+		return
+	}
+	favicon := bookmarkDefaultFaviconURLFromBookmark(bookmark.URL)
+	if favicon == "" {
+		writeJSON(w, 200, map[string]bool{"ok": true})
+		return
+	}
+	if err := s.store.UpdateBookmarkFavicon(bookmark.ID, favicon); err != nil {
+		writeError(w, 500, err.Error())
+		return
+	}
+	writeJSON(w, 200, map[string]any{"ok": true, "favicon": favicon})
+}
+
+func bookmarkIDFromRefreshRequest(w http.ResponseWriter, r *http.Request) (int64, error) {
+	if rawID := strings.TrimSpace(r.URL.Query().Get("id")); rawID != "" {
+		id, err := strconv.ParseInt(rawID, 10, 64)
+		if err != nil {
+			writeError(w, 400, "id 格式错误")
+			return 0, err
+		}
+		return id, nil
+	}
+	var payload struct {
+		ID int64 `json:"id"`
+	}
+	if !decodeJSON(w, r, &payload) {
+		return 0, http.ErrBodyReadAfterClose
+	}
+	return payload.ID, nil
+}
+
+func bookmarkMetadataURLCandidates(raw string) []string {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return nil
+	}
+	lower := strings.ToLower(value)
+	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
+		return []string{value}
+	}
+	return []string{"https://" + value, "http://" + value}
+}
+
+func bookmarkDefaultFaviconURLFromBookmark(raw string) string {
+	for _, candidate := range bookmarkMetadataURLCandidates(raw) {
+		if favicon := bookmarkDefaultFaviconURL(candidate); favicon != "" {
+			return favicon
+		}
+	}
+	return ""
+}
+
+func bookmarkDefaultFaviconURL(raw string) string {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return ""
+	}
+	return parsed.Scheme + "://" + parsed.Host + "/favicon.ico"
+}
+
+func isBookmarkFaviconImage(value string) bool {
+	trimmed := strings.TrimSpace(value)
+	return strings.HasPrefix(trimmed, "/uploads/") ||
+		strings.HasPrefix(trimmed, "http://") ||
+		strings.HasPrefix(trimmed, "https://") ||
+		strings.HasPrefix(trimmed, "data:image/")
+}
+
 func (s *Server) deleteBookmark(w http.ResponseWriter, r *http.Request) {
 	if _, err := s.currentUser(r); err != nil {
 		writeError(w, 401, "未登录")

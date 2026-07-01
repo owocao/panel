@@ -1,4 +1,5 @@
 import { ensureHttp } from '../utils/navigation'
+import { isImageValue } from '../utils/display'
 
 export function useBookmarkActions({
   folders,
@@ -15,6 +16,7 @@ export function useBookmarkActions({
   updateBookmark,
   updateBookmarkFolder,
   deleteBookmark,
+  refreshBookmarkFavicon,
   loadFolders,
   loadAllFolderChildren,
   selectFolder,
@@ -31,6 +33,8 @@ export function useBookmarkActions({
   markFoldersDraftDirty,
   onStatus,
 }) {
+  const faviconRefreshRequests = new Set()
+
   function enableBookmarkSelection(bookmark) {
     if (!bookmarkSelectionMode.value) bookmarkSelectionMode.value = true
     if (!isBookmarkSelected(bookmark.id)) selectedBookmarkIds.value = [...selectedBookmarkIds.value, bookmark.id]
@@ -202,10 +206,23 @@ export function useBookmarkActions({
     onStatus?.(`已加入批量选择：${bookmark.title}`)
   }
 
-  function openBookmarkUrl(bookmark) {
+  async function openBookmarkUrl(bookmark) {
     const url = ensureHttp(bookmark?.url || '')
     if (!url) return
+    const refreshRequest = requestBookmarkFaviconRefresh(bookmark)
+    if (refreshRequest) {
+      await Promise.race([refreshRequest, new Promise((resolve) => setTimeout(resolve, 250))]).catch(() => {})
+    }
     window.location.href = url
+  }
+
+  function requestBookmarkFaviconRefresh(bookmark) {
+    if (!refreshBookmarkFavicon || !bookmark?.id || isImageValue(bookmark.favicon)) return null
+    if (faviconRefreshRequests.has(bookmark.id)) return null
+    faviconRefreshRequests.add(bookmark.id)
+    return refreshBookmarkFavicon(bookmark.id).catch(() => {
+      faviconRefreshRequests.delete(bookmark.id)
+    })
   }
 
   return {

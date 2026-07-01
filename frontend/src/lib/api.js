@@ -89,6 +89,13 @@ export async function uploadAsset(file) {
   ensureResponseOK(response, body, `上传失败：${response.status}`)
   return body.data
 }
+export async function refreshBookmarkFavicon(id) {
+  const url = `${API_BASE}/api/bookmarks/favicon/refresh?id=${encodeURIComponent(id)}`
+  const response = await fetch(url, { method: 'POST', credentials: 'include', keepalive: true })
+  const body = await response.json().catch(() => ({}))
+  ensureResponseOK(response, body, `图标刷新失败：${response.status}`)
+  return body.data
+}
 export async function importBookmarkHTML(file) {
   const form = new FormData()
   form.append('file', file)

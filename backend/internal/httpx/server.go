@@ -58,6 +58,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/bookmarks", s.createBookmark)
 	mux.HandleFunc("PUT /api/bookmarks", s.updateBookmark)
 	mux.HandleFunc("DELETE /api/bookmarks", s.deleteBookmark)
+	mux.HandleFunc("POST /api/bookmarks/favicon/refresh", s.refreshBookmarkFavicon)
 	mux.HandleFunc("GET /api/bookmark/search", s.bookmarkSearch)
 	mux.HandleFunc("GET /api/metadata", s.metadata)
 	mux.HandleFunc("GET /api/backup/download", s.downloadBackup)

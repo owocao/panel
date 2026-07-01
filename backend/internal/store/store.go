@@ -349,6 +349,11 @@ func (s *Store) ListBookmarks(folderID int64) ([]Bookmark, error) {
 	}
 	return out, rows.Err()
 }
+func (s *Store) GetBookmark(id int64) (Bookmark, error) {
+	var b Bookmark
+	err := s.DB.QueryRow(`SELECT id,folder_id,title,url,COALESCE(favicon,''),COALESCE(note,''),sort FROM bookmarks WHERE id=?`, id).Scan(&b.ID, &b.FolderID, &b.Title, &b.URL, &b.Favicon, &b.Note, &b.Sort)
+	return b, err
+}
 func (s *Store) CreateBookmark(b Bookmark) (int64, error) {
 	res, err := s.DB.Exec(`INSERT INTO bookmarks(folder_id,title,url,favicon,note,sort) VALUES(?,?,?,?,?,?)`, b.FolderID, b.Title, b.URL, b.Favicon, b.Note, b.Sort)
 	if err != nil {
@@ -456,6 +461,10 @@ func (s *Store) DeleteFolder(id int64) error {
 }
 func (s *Store) UpdateBookmark(b Bookmark) error {
 	_, err := s.DB.Exec(`UPDATE bookmarks SET folder_id=?, title=?, url=?, favicon=?, note=?, sort=? WHERE id=?`, b.FolderID, b.Title, b.URL, b.Favicon, b.Note, b.Sort, b.ID)
+	return err
+}
+func (s *Store) UpdateBookmarkFavicon(id int64, favicon string) error {
+	_, err := s.DB.Exec(`UPDATE bookmarks SET favicon=? WHERE id=? AND (favicon IS NULL OR TRIM(favicon)='' OR (favicon NOT LIKE '/uploads/%' AND favicon NOT LIKE 'http://%' AND favicon NOT LIKE 'https://%' AND favicon NOT LIKE 'data:image/%'))`, favicon, id)
 	return err
 }
 func (s *Store) DeleteBookmark(id int64) error {
