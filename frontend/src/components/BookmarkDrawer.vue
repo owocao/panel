@@ -78,7 +78,7 @@ function isBookmarkSelected(bookmark) {
         </button>
         <template v-if="selectionMode">
           <button type="button" @click="emit('batch-move')">批量移动</button>
-          <button type="button" @click="emit('batch-delete')">批量删除</button>
+          <button class="bookmark-action-danger" type="button" @click="emit('batch-delete')">批量删除</button>
         </template>
       </div>
     </div>
