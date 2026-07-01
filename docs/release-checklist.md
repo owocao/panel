@@ -142,6 +142,9 @@
 | 卡片打开 | 点击卡片 | 默认当前标签页打开目标地址 | `frontend/src/composables/useNavigation.js`、`frontend/src/utils/navigation.js` |
 | 内外网优先切换 | 切换内网优先/公网优先后点击卡片 | 按优先级探测，失败后回退另一个地址 | `frontend/src/composables/useNavigation.js`、`frontend/src/utils/navigation.js` |
 | 拖拽排序 | 拖动分组或卡片调整顺序并保存 | 顺序更新，刷新后保持 | `frontend/src/composables/useDragSort.js`、`backend/internal/httpx/navigation.go` |
+| 首页禁止拖选 | 在首页空白处按住鼠标拖动 | 不出现页面内容选中阴影，卡片和标题不被拖选 | `frontend/src/App.vue`、`frontend/src/style.css` |
+| 首页 Ctrl+A | 在首页非输入区域按 Ctrl+A / Cmd+A | 不全选首页内容；搜索框内 Ctrl+A 仍可选中输入内容 | `frontend/src/App.vue`、`frontend/src/components/HomeHero.vue` |
+| 首页搜索框 focus | 点击搜索框并输入内容 | 搜索框保持单层视觉，不出现内层圆角输入框 | `frontend/src/components/HomeHero.vue`、`frontend/src/style.css` |
 
 ### 10.3 系统设置
 
@@ -152,6 +155,7 @@
 | 保存设置 | 修改个性化设置后点击保存 | 保存成功并关闭设置页，刷新后保持 | `frontend/src/composables/useSettings.js`、`backend/internal/httpx/settings.go` |
 | 搜索引擎管理 | 新增/编辑/删除搜索引擎并保存，在首页搜索 | 首页搜索跳转到选定外部搜索引擎 | `frontend/src/components/settings/SearchEngineManagerSection.vue`、`frontend/src/composables/useNavigation.js`、`backend/internal/httpx/settings.go` |
 | 设置页滚动 | 在设置弹窗内滚动 | 只滚动弹窗内容，不穿透到首页 | `frontend/src/components/settings/SettingsPanel.vue`、`frontend/src/style.css` |
+| 设置页深色主题 | 打开个性化、收藏夹、S3、备份恢复等菜单 | 深色背景图上文字、按钮、输入框和卡片可读 | `frontend/src/components/settings/SettingsPanel.vue`、`frontend/src/style.css` |
 
 ### 10.4 收藏夹抽屉
 
@@ -162,9 +166,11 @@
 | 书签列表 | 选择某个文件夹 | 右侧显示该文件夹下书签 | `frontend/src/composables/useBookmarks.js`、`frontend/src/components/BookmarkRow.vue`、`backend/internal/httpx/bookmarks.go` |
 | 新增/编辑文件夹 | 在抽屉或设置中新增、编辑文件夹 | 名称和层级正确，刷新后保持 | `frontend/src/composables/useEditSave.js`、`frontend/src/composables/useBookmarkActions.js`、`backend/internal/httpx/bookmarks.go` |
 | 新增/编辑书签 | 新增书签，填写 URL、标题、备注、favicon | 保存成功，列表展示正确 | `frontend/src/composables/useEditDialog.js`、`frontend/src/composables/useEditSave.js`、`backend/internal/httpx/bookmarks.go` |
+| 访问后 favicon 自动补全 | 点击没有真实 favicon 的书签，返回应用并刷新收藏夹 | 不影响打开书签；刷新后该书签显示 favicon | `frontend/src/composables/useBookmarkActions.js`、`frontend/src/lib/api.js`、`backend/internal/httpx/bookmarks.go`、`backend/internal/httpx/metadata.go` |
 | 删除确认 | 删除文件夹或书签 | 出现二次确认，确认后永久删除 | `frontend/src/composables/useBookmarkActions.js`、`frontend/src/components/ContextMenu.vue`、`backend/internal/httpx/bookmarks.go` |
 | 批量操作 | 进入批量选择，选择多条书签后移动/删除 | 批量操作成功，列表刷新正确 | `frontend/src/composables/useBookmarkActions.js`、`frontend/src/components/MoveDialog.vue`、`backend/internal/httpx/bookmarks.go` |
 | 收藏夹搜索 | 在收藏夹抽屉搜索关键词 | 只显示匹配书签，包含路径信息 | `frontend/src/composables/useBookmarks.js`、`backend/internal/httpx/bookmarks.go`、`backend/internal/store/store.go` |
+| 收藏夹抽屉视觉 | 打开收藏夹抽屉并浏览树和书签列表 | 按钮风格统一，书签 favicon 尺寸合理，深色主题可读 | `frontend/src/components/BookmarkDrawer.vue`、`frontend/src/components/BookmarkRow.vue`、`frontend/src/style.css` |
 
 ### 10.5 收藏夹管理与拖拽
 
@@ -212,6 +218,8 @@
 | 手机端布局 | 使用移动端宽度打开首页、设置、收藏夹 | 主要按钮可点击，文本不溢出，弹窗可操作 | 同上 |
 | 右键菜单 | 右键卡片/书签/文件夹 | 菜单位置正确，点击外部关闭 | `frontend/src/composables/useContextMenu.js`、`frontend/src/components/ContextMenu.vue` |
 | 弹窗层级 | 同时打开设置、编辑、移动或确认类弹窗 | 层级正确，滚动不穿透 | `frontend/src/components/settings/SettingsPanel.vue`、`frontend/src/components/EditDialog.vue`、`frontend/src/components/MoveDialog.vue`、`frontend/src/style.css` |
+| 深色弹窗可读性 | 打开编辑弹窗、移动弹窗、右键菜单 | 深色半透明面板内标题、表单、按钮和危险操作状态清楚 | `frontend/src/components/EditDialog.vue`、`frontend/src/components/MoveDialog.vue`、`frontend/src/components/ContextMenu.vue`、`frontend/src/style.css` |
+| 隐藏滚动条后滚动 | 首页长内容、设置页长内容、收藏夹抽屉左右栏、编辑弹窗长内容分别滚动 | 原生滚动条不可见，但鼠标滚轮、触控板和键盘滚动仍可用 | `frontend/src/style.css` |
 
 ### 10.10 后端拆分后接口冒烟
 
@@ -222,6 +230,7 @@
 | `/api/s3/test` | 前端测试 S3 | 返回 `key/url/size` 或 `502` 错误 | `backend/internal/httpx/s3.go` |
 | `/api/bookmark/export` | 点击书签导出 | 返回 HTML 下载 | `backend/internal/httpx/bookmark_transfer.go` |
 | `/api/bookmark/import` | 上传书签 HTML | 返回导入结果 | `backend/internal/httpx/bookmark_transfer.go`、`backend/internal/httpx/bookmark_import.go` |
+| `/api/bookmarks/favicon/refresh` | 点击无真实 favicon 的书签后触发刷新 | 接口快速返回；后端可为该书签写入 favicon，失败不影响打开书签 | `backend/internal/httpx/bookmarks.go`、`backend/internal/httpx/metadata.go`、`backend/internal/store/store.go` |
 | `/api/navigation/backup` | 点击导航备份 | 返回 JSON 下载 | `backend/internal/httpx/navigation_backup.go` |
 | `/api/navigation/restore` | 上传导航备份 JSON | 返回 `groups/items` 数量 | `backend/internal/httpx/navigation_backup.go` |
 | `/api/backup/download` | 点击全局备份 | 返回 `tar.gz` 下载 | `backend/internal/httpx/server.go` |

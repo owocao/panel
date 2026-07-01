@@ -152,6 +152,7 @@ HTTP 层：
 - 认证：`POST /api/auth/login`、`POST /api/auth/logout`、`GET /api/auth/me`
 - 导航：`GET /api/navigation`、`POST/PUT/DELETE /api/navigation/groups`、`POST/PUT/DELETE /api/navigation/items`
 - 收藏夹：`GET/POST/PUT/DELETE /api/bookmark/folders`、`GET/POST/PUT/DELETE /api/bookmarks`、`GET /api/bookmark/search`
+- 收藏夹 favicon 刷新：`POST /api/bookmarks/favicon/refresh`
 - 元数据：`GET /api/metadata`
 - 设置：`GET /api/settings`、`PUT /api/settings`
 - 上传：`POST /api/assets/upload`
@@ -175,9 +176,17 @@ API 封装：
 
 - `frontend/src/style.css`
 
+当前视觉状态：
+
+- 前端已完成 v0.3-ui 第一轮深色背景图友好的玻璃风格统一。
+- 首页、系统设置、编辑弹窗、移动弹窗、右键菜单、收藏夹抽屉已完成第一轮视觉统一。
+- 首页搜索框已调整为单层半透明视觉。
+- 全站原生滚动条已在视觉上隐藏，但保留滚轮、触控板和键盘滚动能力。
+- 访问收藏夹书签时，如果该书签没有真实 favicon，前端会触发后端 favicon 刷新接口；刷新成功后再次回到应用或刷新列表可显示图标。
+
 当前前端模块边界：
 
-- `frontend/src/App.vue`：前端顶层入口，负责登录/初始化视图切换、页面级状态、顶层组件组合、生命周期、全局快捷键、模块依赖注入和少量尚未拆分的导航草稿保存逻辑。
+- `frontend/src/App.vue`：前端顶层入口，负责登录/初始化视图切换、页面级状态、顶层组件组合、生命周期、全局快捷键、模块依赖注入和少量尚未拆分的导航草稿保存逻辑；当前还包含首页禁止空白拖选和 Ctrl+A 全选的辅助处理。
 - `frontend/src/components/`：负责页面和弹窗展示层，包括首页、收藏夹抽屉、编辑弹窗、右键菜单、移动弹窗、浮动操作按钮、设置页分区等。
 - `frontend/src/components/settings/`：负责设置页整体面板和收藏夹管理展示。
 - `frontend/src/composables/`：负责业务状态、业务动作和跨组件交互编排。
@@ -187,7 +196,7 @@ API 封装：
 
 - `HomeHero.vue`：首页导航展示。
 - `FloatingActions.vue`：首页浮动操作入口。
-- `BookmarkDrawer.vue`、`BookmarkFolderTreeNode.vue`、`BookmarkRow.vue`：收藏夹抽屉、文件夹树和书签行展示。
+- `BookmarkDrawer.vue`、`BookmarkFolderTreeNode.vue`、`BookmarkRow.vue`：收藏夹抽屉、文件夹树和书签行展示；`BookmarkDrawer.vue` 当前有少量仅用于视觉区分的样式 class 接线。
 - `SettingsPanel.vue`、`BookmarkManager.vue`、`PersonalSettingsForm.vue`、`SearchEngineManagerSection.vue`、`BackupRestoreSection.vue`、`SettingsMenu.vue`：设置页布局和分区展示。
 - `EditDialog.vue`、`MoveDialog.vue`、`ContextMenu.vue`、`NavDragFloat.vue`：编辑、移动、右键菜单和拖拽浮层展示。
 
@@ -225,6 +234,7 @@ Utils 职责：
 维护约束：
 
 - `App.vue` 已降到 1000 行以下，但仍是前端顶层入口。后续不要继续堆业务流程，新逻辑优先放入对应 composable 或组件。
+- `style.css` 当前承载了 v0.3-ui 第一轮大量全局视觉主题规则。后续继续 UI 优化时，应优先按模块拆分或整理样式，避免无限堆叠全局 CSS。
 - `useDragSort.js` 已承载复杂拖拽状态和保存逻辑，只应继续维护拖拽相关逻辑，不要混入非拖拽业务。
 - `useEditSave.js` 保存分支较多，新增编辑类型时应评估是否继续拆分为更小的保存模块。
 - `useBookmarkActions.js` 已包含移动、删除和批量操作，后续批量功能应避免继续无边界扩张。
