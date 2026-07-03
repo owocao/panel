@@ -1,12 +1,13 @@
 import { ref } from 'vue'
 import { findFolderById } from '../utils/bookmarkTree'
 
-const emptyDragState = () => ({ type: '', groupId: null, item: null, overId: null, saving: false, lastMoveAt: 0, settling: false })
+const emptyDragState = () => ({ type: '', groupId: null, item: null, overId: null, insertPosition: '', saving: false, lastMoveAt: 0, settling: false })
 const emptyNavPointerDrag = () => ({ active: false, moved: false, groupId: null, item: null, pointerId: null, startX: 0, startY: 0, x: 0, y: 0, offsetX: 0, offsetY: 0, lastMoveAt: 0, lastTargetId: '' })
 
 export function useDragSort({
   folders,
   bookmarks,
+  bookmarkCache,
   activeFolder,
   displayGroups,
   editingNavGroupId,
@@ -27,7 +28,7 @@ export function useDragSort({
   let navLongPressTimer
 
   function startDrag(type, item, groupId = null, event = null) {
-    dragState.value = { type, item, groupId, overId: null, saving: false, lastMoveAt: 0, settling: false }
+    dragState.value = { type, item, groupId, overId: null, insertPosition: '', saving: false, lastMoveAt: 0, settling: false }
     if (type === 'folder' && item?.expanded) {
       item.expanded = false
     }
@@ -72,14 +73,44 @@ export function useDragSort({
     return next.map((item, index) => ({ ...item, sort: index + 1 }))
   }
 
-  function hoverBookmark(target) {
+  function insertPositionForTarget(list, source, target) {
+    const sourceIndex = list.findIndex((item) => item.id === source.id)
+    const targetIndex = list.findIndex((item) => item.id === target.id)
+    if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return ''
+    return sourceIndex < targetIndex ? 'after' : 'before'
+  }
+
+  function insertPositionFromEvent(event) {
+    const row = event?.currentTarget
+    if (!row?.getBoundingClientRect) return ''
+    const rect = row.getBoundingClientRect()
+    return event.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
+  }
+
+  function reorderListByTargetPosition(list, source, target, position) {
+    const sourceIndex = list.findIndex((item) => item.id === source.id)
+    const targetIndex = list.findIndex((item) => item.id === target.id)
+    if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return null
+    const next = [...list]
+    const [moved] = next.splice(sourceIndex, 1)
+    let insertIndex = next.findIndex((item) => item.id === target.id)
+    if (insertIndex < 0) return null
+    if (position === 'after') insertIndex += 1
+    next.splice(insertIndex, 0, moved)
+    return next.map((item, index) => ({ ...item, sort: index + 1 }))
+  }
+
+  function hoverBookmark(target, event = null) {
     const source = dragState.value.item
     if (dragState.value.type !== 'bookmark' || !source || source.id === target.id) return
-    const next = reorderListByTarget(bookmarks.value, source, target)
-    if (!next) return
-    bookmarks.value = next
-    dragState.value.item = next.find((item) => item.id === source.id) || source
+    const insertPosition = insertPositionFromEvent(event) || insertPositionForTarget(bookmarks.value, source, target)
+    if (!insertPosition) return
     dragState.value.overId = target.id
+    dragState.value.insertPosition = insertPosition
+  }
+
+  function resetBookmarkDragState() {
+    if (dragState.value.type === 'bookmark') clearDragState()
   }
 
   function folderSiblings(folder) {
@@ -102,11 +133,10 @@ export function useDragSort({
     if (dragState.value.settling || dragState.value.type !== 'folder' || !source || source.id === target.id || source.parentId !== target.parentId) return
     const now = Date.now()
     if (dragState.value.overId === target.id || now - (dragState.value.lastMoveAt || 0) < 220) return
-    const next = reorderListByTarget(folderSiblings(target), source, target)
-    if (!next) return
-    replaceFolderSiblings(target, next)
-    dragState.value.item = next.find((item) => item.id === source.id) || source
+    const insertPosition = insertPositionForTarget(folderSiblings(target), source, target)
+    if (!insertPosition) return
     dragState.value.overId = target.id
+    dragState.value.insertPosition = insertPosition
     dragState.value.lastMoveAt = now
     dragState.value.settling = true
     window.setTimeout(() => {
@@ -300,9 +330,10 @@ export function useDragSort({
       return
     }
     if (dragState.value.type !== 'folder') return
-    const siblings = folderSiblings(source)
-    const reordered = siblings.map((folder, index) => ({ ...folder, sort: index + 1 }))
+    const reordered = reorderListByTarget(folderSiblings(target), source, target)
     clearDragState()
+    if (!reordered) return
+    replaceFolderSiblings(target, reordered)
     try {
       await Promise.all(reordered.map((folder) => updateBookmarkFolder(folder)))
       onStatus?.('收藏夹排序已保存')
@@ -312,12 +343,27 @@ export function useDragSort({
     }
   }
 
-  async function dropBookmark(target) {
+  async function dropBookmark(target, event = null) {
     const source = dragState.value.item
     if (dragState.value.type !== 'bookmark' || !source) return
-    await Promise.all(bookmarks.value.map((bookmark, index) => updateBookmark({ ...bookmark, sort: index + 1 })))
-    if (activeFolder.value) await selectFolder(activeFolder.value)
-    clearDragState()
+    const insertPosition = insertPositionFromEvent(event) || dragState.value.insertPosition || insertPositionForTarget(bookmarks.value, source, target)
+    const reordered = reorderListByTargetPosition(bookmarks.value, source, target, insertPosition)
+    resetBookmarkDragState()
+    try {
+      if (!reordered) return
+      bookmarks.value = reordered
+      if (activeFolder.value?.id && bookmarkCache?.value) {
+        bookmarkCache.value = { ...bookmarkCache.value, [activeFolder.value.id]: reordered }
+      }
+      await Promise.all(reordered.map((bookmark) => updateBookmark(bookmark)))
+      if (activeFolder.value) await selectFolder(activeFolder.value)
+      if (activeFolder.value?.id && bookmarkCache?.value) {
+        const current = bookmarks.value.length ? bookmarks.value : reordered
+        bookmarkCache.value = { ...bookmarkCache.value, [activeFolder.value.id]: current }
+      }
+    } finally {
+      resetBookmarkDragState()
+    }
   }
 
   async function swapSort(source, target, updater, refresh) {
@@ -334,11 +380,13 @@ export function useDragSort({
     suppressNextNavCardClick,
     startDrag,
     reorderListByTarget,
+    insertPositionForTarget,
     hoverBookmark,
     folderSiblings,
     replaceFolderSiblings,
     hoverFolder,
     clearDragState,
+    resetBookmarkDragState,
     hoverNavCard,
     navDragFloatStyle,
     stopNavPointerListeners,

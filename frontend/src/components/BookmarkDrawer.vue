@@ -15,6 +15,11 @@ const props = defineProps({
   selectionMode: { type: Boolean, default: false },
   selectedBookmarkIds: { type: Array, default: () => [] },
   isImageValue: { type: Function, required: true },
+  dragging: { type: Boolean, default: false },
+  dragType: { type: String, default: '' },
+  dragOverId: { type: [Number, String, null], default: null },
+  dragInsertPosition: { type: String, default: '' },
+  dragSourceId: { type: [Number, String, null], default: null },
 })
 
 const emit = defineEmits([
@@ -33,6 +38,7 @@ const emit = defineEmits([
   'folder-context-menu',
   'folder-drag-start',
   'folder-drag-over',
+  'drag-end',
   'folder-drop',
   'toggle-bookmark-selection',
   'bookmark-context-menu',
@@ -52,7 +58,7 @@ function isBookmarkSelected(bookmark) {
 </script>
 
 <template>
-  <aside v-if="open" class="bookmark-drawer" aria-label="收藏夹" @click.stop="emit('close-menu')" @wheel.stop="emit('panel-wheel', $event)">
+  <aside v-if="open" class="bookmark-drawer" :class="{ 'is-dragging': dragging }" aria-label="收藏夹" @click.stop="emit('close-menu')" @wheel.stop="emit('panel-wheel', $event)">
     <div class="drawer-head">
       <div>
         <span>收藏夹</span>
@@ -98,11 +104,15 @@ function isBookmarkSelected(bookmark) {
             :selection-mode="selectionMode"
             :selected-ids="selectedBookmarkIds"
             :is-image-value="isImageValue"
+            :drag-over-id="dragType === 'folder' ? dragOverId : null"
+            :drag-insert-position="dragType === 'folder' ? dragInsertPosition : ''"
+            :drag-source-id="dragType === 'folder' ? dragSourceId : null"
             @select="emit('select-folder', $event)"
             @toggle="emit('toggle-folder', $event)"
             @context-menu="(event, item) => emit('folder-context-menu', event, item)"
             @drag-start="(item, event) => emit('folder-drag-start', item, event)"
             @drag-over="emit('folder-drag-over', $event)"
+            @drag-end="emit('drag-end')"
             @drop="emit('folder-drop', $event)"
           />
         </TransitionGroup>
@@ -125,6 +135,7 @@ function isBookmarkSelected(bookmark) {
             :selected="isBookmarkSelected(bookmark)"
             path-fallback="搜索结果"
             :is-image-value="isImageValue"
+            :drag-over="false"
             compact
             @toggle-selection="emit('toggle-bookmark-selection', $event)"
             @context-menu="(event, item) => emit('bookmark-context-menu', event, item)"
@@ -135,18 +146,21 @@ function isBookmarkSelected(bookmark) {
         <template v-else>
           <BookmarkRow
             v-for="bookmark in bookmarks"
-            :key="bookmark.id"
+            :key="`${bookmark.id}-${bookmark.sort || 0}`"
             :bookmark="bookmark"
             :selection-mode="selectionMode"
             :selected="isBookmarkSelected(bookmark)"
             draggable
             :is-image-value="isImageValue"
+            :drag-over="dragging && dragType === 'bookmark' && dragOverId === bookmark.id"
+            :drag-insert-position="dragType === 'bookmark' ? dragInsertPosition : ''"
             compact
             @toggle-selection="emit('toggle-bookmark-selection', $event)"
             @context-menu="(event, item) => emit('bookmark-context-menu', event, item)"
             @drag-start="(item, event) => emit('bookmark-drag-start', item, event)"
-            @drag-over="emit('bookmark-drag-over', $event)"
-            @drop="emit('bookmark-drop', $event)"
+            @drag-over="(item, event) => emit('bookmark-drag-over', item, event)"
+            @drag-end="emit('drag-end')"
+            @drop="(item, event) => emit('bookmark-drop', item, event)"
             @open="emit('open-bookmark', $event)"
           />
           <div v-if="activeFolderId && !bookmarks.length" class="empty-state compact-empty">这个文件夹还没有收藏。</div>

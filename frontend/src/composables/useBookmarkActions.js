@@ -158,7 +158,6 @@ export function useBookmarkActions({
 
   async function removeBookmark(bookmark) {
     if (!confirm(`确认删除收藏「${bookmark.title}」？`)) return
-    if (!confirm('删除后无法恢复，确认永久删除？')) return
     await deleteBookmark(bookmark.id)
     if (bookmarkSelectionMode.value) {
       selectedBookmarkIds.value = selectedBookmarkIds.value.filter((id) => id !== bookmark.id)
@@ -183,7 +182,6 @@ export function useBookmarkActions({
       return
     }
     if (!confirm(`确认删除选中的 ${items.length} 条收藏？`)) return
-    if (!confirm('删除后无法恢复，确认永久删除？')) return
     for (const bookmark of items) {
       await deleteBookmark(bookmark.id)
     }

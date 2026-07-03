@@ -545,6 +545,94 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
   box-shadow: 0 10px 24px rgba(9,105,218,.12);
 }
 .bookmark-row.compact:hover { background: rgba(9,105,218,.18); }
+.bookmark-drawer.is-dragging .bookmark-row:hover,
+.bookmark-drawer.is-dragging .bookmark-row.compact:hover,
+.bookmark-drawer.is-dragging .tree-folder:hover,
+.bookmark-drawer.is-dragging .folder-name:hover {
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+.bookmark-drawer.is-dragging .bookmark-row:hover { border-color: rgba(255,255,255,.12); }
+.bookmark-drawer.is-dragging .bookmark-row.compact:hover h3,
+.bookmark-drawer.is-dragging .bookmark-row.drag-over h3 { color: rgba(250,252,255,.98) !important; }
+.bookmark-drawer.is-dragging .bookmark-row.compact:hover::after { opacity: 0; transform: translateY(-2px); }
+.bookmark-drawer.is-dragging .bookmark-row,
+.bookmark-drawer.is-dragging .tree-folder {
+  position: relative;
+}
+.bookmark-drawer.is-dragging .tree-folder.drag-source {
+  opacity: .44;
+  outline: 1px solid rgba(88,166,255,.32);
+}
+.bookmark-drawer.is-dragging .bookmark-row.drag-over,
+.bookmark-drawer.is-dragging .tree-folder.drag-over {
+  background: transparent;
+  box-shadow: none;
+}
+.bookmark-drawer.is-dragging .bookmark-row.drag-over::before,
+.bookmark-drawer.is-dragging .bookmark-row.drag-over::after,
+.bookmark-drawer.is-dragging .tree-folder.drag-over::before,
+.bookmark-drawer.is-dragging .tree-folder.drag-over::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(88,166,255,.96);
+  box-shadow: 0 0 0 1px rgba(9,105,218,.28), 0 0 10px rgba(88,166,255,.34);
+  pointer-events: none;
+}
+.bookmark-drawer.is-dragging .bookmark-row.drag-over::before,
+.bookmark-drawer.is-dragging .tree-folder.drag-over::before {
+  top: -2px;
+  display: none;
+}
+.bookmark-drawer.is-dragging .bookmark-row.drag-over::after,
+.bookmark-drawer.is-dragging .tree-folder.drag-over::after {
+  bottom: -2px;
+  display: none;
+}
+.bookmark-drawer.is-dragging .bookmark-row.drag-over.insert-before::before,
+.bookmark-drawer.is-dragging .tree-folder.drag-over.insert-before::before,
+.bookmark-drawer.is-dragging .bookmark-row.drag-over.insert-after::after,
+.bookmark-drawer.is-dragging .tree-folder.drag-over.insert-after::after {
+  display: block;
+}
+.bookmark-drawer .bookmark-list .bookmark-row {
+  outline: none;
+  box-shadow: none;
+}
+.bookmark-drawer .bookmark-list .bookmark-row:hover,
+.bookmark-drawer .bookmark-list .bookmark-row.compact:hover {
+  border-color: rgba(255,255,255,.12);
+  background: rgba(255,255,255,.08);
+  box-shadow: none;
+}
+.bookmark-drawer .bookmark-list .bookmark-row.drag-over {
+  border-color: rgba(255,255,255,.12);
+  background: transparent;
+  outline: none;
+  box-shadow: none;
+}
+.bookmark-drawer .bookmark-list .bookmark-row.compact:hover h3,
+.bookmark-drawer.is-dragging .bookmark-list .bookmark-row.compact:hover h3 {
+  color: rgba(250,252,255,.98) !important;
+}
+.bookmark-drawer .bookmark-list .bookmark-row:focus,
+.bookmark-drawer .bookmark-list .bookmark-row:focus-visible,
+.bookmark-drawer .bookmark-list .bookmark-row:focus-within {
+  border-color: rgba(255,255,255,.12) !important;
+  background: rgba(255,255,255,.06) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+.bookmark-drawer .bookmark-list .bookmark-row *:focus,
+.bookmark-drawer .bookmark-list .bookmark-row *:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
 .bookmark-row.selected-row {
   border-color: rgba(88,166,255,.52);
   background: rgba(9,105,218,.24);

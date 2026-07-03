@@ -148,7 +148,6 @@ export function useFolderDrafts({
       return
     }
     if (!confirm(`确认删除文件夹「${folder.name}」及其内容？`)) return
-    if (!confirm('删除后无法恢复，确认永久删除？')) return
     await deleteBookmarkFolder(folder.id)
     if (activeFolderId.value === folder.id) {
       activeFolderId.value = null

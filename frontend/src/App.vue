@@ -391,6 +391,7 @@ const {
 } = useDragSort({
   folders,
   bookmarks,
+  bookmarkCache,
   activeFolder,
   displayGroups,
   editingNavGroupId,
@@ -894,6 +895,11 @@ async function removeNavCard(item) {
         :selection-mode="bookmarkSelectionMode"
         :selected-bookmark-ids="selectedBookmarkIds"
         :is-image-value="isImageValue"
+        :dragging="dragState.type === 'folder' || dragState.type === 'bookmark'"
+        :drag-type="dragState.type"
+        :drag-over-id="dragState.overId"
+        :drag-insert-position="dragState.insertPosition"
+        :drag-source-id="dragState.item?.id ?? null"
         @close-menu="closeMenu"
         @panel-wheel="handleOverlayWheel"
         @create-folder="createFolderByPrompt"
@@ -909,6 +915,7 @@ async function removeNavCard(item) {
         @folder-context-menu="showFolderMenu"
         @folder-drag-start="(item, event) => startDrag('folder', item, null, event)"
         @folder-drag-over="hoverFolder"
+        @drag-end="clearDragState"
         @folder-drop="dropFolder"
         @toggle-bookmark-selection="toggleBookmarkSelection"
         @bookmark-context-menu="showBookmarkMenu"
