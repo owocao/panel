@@ -44,7 +44,7 @@
 - [ ] 展开文件夹后才加载子节点。
 - [ ] 可以创建、编辑、删除文件夹。
 - [ ] 可以创建、编辑、删除书签。
-- [ ] 删除文件夹和书签有二次确认。
+- [ ] 删除文件夹和书签只出现一次明确确认。
 - [ ] 文件夹和书签拖拽排序后保存。
 - [ ] 书签可以跨文件夹移动。
 - [ ] 批量选择、批量移动、批量删除可用。
@@ -152,7 +152,7 @@
 |---|---|---|---|
 | 设置入口 | 从首页打开系统设置 | 默认进入“个性化”，菜单和内容正常显示 | `frontend/src/composables/useSettings.js`、`frontend/src/components/settings/SettingsPanel.vue` |
 | 草稿机制 | 修改标题/背景/搜索引擎但不保存，关闭设置页 | 首页不受未保存修改影响 | `frontend/src/composables/useSettings.js`、`frontend/src/components/settings/PersonalSettingsForm.vue` |
-| 保存设置 | 修改个性化设置后点击保存 | 保存成功并关闭设置页，刷新后保持 | `frontend/src/composables/useSettings.js`、`backend/internal/httpx/settings.go` |
+| 保存设置 | 修改个性化设置后点击保存 | 保存快速成功并关闭设置页，刷新后保持，不应出现明显等待或请求超时 | `frontend/src/composables/useSettings.js`、`backend/internal/httpx/settings.go`、`backend/internal/store/store.go` |
 | 搜索引擎管理 | 新增/编辑/删除搜索引擎并保存，在首页搜索 | 首页搜索跳转到选定外部搜索引擎 | `frontend/src/components/settings/SearchEngineManagerSection.vue`、`frontend/src/composables/useNavigation.js`、`backend/internal/httpx/settings.go` |
 | 设置页滚动 | 在设置弹窗内滚动 | 只滚动弹窗内容，不穿透到首页 | `frontend/src/components/settings/SettingsPanel.vue`、`frontend/src/style.css` |
 | 设置页深色主题 | 打开个性化、收藏夹、S3、备份恢复等菜单 | 深色背景图上文字、按钮、输入框和卡片可读 | `frontend/src/components/settings/SettingsPanel.vue`、`frontend/src/style.css` |
@@ -167,7 +167,9 @@
 | 新增/编辑文件夹 | 在抽屉或设置中新增、编辑文件夹 | 名称和层级正确，刷新后保持 | `frontend/src/composables/useEditSave.js`、`frontend/src/composables/useBookmarkActions.js`、`backend/internal/httpx/bookmarks.go` |
 | 新增/编辑书签 | 新增书签，填写 URL、标题、备注、favicon | 保存成功，列表展示正确 | `frontend/src/composables/useEditDialog.js`、`frontend/src/composables/useEditSave.js`、`backend/internal/httpx/bookmarks.go` |
 | 访问后 favicon 自动补全 | 点击没有真实 favicon 的书签，返回应用并刷新收藏夹 | 不影响打开书签；刷新后该书签显示 favicon | `frontend/src/composables/useBookmarkActions.js`、`frontend/src/lib/api.js`、`backend/internal/httpx/bookmarks.go`、`backend/internal/httpx/metadata.go` |
-| 删除确认 | 删除文件夹或书签 | 出现二次确认，确认后永久删除 | `frontend/src/composables/useBookmarkActions.js`、`frontend/src/components/ContextMenu.vue`、`backend/internal/httpx/bookmarks.go` |
+| 删除确认 | 删除文件夹或书签 | 只出现一次明确确认，确认后永久删除 | `frontend/src/composables/useBookmarkActions.js`、`frontend/src/components/ContextMenu.vue`、`backend/internal/httpx/bookmarks.go` |
+| 右键操作 | 右键书签或文件夹后选择编辑、移动、删除 | 对应操作生效，菜单关闭且不吞掉点击 | `frontend/src/components/ContextMenu.vue`、`frontend/src/composables/useBookmarkActions.js`、`frontend/src/composables/useFolderDrafts.js` |
+| 行内操作 | 点击书签或文件夹行内编辑、移动、删除按钮 | 对应操作生效，不触发误选中或误打开 | `frontend/src/components/BookmarkRow.vue`、`frontend/src/components/BookmarkFolderTreeNode.vue`、`frontend/src/composables/useBookmarkActions.js` |
 | 批量操作 | 进入批量选择，选择多条书签后移动/删除 | 批量操作成功，列表刷新正确 | `frontend/src/composables/useBookmarkActions.js`、`frontend/src/components/MoveDialog.vue`、`backend/internal/httpx/bookmarks.go` |
 | 收藏夹搜索 | 在收藏夹抽屉搜索关键词 | 只显示匹配书签，包含路径信息 | `frontend/src/composables/useBookmarks.js`、`backend/internal/httpx/bookmarks.go`、`backend/internal/store/store.go` |
 | 收藏夹抽屉视觉 | 打开收藏夹抽屉并浏览树和书签列表 | 按钮风格统一，书签 favicon 尺寸合理，深色主题可读 | `frontend/src/components/BookmarkDrawer.vue`、`frontend/src/components/BookmarkRow.vue`、`frontend/src/style.css` |
@@ -179,7 +181,7 @@
 | 设置页收藏夹草稿 | 在设置页移动、上移、下移、删除文件夹但不保存 | 抽屉和后端数据不立即变化 | `frontend/src/composables/useFolderDrafts.js`、`frontend/src/components/settings/BookmarkManager.vue` |
 | 保存收藏夹草稿 | 修改收藏夹结构后点击保存 | 保存后抽屉结构更新，刷新后保持 | `frontend/src/composables/useFolderDrafts.js`、`backend/internal/httpx/bookmarks.go` |
 | 防循环移动 | 尝试把文件夹移动到自身或子文件夹下 | 操作被阻止或提示错误 | `frontend/src/composables/useFolderDrafts.js`、`frontend/src/composables/useBookmarkActions.js`、`backend/internal/httpx/bookmarks.go` |
-| 书签拖拽排序 | 在同一文件夹内拖动书签排序 | 顺序保存，刷新后保持 | `frontend/src/composables/useDragSort.js`、`backend/internal/httpx/bookmarks.go` |
+| 书签拖拽排序 | 在同一文件夹内上下拖动书签排序 | 上下拖拽均显示插入线，拖拽后无蓝色框残留，顺序保存且刷新后保持 | `frontend/src/composables/useDragSort.js`、`frontend/src/components/BookmarkRow.vue`、`frontend/src/style.css`、`backend/internal/httpx/bookmarks.go` |
 | 跨文件夹移动 | 将书签移动到其他文件夹 | 目标文件夹显示该书签，原文件夹移除 | `frontend/src/composables/useBookmarkActions.js`、`frontend/src/components/MoveDialog.vue`、`backend/internal/httpx/bookmarks.go` |
 
 ### 10.6 导入导出
