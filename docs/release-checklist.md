@@ -101,6 +101,18 @@
 
 ## 9. 最近验证记录
 
+2026-07-09 v0.3-ui PC 端人工回归已通过：
+
+- 系统设置保存快速成功。
+- 收藏夹抽屉右键/行内编辑、移动、删除正常。
+- 删除只出现一次明确确认。
+- 书签拖拽插入线正常，无蓝色框残留，排序结果正确。
+- 编辑书签所属文件夹选择正常，移动弹窗目标文件夹选择正常。
+- 备份/恢复入口正常。
+- 收藏夹 HTML 导入导出正常。
+- 点击无真实 favicon 的书签后，返回刷新可自动补全 favicon。
+- 原生滚动条隐藏后，备份/导入导出相关区域仍可滚动。
+
 2026-06-26 文档整理后，已找到项目内隔离工具链：
 
 - Go：`/project/panel/.tools/go/bin/go`
@@ -166,6 +178,7 @@
 | 书签列表 | 选择某个文件夹 | 右侧显示该文件夹下书签 | `frontend/src/composables/useBookmarks.js`、`frontend/src/components/BookmarkRow.vue`、`backend/internal/httpx/bookmarks.go` |
 | 新增/编辑文件夹 | 在抽屉或设置中新增、编辑文件夹 | 名称和层级正确，刷新后保持 | `frontend/src/composables/useEditSave.js`、`frontend/src/composables/useBookmarkActions.js`、`backend/internal/httpx/bookmarks.go` |
 | 新增/编辑书签 | 新增书签，填写 URL、标题、备注、favicon | 保存成功，列表展示正确 | `frontend/src/composables/useEditDialog.js`、`frontend/src/composables/useEditSave.js`、`backend/internal/httpx/bookmarks.go` |
+| 编辑书签所属文件夹 | 右键编辑书签，打开所属文件夹选择器并选择目标文件夹 | 列出完整文件夹层级，选中后自动收起，保存后所属文件夹正确 | `frontend/src/components/EditDialog.vue`、`frontend/src/composables/useBookmarkActions.js`、`frontend/src/composables/useEditSave.js` |
 | 访问后 favicon 自动补全 | 点击没有真实 favicon 的书签，返回应用并刷新收藏夹 | 不影响打开书签；刷新后该书签显示 favicon | `frontend/src/composables/useBookmarkActions.js`、`frontend/src/lib/api.js`、`backend/internal/httpx/bookmarks.go`、`backend/internal/httpx/metadata.go` |
 | 删除确认 | 删除文件夹或书签 | 只出现一次明确确认，确认后永久删除 | `frontend/src/composables/useBookmarkActions.js`、`frontend/src/components/ContextMenu.vue`、`backend/internal/httpx/bookmarks.go` |
 | 右键操作 | 右键书签或文件夹后选择编辑、移动、删除 | 对应操作生效，菜单关闭且不吞掉点击 | `frontend/src/components/ContextMenu.vue`、`frontend/src/composables/useBookmarkActions.js`、`frontend/src/composables/useFolderDrafts.js` |
@@ -182,7 +195,7 @@
 | 保存收藏夹草稿 | 修改收藏夹结构后点击保存 | 保存后抽屉结构更新，刷新后保持 | `frontend/src/composables/useFolderDrafts.js`、`backend/internal/httpx/bookmarks.go` |
 | 防循环移动 | 尝试把文件夹移动到自身或子文件夹下 | 操作被阻止或提示错误 | `frontend/src/composables/useFolderDrafts.js`、`frontend/src/composables/useBookmarkActions.js`、`backend/internal/httpx/bookmarks.go` |
 | 书签拖拽排序 | 在同一文件夹内上下拖动书签排序 | 上下拖拽均显示插入线，拖拽后无蓝色框残留，顺序保存且刷新后保持 | `frontend/src/composables/useDragSort.js`、`frontend/src/components/BookmarkRow.vue`、`frontend/src/style.css`、`backend/internal/httpx/bookmarks.go` |
-| 跨文件夹移动 | 将书签移动到其他文件夹 | 目标文件夹显示该书签，原文件夹移除 | `frontend/src/composables/useBookmarkActions.js`、`frontend/src/components/MoveDialog.vue`、`backend/internal/httpx/bookmarks.go` |
+| 跨文件夹移动 | 将书签移动到其他文件夹 | 目标文件夹选择器层级清楚，移动后目标文件夹显示该书签，原文件夹移除 | `frontend/src/composables/useBookmarkActions.js`、`frontend/src/components/MoveDialog.vue`、`backend/internal/httpx/bookmarks.go` |
 
 ### 10.6 导入导出
 

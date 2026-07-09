@@ -3,8 +3,8 @@
 > 整理时间：2026-06-26
 > 项目路径：`/project/panel`
 > 当前分支：`master`
-> 当前最新提交：`1df48e9 refactor: split httpx bookmark transfer and navigation backup`
-> 整理前工作区：干净
+> 当前最新提交：`d02792b fix: improve bookmark folder selection dialogs`
+> 当前工作区：干净
 
 ## 1. 项目概览
 
@@ -16,6 +16,13 @@
 - 首页导航、系统设置、搜索引擎管理、收藏夹、书签导入导出、备份恢复等核心模块已有实现。
 - 项目不再是静态原型，当前进入 V1 整理、稳定性修复和维护性提升阶段。
 - 当前主要问题是部分后端接口校验不足、部分关键流程缺少事务和测试；前端已完成一轮模块化拆分，后续需继续保持模块边界。
+- v0.3-ui PC 端主要回归已通过，下一步准备创建 v0.3-ui tag/release。
+
+近期关键提交：
+
+- `e79dd01 perf: enable sqlite wal mode`
+- `9fdffed fix: improve bookmark drawer interactions`
+- `d02792b fix: improve bookmark folder selection dialogs`
 
 ## 2. 技术栈
 
@@ -186,6 +193,8 @@ API 封装：
 - 访问收藏夹书签时，如果该书签没有真实 favicon，前端会触发后端 favicon 刷新接口；刷新成功后再次回到应用或刷新列表可显示图标。
 - 系统设置保存慢和请求超时问题已修复，当前保存已恢复秒级或立即成功。
 - 收藏夹抽屉交互已修复：删除只出现一次明确确认；右键菜单和行内按钮的编辑、移动、删除已恢复生效；书签拖拽排序改为插入线提示，不再显示蓝色整行框，排序结果正确。
+- 编辑书签和移动弹窗的文件夹选择器已修复：编辑书签可选择完整文件夹列表，移动弹窗层级展示清晰，保存和移动逻辑保持不变。
+- 备份/恢复、收藏夹 HTML 导入导出、favicon 自动补全已完成 v0.3-ui PC 端人工回归。
 
 当前前端模块边界：
 
