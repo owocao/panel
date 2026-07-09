@@ -291,7 +291,9 @@ export function useEditSave({
       onStatus?.('设置页内暂不直接新增书签，请保存后在收藏夹抽屉中新增')
       return
     }
-    let targetFolder = folder
+    if (!folders.value.length) await loadFolders()
+    await loadAllFolderChildren(folders.value)
+    let targetFolder = folder || activeFolder.value || folders.value[0]
     if (!targetFolder) {
       editDialog.value = { open: true, type: 'folderCreate', title: '请先创建收藏夹', form: { parentId: null, name: '默认收藏', sort: folderFlatList.value.length + 1 } }
       return

@@ -16,8 +16,25 @@ const openSelect = ref(false)
 const selectedFolder = computed(() => props.folderFlatList.find((folder) => folder.id === props.targetFolderId || folder.id === Number(props.targetFolderId)))
 const selectedName = computed(() => {
   if (props.allowRoot && (props.targetFolderId == null || props.targetFolderId === '')) return '根目录'
-  return selectedFolder.value ? `${'　'.repeat(selectedFolder.value.depth)}${selectedFolder.value.name}` : '请选择收藏夹'
+  return selectedFolder.value ? selectedFolder.value.name : '请选择收藏夹'
 })
+
+function folderDepth(folder) {
+  return Number(folder?.depth || 0)
+}
+
+function folderPrefix(folder) {
+  const depth = folderDepth(folder)
+  return depth > 0 ? '└' : ''
+}
+
+function folderOptionStyle(folder) {
+  const depth = folderDepth(folder)
+  return {
+    paddingLeft: `${9 + depth * 18}px`,
+    '--folder-depth-line': `${12 + Math.max(0, depth - 1) * 18}px`,
+  }
+}
 
 function selectFolder(folder) {
   emit('update:targetFolderId', folder.id)
@@ -42,8 +59,22 @@ function selectRoot() {
         <div class="select-popover" :class="{ open: openSelect }">
           <button type="button" class="select-trigger" @click="openSelect = !openSelect"><span>{{ selectedName }}</span><span class="select-arrow">⌄</span></button>
           <div v-if="openSelect" class="select-options">
-            <button v-if="allowRoot" type="button" :class="{ active: targetFolderId == null || targetFolderId === '' }" @pointerdown.stop.prevent="selectRoot">根目录</button>
-            <button v-for="folder in folderFlatList" :key="`move-folder-${folder.id}`" type="button" :class="{ active: folder.id === targetFolderId || folder.id === Number(targetFolderId) }" @pointerdown.stop.prevent="selectFolder(folder)">{{ '　'.repeat(folder.depth) }}{{ folder.name }}</button>
+            <button v-if="allowRoot" type="button" class="folder-option depth-0" :class="{ active: targetFolderId == null || targetFolderId === '' }" @pointerdown.stop.prevent="selectRoot">
+              <span class="folder-option-prefix"></span>
+              <span class="folder-option-name">根目录</span>
+            </button>
+            <button
+              v-for="folder in folderFlatList"
+              :key="`move-folder-${folder.id}`"
+              type="button"
+              class="folder-option"
+              :class="{ active: folder.id === targetFolderId || folder.id === Number(targetFolderId) }"
+              :style="folderOptionStyle(folder)"
+              @pointerdown.stop.prevent="selectFolder(folder)"
+            >
+              <span class="folder-option-prefix">{{ folderPrefix(folder) }}</span>
+              <span class="folder-option-name">{{ folder.name }}</span>
+            </button>
           </div>
         </div>
       </label>

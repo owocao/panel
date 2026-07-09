@@ -1,4 +1,6 @@
 <script setup>
+import { computed, ref, watch } from 'vue'
+
 const props = defineProps({
   dialog: {
     type: Object,
@@ -55,11 +57,55 @@ const emit = defineEmits([
 function toggleGroupSelect() {
   emit('update:groupSelectOpen', !props.groupSelectOpen)
 }
+
+const bookmarkFolderSelectOpen = ref(false)
+
+const selectedBookmarkFolderName = computed(() => {
+  const selected = props.folderFlatList.find((folder) => String(folder.id) === String(props.dialog.form.folderId))
+  return selected ? selected.name : '请选择收藏夹'
+})
+
+function folderDepth(folder) {
+  return Number(folder?.depth || 0)
+}
+
+function folderPrefix(folder) {
+  const depth = folderDepth(folder)
+  return depth > 0 ? '└' : ''
+}
+
+function folderOptionStyle(folder) {
+  const depth = folderDepth(folder)
+  return {
+    paddingLeft: `${9 + depth * 18}px`,
+    '--folder-depth-line': `${12 + Math.max(0, depth - 1) * 18}px`,
+  }
+}
+
+function toggleBookmarkFolderSelect() {
+  bookmarkFolderSelectOpen.value = !bookmarkFolderSelectOpen.value
+}
+
+function closeBookmarkFolderSelect() {
+  bookmarkFolderSelectOpen.value = false
+}
+
+function selectBookmarkFolder(folderId) {
+  props.dialog.form.folderId = folderId
+  bookmarkFolderSelectOpen.value = false
+}
+
+watch(
+  () => [props.dialog.open, props.dialog.type],
+  () => {
+    closeBookmarkFolderSelect()
+  },
+)
 </script>
 
 <template>
   <section v-if="dialog.open" class="modal-mask" @mousedown.self.stop="emit('close')" @wheel.stop.prevent>
-    <form class="edit-modal" :class="{ 'bookmark-to-nav-modal': dialog.type === 'bookmarkToNav' }" @click.stop @wheel.stop="emit('panel-wheel', $event)" @submit.prevent="emit('save')">
+    <form class="edit-modal" :class="{ 'bookmark-to-nav-modal': dialog.type === 'bookmarkToNav', 'bookmark-edit-modal': dialog.type === 'bookmark' || dialog.type === 'bookmarkCreate' }" @click.stop="closeBookmarkFolderSelect" @wheel.stop="emit('panel-wheel', $event)" @submit.prevent="emit('save')">
       <header class="modal-head"><h2>{{ dialog.title }}</h2></header>
 
       <label v-if="dialog.type === 'navGroup' || dialog.type === 'navGroupCreate'">
@@ -136,9 +182,26 @@ function toggleGroupSelect() {
         <label><span class="label-line"><span>网址 <b class="required">*</b></span></span><input v-model="dialog.form.url" required /></label>
         <label>备注<input v-model="dialog.form.note" /></label>
         <label>所属文件夹
-          <select v-model="dialog.form.folderId">
-            <option v-for="folder in folderFlatList" :key="`edit-bookmark-folder-${folder.id}`" :value="folder.id">{{ '　'.repeat(folder.depth) }}{{ folder.name }}</option>
-          </select>
+          <div class="select-popover edit-folder-select" :class="{ open: bookmarkFolderSelectOpen }" @click.stop>
+            <button type="button" class="select-trigger" @click="toggleBookmarkFolderSelect">
+              <span>{{ selectedBookmarkFolderName }}</span>
+              <span class="select-arrow">⌄</span>
+            </button>
+            <div v-if="bookmarkFolderSelectOpen" class="select-options folder-select-options">
+              <button
+                v-for="folder in folderFlatList"
+                :key="`edit-bookmark-folder-${folder.id}`"
+                type="button"
+                class="folder-option"
+                :class="{ active: String(folder.id) === String(dialog.form.folderId) }"
+                :style="folderOptionStyle(folder)"
+                @click.stop.prevent="selectBookmarkFolder(folder.id)"
+              >
+                <span class="folder-option-prefix">{{ folderPrefix(folder) }}</span>
+                <span class="folder-option-name">{{ folder.name }}</span>
+              </button>
+            </div>
+          </div>
         </label>
         <button type="button" @click="emit('fill-metadata', dialog.form)">{{ metadataLoading ? '抓取中' : '自动抓取标题/图标' }}</button>
       </template>

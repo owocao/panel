@@ -139,7 +139,9 @@ export function useBookmarkActions({
     editDialog.value = { open: true, type: 'folder', title: '编辑收藏夹', form: { ...folder } }
   }
 
-  function editBookmark(bookmark) {
+  async function editBookmark(bookmark) {
+    if (!folders.value.length) await loadFolders()
+    await loadAllFolderChildren(folders.value)
     editDialog.value = { open: true, type: 'bookmark', title: '编辑书签', form: { ...bookmark } }
   }
 
