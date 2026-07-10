@@ -226,7 +226,6 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
 .tree-list-leave-active { position: absolute; width: 100%; }
 .tree-bookmarks { display: grid; gap: 4px; padding-left: calc(8px + var(--tree-depth, 0) * 12px); }
 .tree-bookmarks .bookmark-row { padding: 8px 10px; border-radius: 10px; }
-.tree-bookmarks .bookmark-row .favicon { width: 26px; height: 26px; }
 .tree-bookmarks .bookmark-row h3 { font-size: 14px; }
 .bookmark-row.compact { position: relative; cursor: pointer; gap: 6px; padding: 2px 4px; border: 0; background: transparent; box-shadow: none; border-radius: 6px; min-height: 28px; }
 .bookmark-row.compact:hover h3 { color: var(--accent); }
@@ -238,9 +237,7 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
 .bookmark-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; background: rgba(255,255,255,.06); transition: border-color .15s, box-shadow .15s, transform .15s, background .15s; }
 .bookmark-row:hover { border-color: rgba(88,166,255,.34); box-shadow: 0 10px 24px rgba(9,105,218,.12); background: rgba(255,255,255,.10); transform: translateY(-1px); }
 .bookmark-row.compact:hover { border-color: transparent; box-shadow: none; background: rgba(9,105,218,.18); transform: none; }
-.bookmark-row.compact .favicon { width: 20px; height: 20px; border-radius: 6px; }
 .bookmark-row .favicon { width: 24px; height: 24px; display: inline-grid; place-items: center; flex-shrink: 0; background: #fff; border-radius: 7px; font-size: 12px; font-weight: 800; overflow: hidden; border: 1px solid rgba(216,222,228,.6); }
-.bookmark-row.compact .favicon img { width: 16px; height: 16px; }
 .bookmark-row .favicon img { width: 18px; height: 18px; object-fit: contain; }
 .bookmark-row > div { min-width: 0; flex-grow: 1; display: grid; gap: 4px; }
 .bookmark-row h3 { font-size: 14px; margin: 0; color: rgba(250,252,255,.98); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
@@ -666,8 +663,11 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
   background: rgba(255,255,255,.12);
   color: rgba(250,252,255,.96);
 }
-.modal-head { padding-bottom: 2px; }
-.bookmark-drawer .bookmark-row .favicon {
+.bookmark-drawer .bookmark-row .favicon,
+.bookmark-drawer .bookmark-row.compact .favicon,
+.bookmark-drawer .tree-bookmarks .bookmark-row .favicon {
+  display: inline-grid;
+  place-items: center;
   flex: 0 0 18px;
   width: 18px;
   min-width: 18px;
@@ -681,7 +681,10 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
   align-self: center;
   border-color: rgba(255,255,255,.10);
 }
-.bookmark-drawer .bookmark-row .favicon img {
+.bookmark-drawer .bookmark-row .favicon img,
+.bookmark-drawer .bookmark-row.compact .favicon img,
+.bookmark-drawer .tree-bookmarks .bookmark-row .favicon img {
+  display: block;
   width: 14px;
   min-width: 14px;
   max-width: 14px;
@@ -690,6 +693,15 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
   max-height: 14px;
   object-fit: contain;
 }
+.bookmark-drawer .bookmark-row .favicon span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  font-size: 10px;
+  line-height: 18px;
+  text-align: center;
+}
+.modal-head { padding-bottom: 2px; }
 .bookmark-drawer .inline-actions button,
 .bookmark-drawer .bookmark-primary-actions button,
 .bookmark-drawer .drawer-head button,
@@ -845,44 +857,6 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
   border-color: rgba(88,166,255,.46);
 }
 
-.bookmark-drawer .bookmark-row .favicon,
-.bookmark-drawer .bookmark-row.compact .favicon,
-.bookmark-drawer .tree-bookmarks .bookmark-row .favicon {
-  display: inline-grid;
-  place-items: center;
-  flex: 0 0 18px;
-  width: 18px;
-  min-width: 18px;
-  max-width: 18px;
-  height: 18px;
-  min-height: 18px;
-  max-height: 18px;
-  padding: 0;
-  border-radius: 5px;
-  line-height: 18px;
-  align-self: center;
-  border-color: rgba(255,255,255,.10);
-}
-.bookmark-drawer .bookmark-row .favicon img,
-.bookmark-drawer .bookmark-row.compact .favicon img,
-.bookmark-drawer .tree-bookmarks .bookmark-row .favicon img {
-  display: block;
-  width: 14px;
-  min-width: 14px;
-  max-width: 14px;
-  height: 14px;
-  min-height: 14px;
-  max-height: 14px;
-  object-fit: contain;
-}
-.bookmark-drawer .bookmark-row .favicon span {
-  display: block;
-  width: 100%;
-  height: 100%;
-  font-size: 10px;
-  line-height: 18px;
-  text-align: center;
-}
 .bookmark-drawer .explorer-sidebar,
 .bookmark-drawer .explorer-content {
   scrollbar-width: none;
