@@ -10,13 +10,14 @@
   --shadow: 0 8px 24px rgba(31, 35, 40, .08);
   --shadow-soft: 0 14px 36px rgba(31, 35, 40, .10);
   --radius: 12px;
+  --home-side-space: clamp(36px, 7vw, 128px);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", Arial, sans-serif;
   color: var(--ink);
   background: var(--bg);
 }
 
-* { box-sizing: border-box; }
 * {
+  box-sizing: border-box;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -51,7 +52,6 @@ h1, h2, h3, p { margin: 0; }
 
 .shell, .sun-shell { min-height: 100vh; background: radial-gradient(circle at 50% -10%, rgba(255,255,255,.28) 0, rgba(31,35,40,.20) 42%, rgba(31,35,40,.44) 100%), var(--runtime-bg, linear-gradient(135deg, #68707a 0%, #24292f 100%)) !important; background-size: cover; background-position: center; background-attachment: fixed; color: var(--ink); }
 .sun-shell::before { content: none; }
-:root { --home-side-space: clamp(36px, 7vw, 128px); }
 .home-panel { width: min(1180px, calc(100vw - var(--home-side-space) * 2)); margin: 0 auto; padding: clamp(74px, 8vw, 116px) 0 82px; user-select: none; -webkit-user-select: none; }
 .home-panel *, .floating-actions, .floating-actions *, .bookmark-tab, .nav-drag-float, .nav-drag-float * { user-select: none; -webkit-user-select: none; -webkit-user-drag: none; user-drag: none; }
 .home-panel input, .home-panel textarea, .home-panel select, .home-panel [contenteditable="true"] { user-select: text; -webkit-user-select: text; }
@@ -155,8 +155,7 @@ h1, h2, h3, p { margin: 0; }
   display: inline-grid; place-items: center; flex: 0 0 auto; overflow: hidden;
   width: 28px; height: 28px; border-radius: 9px; color: #fff; background: #57606a; font-size: 12px; font-weight: 800;
 }
-.image-icon { width: 60px; height: 60px; border-radius: 18px; }
-.image-icon { background: transparent; }
+.image-icon { width: 60px; height: 60px; border-radius: 18px; background: transparent; }
 .logo.big { width: 56px; height: 56px; border-radius: 14px; font-size: 22px; }
 .logo img, .favicon img, .card-icon img { width: 100%; height: 100%; object-fit: cover; }
 
@@ -377,8 +376,6 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
 .folder-select-options button {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", Arial, sans-serif;
   letter-spacing: 0;
-}
-.folder-select-options button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -411,8 +408,6 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
   white-space: nowrap;
 }
 .modal-actions { justify-content: flex-end; margin-top: 16px; }
-.modal-actions .danger { color: #cf222e; background: #fff5f5; border-color: rgba(207,34,46,.22); }
-.modal-actions .danger:hover { background: #ffebe9; border-color: rgba(207,34,46,.32); }
 .context-menu { position: fixed; z-index: 40; display: grid; gap: 3px; width: 220px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow-x: hidden; overflow-y: auto; padding: 6px; border-radius: 12px; }
 .context-menu.compact { width: 80px; }
 .context-menu strong { padding: 6px 8px; font-size: 13px; }
@@ -428,7 +423,6 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
 .file-button { position: relative; overflow: hidden; }
 .file-button input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .compact-file { white-space: nowrap; }
-.required { color: #cf222e; font-style: normal; }
 .field-action {
   height: 34px; white-space: nowrap; border: 1px solid rgba(208,215,222,.86); border-radius: 9px; background: rgba(246,248,250,.72); color: var(--ink);
   padding: 0 10px; font-size: 12px; font-weight: 600;
@@ -582,7 +576,7 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
   background: rgba(207,34,46,.62);
   border-color: rgba(255,180,180,.44);
 }
-.required { color: #ff9b9b; }
+.required { color: #ff9b9b; font-style: normal; }
 .context-menu { border-color: rgba(255,255,255,.18); background: rgba(24,28,34,.86); }
 .context-menu strong { color: rgba(250,252,255,.96); }
 .context-menu button { border: 0; background: transparent; box-shadow: none; }
