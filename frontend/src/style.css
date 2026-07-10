@@ -257,7 +257,7 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
 .check-row input { width: auto; }
 
 .settings-mask { position: fixed; z-index: 34; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(31,35,40,.42); backdrop-filter: blur(4px); }
-.settings-center { position: relative; width: min(980px, 100%); height: min(680px, calc(100vh - 48px)); max-height: min(760px, calc(100vh - 48px)); margin: 0; overflow: hidden; display: grid; grid-template-rows: auto 1fr; border-radius: 16px; padding: 16px; background: rgba(255,255,255,.88); border-color: rgba(255,255,255,.54); box-shadow: 0 22px 60px rgba(31,35,40,.18); backdrop-filter: blur(18px); }
+.settings-center { position: relative; width: min(980px, 100%); height: min(680px, calc(100vh - 48px)); max-height: min(760px, calc(100vh - 48px)); margin: 0; overflow: hidden; display: grid; grid-template-rows: auto 1fr; border-radius: 16px; padding: 16px; background: rgba(24,28,34,.72); border-color: rgba(255,255,255,.18); box-shadow: 0 24px 70px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.08); backdrop-filter: blur(18px); }
 .settings-title-block { min-width: 0; display: grid; gap: 6px; padding-left: 40px; }
 .settings-head h2 { font-size: 20px; line-height: 26px; }
 .settings-mobile-title { display: none; }
@@ -267,7 +267,7 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
 .settings-layout.collapsed { grid-template-columns: 1fr; }
 .menu-collapse { position: absolute; left: 16px; top: 18px; z-index: 2; width: 30px; height: 30px; display: inline-grid; place-items: center; padding: 0; border: 1px solid rgba(216,222,228,.86); border-radius: 10px; color: var(--muted); background: rgba(255,255,255,.86); font-size: 18px; font-weight: 900; box-shadow: 0 8px 18px rgba(31,35,40,.06); }
 .menu-collapse:hover { color: var(--accent); border-color: rgba(9,105,218,.30); background: rgba(246,248,250,.94); }
-.settings-menu { min-height: 0; overflow: auto; display: grid; align-content: start; gap: 8px; padding: 8px; border: 1px solid rgba(255,255,255,.42); border-radius: 12px; background: rgba(246,248,250,.66); box-shadow: inset 0 1px 0 rgba(255,255,255,.52); }
+.settings-menu { min-height: 0; overflow: auto; display: grid; align-content: start; gap: 8px; padding: 8px; border: 1px solid rgba(255,255,255,.14); border-radius: 12px; background: rgba(255,255,255,.06); box-shadow: inset 0 1px 0 rgba(255,255,255,.06); }
 .settings-menu button { position: relative; width: 100%; margin: 0; padding: 10px 11px; border: 1px solid transparent; border-radius: 10px; color: var(--muted); text-align: left; font-weight: 600; background: transparent; }
 .settings-menu button:hover { color: var(--ink); border-color: rgba(9,105,218,.16); background: rgba(255,255,255,.68); }
 .settings-menu button.active { color: #0969da; border-color: rgba(9,105,218,.30); background: rgba(221,244,255,.76); box-shadow: inset 3px 0 0 #0969da, 0 8px 18px rgba(9,105,218,.08); }
@@ -279,15 +279,15 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
 .setting-card label { display: grid; gap: 6px; margin-top: 10px; color: var(--muted); font-size: 13px; font-weight: 600; }
 .setting-card input, .setting-card select { height: 36px; border-radius: 10px; background: rgba(246,248,250,.74); border-color: rgba(208,215,222,.86); }
 .setting-card input:hover, .setting-card select:hover { border-color: rgba(9,105,218,.24); background: rgba(255,255,255,.92); }
-.settings-message { min-height: 24px; margin: 0; padding: 4px 0 0; color: #0550ae; opacity: 0; font-size: 13px; line-height: 18px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: opacity .12s ease; }
+.settings-message { min-height: 24px; margin: 0; padding: 4px 0 0; color: rgba(125,211,252,.94); opacity: 0; font-size: 13px; line-height: 18px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: opacity .12s ease; }
 .settings-message.visible { opacity: 1; }
 .manager-card { min-height: 360px; align-content: start; background: rgba(255,255,255,.78); border-color: rgba(255,255,255,.46); box-shadow: 0 18px 42px rgba(31,35,40,.10); backdrop-filter: blur(16px); }
 .manager-card .empty-state { background: rgba(255,255,255,.58); border-color: rgba(255,255,255,.48); backdrop-filter: blur(12px); }
 .manager-row {
   position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px;
   min-height: 50px; padding: 9px 10px 9px calc(12px + var(--manager-indent, 0px));
-  border: 1px solid rgba(255,255,255,.46); border-radius: 12px;
-  background: rgba(255,255,255,.56); box-shadow: 0 8px 20px rgba(31,35,40,.05);
+  border: 1px solid rgba(255,255,255,.14); border-radius: 12px;
+  background: rgba(255,255,255,.07); box-shadow: 0 10px 26px rgba(0,0,0,.12);
   transition: border-color .15s ease, background .15s ease, box-shadow .15s ease, transform .15s ease;
 }
 .manager-row::before {
@@ -300,20 +300,20 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
   width: 14px; height: 1px; background: rgba(9,105,218,.24); opacity: 0; pointer-events: none;
 }
 .manager-row-child::before, .manager-row-child::after { opacity: 1; }
-.manager-row-root { background: rgba(255,255,255,.72); border-color: rgba(9,105,218,.16); }
-.manager-row-deep { background: rgba(246,248,250,.54); }
+.manager-row-root { background: rgba(88,166,255,.12); border-color: rgba(88,166,255,.22); }
+.manager-row-deep { background: rgba(255,255,255,.05); }
 .manager-row:hover {
-  z-index: 1; border-color: rgba(9,105,218,.34); background: rgba(255,255,255,.86);
-  box-shadow: 0 14px 30px rgba(9,105,218,.10); transform: translateY(-1px);
+  z-index: 1; border-color: rgba(88,166,255,.42); background: rgba(255,255,255,.12);
+  box-shadow: 0 16px 34px rgba(9,105,218,.16); transform: translateY(-1px);
 }
-.manager-folder-main { min-width: 0; display: flex; align-items: center; gap: 8px; color: var(--ink); }
-.manager-folder-main strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; }
+.manager-folder-main { min-width: 0; display: flex; align-items: center; gap: 8px; color: rgba(250,252,255,.96); }
+.manager-folder-main strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(250,252,255,.95); font-size: 14px; font-weight: 600; }
 .manager-depth-guide {
   flex: 0 0 auto; width: 8px; height: 8px; border-radius: 999px;
   background: rgba(9,105,218,.28); box-shadow: 0 0 0 3px rgba(9,105,218,.08);
 }
 .manager-row-root .manager-depth-guide { width: 9px; height: 9px; background: var(--accent); box-shadow: 0 0 0 4px rgba(9,105,218,.12); }
-.manager-row-child .manager-folder-main strong { color: #3f4854; font-weight: 600; }
+.manager-row-child .manager-folder-main strong { color: rgba(250,252,255,.95); font-weight: 600; }
 .manager-row .inline-actions { flex: 0 0 auto; gap: 8px; flex-wrap: nowrap; }
 .manager-row button { min-height: 32px; padding: 7px 9px; background: rgba(255,255,255,.76); border-color: rgba(216,222,228,.72); box-shadow: 0 6px 16px rgba(31,35,40,.04); white-space: nowrap; }
 .manager-row button:hover { color: var(--accent); border-color: rgba(9,105,218,.34); background: rgba(255,255,255,.94); box-shadow: 0 8px 18px rgba(9,105,218,.10); }
@@ -453,10 +453,8 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
   backdrop-filter: blur(20px);
 }
 .settings-mask, .modal-mask { background: rgba(5,8,12,.46); backdrop-filter: blur(6px); }
-.settings-center { background: rgba(24,28,34,.72); border-color: rgba(255,255,255,.18); box-shadow: 0 24px 70px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.08); }
 .settings-head h2, .modal-head h2, .drawer-head span, .setting-card h3, .manager-head h3, .explorer-section-head strong, .folder-tree-title, .backup-zone h4, .bookmark-row h3, .settings-mobile-title { color: rgba(250,252,255,.98); }
 .settings-title-block, .settings-content, .edit-modal, .move-modal, .context-menu, .bookmark-drawer { color: rgba(250,252,255,.96); }
-.settings-message { color: rgba(125,211,252,.94); }
 .drawer-head small, .bookmark-search, .setting-card p, .bookmark-row p, .bookmark-row small, .move-hint, .label-line small, .form-grid label, .setting-card label, .edit-modal label, .icon-mode-title, .eyebrow, .eyebrow.dark { color: rgba(226,232,240,.82); }
 .settings-panel input, .settings-panel select, .edit-modal input, .edit-modal select, .bookmark-drawer input, .bookmark-drawer select, .auth-box input {
   color: rgba(250,252,255,.96);
@@ -484,11 +482,6 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
   background: rgba(9,105,218,.58);
   border-color: rgba(125,211,252,.45);
   box-shadow: 0 12px 28px rgba(9,105,218,.16);
-}
-.settings-menu {
-  border-color: rgba(255,255,255,.14);
-  background: rgba(255,255,255,.06);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
 }
 .settings-menu button { color: rgba(226,232,240,.84); box-shadow: none; }
 .settings-menu button:hover { color: #fff; border-color: rgba(255,255,255,.18); background: rgba(255,255,255,.10); }
@@ -518,20 +511,6 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
   border-color: rgba(255,255,255,.18);
   background: rgba(255,255,255,.06);
 }
-.manager-row {
-  border-color: rgba(255,255,255,.14);
-  background: rgba(255,255,255,.07);
-  box-shadow: 0 10px 26px rgba(0,0,0,.12);
-}
-.manager-row-root { background: rgba(88,166,255,.12); border-color: rgba(88,166,255,.22); }
-.manager-row-deep { background: rgba(255,255,255,.05); }
-.manager-row:hover {
-  border-color: rgba(88,166,255,.42);
-  background: rgba(255,255,255,.12);
-  box-shadow: 0 16px 34px rgba(9,105,218,.16);
-}
-.manager-folder-main { color: rgba(250,252,255,.96); }
-.manager-folder-main strong, .manager-row-child .manager-folder-main strong { color: rgba(250,252,255,.95); }
 .manager-row p, .search-engine-row p, .backup-zone p { color: rgba(226,232,240,.76); }
 .manager-row button:disabled, .manager-row button:disabled:hover, button:disabled, button:disabled:hover {
   opacity: .46;
@@ -839,7 +818,7 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
   }
   .settings-title-block { width: auto; padding-left: 0; gap: 1px; }
   .settings-head h2 { display: none; }
-  .settings-mobile-title { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-size: 16px; line-height: 20px; font-weight: 900; }
+  .settings-mobile-title { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(245,247,250,.96); font-size: 16px; line-height: 20px; font-weight: 900; }
   .settings-message { min-height: 0; padding: 0; font-size: 11px; line-height: 14px; }
   .settings-head .inline-actions { width: auto; justify-content: flex-end; gap: 6px; }
   .settings-head .inline-actions button { min-height: 32px; padding: 6px 9px; }
@@ -864,7 +843,6 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
   .modal-actions { flex-wrap: wrap; justify-content: flex-end; }
 }
 
-.settings-mobile-title { color: rgba(245,247,250,.96); }
 .settings-layout.mobile-menu-page .settings-menu button {
   color: rgba(245,247,250,.92);
   background: rgba(255,255,255,.10);
