@@ -58,8 +58,6 @@ h1, h2, h3, p { margin: 0; }
 .hero-card { display: grid; justify-items: center; gap: 18px; margin-bottom: 44px; }
 .topbar { position: relative; width: 100%; display: flex; align-items: flex-start; justify-content: center; gap: 16px; text-align: center; }
 .home-title { display: flex; align-items: center; justify-content: center; gap: 10px; }
-.home-logo { display: inline-grid; place-items: center; width: 38px; height: 38px; border-radius: 13px; color: #fff; background: linear-gradient(135deg, #24292f, #57606a); font-weight: 800; overflow: hidden; box-shadow: 0 10px 22px rgba(31,35,40,.16); }
-.home-logo img { width: 100%; height: 100%; object-fit: cover; }
 .topbar h2 { display: flex; align-items: center; justify-content: center; gap: 10px; color: rgba(255,255,255,.98); font-size: clamp(34px, 4.8vw, 68px); line-height: clamp(40px, 5.1vw, 72px); font-weight: 700; letter-spacing: 0; text-shadow: 0 2px 8px rgba(0,0,0,.42), 0 1px 1px rgba(0,0,0,.34); white-space: nowrap; }
 .topbar h2 em { color: rgba(255,255,255,.68); font-size: clamp(18px, 2vw, 28px); line-height: 1; font-style: normal; font-weight: 300; }
 .title-text { line-height: clamp(40px, 5.1vw, 72px); white-space: nowrap; }
@@ -168,7 +166,7 @@ h1, h2, h3, p { margin: 0; }
 }
 .bookmark-tab:hover { border-color: rgba(255,255,255,.42); background: rgba(9,105,218,.70); transform: translateX(2px); }
 .floating-actions { position: fixed; right: 18px; bottom: 18px; z-index: 26; display: flex; gap: 8px; padding: 8px; border: 1px solid rgba(255,255,255,.22); border-radius: 16px; background: rgba(31,35,40,.44); box-shadow: 0 16px 40px rgba(0,0,0,.22); backdrop-filter: blur(16px); user-select: none; }
-.floating-actions button, .header-actions button, .inline-actions button, .drawer-head button, .form-grid button, .settings-head button, .open-link, .file-button, .context-menu button, .quick-create button, .bookmark-row button, .nav-card button, .modal-head button, .modal-actions button, .edit-modal > button, .manager-head button, .manager-row button {
+.floating-actions button, .inline-actions button, .drawer-head button, .form-grid button, .settings-head button, .open-link, .file-button, .context-menu button, .bookmark-row button, .nav-card button, .modal-head button, .modal-actions button, .edit-modal > button, .manager-head button, .manager-row button {
   border-radius: 10px; color: var(--ink); background: #fff; border: 1px solid var(--line); padding: 8px 10px; font-size: 13px; font-weight: 700; text-decoration: none;
 }
 .floating-actions button:hover, .inline-actions button:hover, .context-menu button:hover:not(.icon-only) { background: #f6f8fa; }
@@ -187,7 +185,6 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
 .drawer-head span { display: block; font-size: 18px; font-weight: 800; }
 .drawer-head small { color: var(--muted); font-size: 12px; }
 .bookmark-search { display: grid; gap: 6px; margin: 0; color: var(--muted); font-size: 13px; font-weight: 800; }
-.quick-create { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin: 8px 0 12px; }
 .bookmark-body { min-height: 0; }
 .explorer-layout { display: grid; grid-template-columns: 220px minmax(260px, 1fr); gap: 12px; }
 .folder-tree, .bookmark-list { min-width: 0; display: grid; align-content: start; gap: 8px; }
@@ -232,7 +229,6 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
 .bookmark-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); transition: border-color .15s, box-shadow .15s, transform .15s, background .15s; }
 .bookmark-row:hover { border-color: rgba(9,105,218,.24); box-shadow: 0 4px 12px rgba(0,0,0,.04); background: #fff; transform: translateY(-1px); }
 .bookmark-row.compact:hover { border-color: transparent; box-shadow: none; background: rgba(9,105,218,.06); transform: none; }
-.bookmark-row.selected-row { border-color: #0969da; background: #f3fbff; box-shadow: none; transform: none; }
 .bookmark-row.compact .favicon { width: 20px; height: 20px; border-radius: 6px; }
 .bookmark-row .favicon { width: 24px; height: 24px; display: inline-grid; place-items: center; flex-shrink: 0; background: #fff; border-radius: 7px; font-size: 12px; font-weight: 800; overflow: hidden; border: 1px solid rgba(216,222,228,.6); }
 .bookmark-row.compact .favicon img { width: 16px; height: 16px; }
@@ -483,13 +479,13 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
   border-color: rgba(88,166,255,.66);
   box-shadow: 0 0 0 3px rgba(9,105,218,.24);
 }
-.settings-head button, .modal-actions button, .edit-modal > button, .field-action, .upload-inline, .select-trigger, .settings-menu button, .manager-head button, .manager-row button, .backup-actions button, .backup-actions .file-button, .drawer-head button, .quick-create button, .bookmark-row button, .open-link, .folder-tree-title, .folder-toggle, .context-menu button, .search-engine-list button {
+.settings-head button, .modal-actions button, .edit-modal > button, .field-action, .upload-inline, .select-trigger, .settings-menu button, .manager-head button, .manager-row button, .backup-actions button, .backup-actions .file-button, .drawer-head button, .bookmark-row button, .open-link, .folder-tree-title, .folder-toggle, .context-menu button {
   color: rgba(250,252,255,.94);
   background: rgba(255,255,255,.10);
   border-color: rgba(255,255,255,.18);
   box-shadow: 0 8px 22px rgba(0,0,0,.12);
 }
-.settings-head button:hover, .modal-actions button:hover, .field-action:hover, .upload-inline:hover, .select-trigger:hover, .settings-menu button:hover, .manager-head button:hover, .manager-row button:hover, .backup-actions button:hover, .backup-actions .file-button:hover, .drawer-head button:hover, .quick-create button:hover, .bookmark-row button:hover, .open-link:hover, .folder-toggle:hover, .context-menu button:hover:not(.icon-only), .search-engine-list button:hover {
+.settings-head button:hover, .modal-actions button:hover, .field-action:hover, .upload-inline:hover, .select-trigger:hover, .settings-menu button:hover, .manager-head button:hover, .manager-row button:hover, .backup-actions button:hover, .backup-actions .file-button:hover, .drawer-head button:hover, .bookmark-row button:hover, .open-link:hover, .folder-toggle:hover, .context-menu button:hover:not(.icon-only) {
   color: #fff;
   background: rgba(9,105,218,.58);
   border-color: rgba(125,211,252,.45);
@@ -515,7 +511,7 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
   box-shadow: 0 10px 24px rgba(0,0,0,.16);
 }
 .menu-collapse:hover { color: #fff; border-color: rgba(125,211,252,.42); background: rgba(9,105,218,.48); }
-.setting-card, .manager-card, .backup-zone, .search-engine-list, .explorer-sidebar, .explorer-content {
+.setting-card, .manager-card, .backup-zone, .explorer-sidebar, .explorer-content {
   border-color: rgba(255,255,255,.14);
   background: rgba(255,255,255,.07);
   box-shadow: 0 14px 36px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.05);
@@ -699,10 +695,6 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
   outline: none !important;
   box-shadow: none !important;
 }
-.bookmark-row.selected-row {
-  border-color: rgba(88,166,255,.52);
-  background: rgba(9,105,218,.24);
-}
 .bookmark-row .favicon, .engine-mark {
   border-color: rgba(255,255,255,.16);
   background: rgba(255,255,255,.12);
@@ -878,39 +870,6 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
   .modal-actions { flex-wrap: wrap; justify-content: flex-end; }
 }
 
-.search-engine-list {
-  display: grid;
-  gap: 8px;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--panel-soft);
-}
-.search-engine-list button {
-  width: fit-content;
-  border-radius: 10px;
-  color: var(--ink);
-  background: #fff;
-  border: 1px solid var(--line);
-  padding: 8px 10px;
-  font-weight: 800;
-}
-.search-engine-list p {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.search-engine-list {
-  border-color: rgba(255,255,255,.14);
-  background: rgba(255,255,255,.07);
-}
-.search-engine-list button {
-  color: rgba(245,247,250,.92);
-  background: rgba(255,255,255,.10);
-  border-color: rgba(255,255,255,.18);
-}
-.search-engine-list p { color: rgba(215,221,230,.66); }
 .settings-mobile-title { color: rgba(245,247,250,.96); }
 .settings-layout.mobile-menu-page .settings-menu button {
   color: rgba(245,247,250,.92);
