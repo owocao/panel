@@ -703,7 +703,6 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
 }
 .modal-head { padding-bottom: 2px; }
 .bookmark-drawer .inline-actions button,
-.bookmark-drawer .bookmark-primary-actions button,
 .bookmark-drawer .drawer-head button,
 .bookmark-drawer .bookmark-row button,
 .bookmark-drawer .open-link,
@@ -715,7 +714,6 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
   box-shadow: 0 8px 22px rgba(0,0,0,.12);
 }
 .bookmark-drawer .inline-actions button:hover,
-.bookmark-drawer .bookmark-primary-actions button:hover,
 .bookmark-drawer .drawer-head button:hover,
 .bookmark-drawer .bookmark-row button:hover,
 .bookmark-drawer .open-link:hover,
