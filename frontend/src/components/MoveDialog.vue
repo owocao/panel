@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
+import { folderOptionStyle, folderPrefix } from '../utils/folderDisplay'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -18,23 +19,6 @@ const selectedName = computed(() => {
   if (props.allowRoot && (props.targetFolderId == null || props.targetFolderId === '')) return '根目录'
   return selectedFolder.value ? selectedFolder.value.name : '请选择收藏夹'
 })
-
-function folderDepth(folder) {
-  return Number(folder?.depth || 0)
-}
-
-function folderPrefix(folder) {
-  const depth = folderDepth(folder)
-  return depth > 0 ? '└' : ''
-}
-
-function folderOptionStyle(folder) {
-  const depth = folderDepth(folder)
-  return {
-    paddingLeft: `${9 + depth * 18}px`,
-    '--folder-depth-line': `${12 + Math.max(0, depth - 1) * 18}px`,
-  }
-}
 
 function selectFolder(folder) {
   emit('update:targetFolderId', folder.id)
