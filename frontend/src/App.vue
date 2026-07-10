@@ -63,8 +63,6 @@ const initialized = ref(false)
 const moveDialog = ref({ open: false, title: '', items: [], targetFolderId: null })
 const loginForm = ref({ username: '', password: '', remember: false })
 const setupForm = ref({ username: 'admin', password: '', confirm: '' })
-const quickNav = ref({ groupName: '', cardName: '', url: '' })
-const quickBookmark = ref({ folderName: '', title: '', url: '', note: '', favicon: '' })
 const editingNavGroupId = ref(null)
 const metadataLoading = ref(false)
 const assetUploading = ref(false)
@@ -96,7 +94,6 @@ const {
   folderFlatList,
   folderCount,
   bookmarkCount,
-  getBookmarkSelectionIds,
   isBookmarkSelected,
   clearBookmarkSelection,
   toggleBookmarkSelection,
@@ -155,7 +152,6 @@ const {
   webSearch,
   searchPickerOpen,
   displayGroups,
-  navItemCount,
   searchEngines,
   settingsSearchEngines,
   activeSearchEngine,
@@ -229,16 +225,12 @@ const {
   uploadIconFile,
   fillMetadata,
   fillMetadataFromField,
-  fillQuickBookmarkMetadata,
-  fillQuickNavMetadata,
   createGroupByPrompt,
   addCardFromMenu,
   createFolderByPrompt,
   createBookmarkByPrompt,
 } = useEditSave({
   editDialog,
-  quickNav,
-  quickBookmark,
   metadataLoading,
   assetUploading,
   settingsOpen,

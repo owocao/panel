@@ -502,9 +502,3 @@ func (s *Store) SaveSettings(values map[string]string) error {
 	}
 	return tx.Commit()
 }
-
-func (s *Store) BookmarkExistsInFolder(folderID int64, url string) (bool, error) {
-	var count int
-	err := s.DB.QueryRow(`SELECT count(*) FROM bookmarks WHERE folder_id = ? AND url = ?`, folderID, url).Scan(&count)
-	return count > 0, err
-}

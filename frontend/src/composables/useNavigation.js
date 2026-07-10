@@ -8,7 +8,6 @@ export function useNavigation({ getNavigation, uploadAsset, settingsForm, settin
   const searchPickerOpen = ref(false)
 
   const displayGroups = computed(() => navGroups.value)
-  const navItemCount = computed(() => navGroups.value.reduce((total, group) => total + (group.items?.length || 0), 0))
   const searchEngines = computed(() => parseSearchEngines(settingsForm.value.searchEngines))
   const settingsSearchEngines = computed(() => parseSearchEngines(settingsDraft.value.searchEngines))
   const activeSearchEngine = computed(() => searchEngines.value.find((engine) => engine.key === webSearch.value.engine) || searchEngines.value[0])
@@ -155,7 +154,6 @@ export function useNavigation({ getNavigation, uploadAsset, settingsForm, settin
     webSearch,
     searchPickerOpen,
     displayGroups,
-    navItemCount,
     searchEngines,
     settingsSearchEngines,
     activeSearchEngine,
