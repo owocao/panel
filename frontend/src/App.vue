@@ -16,10 +16,11 @@ import { useDragSort } from './composables/useDragSort'
 import { useEditDialog } from './composables/useEditDialog'
 import { useEditSave } from './composables/useEditSave'
 import { useFolderDrafts } from './composables/useFolderDrafts'
+import { useHomeClock } from './composables/useHomeClock'
 import { useNavigation } from './composables/useNavigation'
 import { useSettings } from './composables/useSettings'
 import { findFolderById, normalizeFolder } from './utils/bookmarkTree'
-import { cardTextClass, formatDisplayDate, formatDisplayTime, getNetworkIcon, getNetworkTip, iconUrl, isImageValue, limitText } from './utils/display'
+import { cardTextClass, getNetworkIcon, getNetworkTip, iconUrl, isImageValue, limitText } from './utils/display'
 import { handleHomeKeydown, preventHomeSelection } from './utils/domGuards'
 import { ensureHttp, normalizeNetworkMode, resolveNavUrl } from './utils/navigation'
 import {
@@ -67,9 +68,6 @@ const setupForm = ref({ username: 'admin', password: '', confirm: '' })
 const editingNavGroupId = ref(null)
 const metadataLoading = ref(false)
 const assetUploading = ref(false)
-const now = ref(new Date())
-const dateMode = ref('solar')
-let clockTimer
 let toastTimer
 let draftIdSeed = 0
 const navGroupsDraft = ref([])
@@ -78,11 +76,6 @@ const navDraftDirty = ref(false)
 const showNetworkSwitcher = computed(() => true)
 const networkTip = computed(() => getNetworkTip(networkMode.value))
 const networkIcon = computed(() => getNetworkIcon(networkMode.value))
-const displayTime = computed(() => formatDisplayTime(now.value, settingsForm.value.showSeconds === 'true'))
-const displayDate = computed(() => formatDisplayDate(now.value, dateMode.value))
-function toggleDateMode() {
-  dateMode.value = dateMode.value === 'solar' ? 'lunar' : 'solar'
-}
 const {
   folders,
   bookmarks,
@@ -177,6 +170,12 @@ const {
   onStatus: (message) => { statusText.value = message },
   onToast: (message) => showToast(message),
 })
+const {
+  dateMode,
+  displayTime,
+  displayDate,
+  toggleDateMode,
+} = useHomeClock({ settingsForm })
 const navGroupOptions = computed(() => (settingsOpen.value ? navGroupsDraft.value : navGroups.value))
 
 const {
@@ -434,7 +433,6 @@ const shellStyle = computed(() => ({
 }))
 
 onMounted(async () => {
-  clockTimer = window.setInterval(() => { now.value = new Date() }, 1000)
   window.addEventListener('keydown', handleGlobalKeydown)
   window.addEventListener('biu-auth-expired', handleAuthExpired)
   networkMode.value = normalizeNetworkMode(localStorage.getItem('biu-network-mode'))
@@ -445,7 +443,6 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleGlobalKeydown)
   window.removeEventListener('biu-auth-expired', handleAuthExpired)
-  if (clockTimer) window.clearInterval(clockTimer)
   if (toastTimer) window.clearTimeout(toastTimer)
   clearNavLongPressTimer()
   stopNavPointerListeners()
