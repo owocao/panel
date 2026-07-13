@@ -9,10 +9,11 @@ export function limitText(value, size) {
 }
 
 export function cardTextClass(value) {
-  const len = limitText(value, 5).length
+  const len = limitText(value, 10).length
   if (len <= 2) return 'text-xl'
-  if (len <= 4) return 'text-md'
-  return 'text-sm'
+  if (len <= 5) return 'text-md'
+  if (len <= 7) return 'text-sm'
+  return 'text-xs'
 }
 
 export function iconUrl(name) {
@@ -37,7 +38,7 @@ export function formatDisplayDate(date, dateMode) {
 }
 
 export function getNetworkTip(mode) {
-  return mode === 'lan' ? '优先内网，超时后打开公网' : '优先公网，超时后打开内网'
+  return mode === 'lan' ? '优先使用内网地址，未填写时回退公网' : '优先使用公网地址，未填写时回退内网'
 }
 
 export function getNetworkIcon(mode) {

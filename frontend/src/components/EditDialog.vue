@@ -60,18 +60,44 @@ function toggleGroupSelect() {
 }
 
 const bookmarkFolderSelectOpen = ref(false)
+const folderParentSelectOpen = ref(false)
+
+const folderParentOptions = computed(() => {
+  if (props.dialog.type === 'folderCreate') return props.folderManagementFlatList.filter((item) => item.depth < 3)
+  if (props.dialog.type === 'folder') return props.eligibleFolderParents
+  return []
+})
 
 const selectedBookmarkFolderName = computed(() => {
   const selected = props.folderFlatList.find((folder) => String(folder.id) === String(props.dialog.form.folderId))
   return selected ? selected.name : '请选择收藏夹'
 })
 
+const selectedFolderParentName = computed(() => {
+  if (props.dialog.form.parentId == null || props.dialog.form.parentId === '') return '根目录'
+  const selected = folderParentOptions.value.find((folder) => String(folder.id) === String(props.dialog.form.parentId))
+  return selected ? selected.name : '根目录'
+})
+
 function toggleBookmarkFolderSelect() {
   bookmarkFolderSelectOpen.value = !bookmarkFolderSelectOpen.value
 }
 
+function toggleFolderParentSelect() {
+  folderParentSelectOpen.value = !folderParentSelectOpen.value
+}
+
 function closeBookmarkFolderSelect() {
   bookmarkFolderSelectOpen.value = false
+}
+
+function closeFolderParentSelect() {
+  folderParentSelectOpen.value = false
+}
+
+function closeFolderSelects() {
+  closeBookmarkFolderSelect()
+  closeFolderParentSelect()
 }
 
 function selectBookmarkFolder(folderId) {
@@ -79,17 +105,22 @@ function selectBookmarkFolder(folderId) {
   bookmarkFolderSelectOpen.value = false
 }
 
+function selectFolderParent(parentId) {
+  props.dialog.form.parentId = parentId
+  folderParentSelectOpen.value = false
+}
+
 watch(
   () => [props.dialog.open, props.dialog.type],
   () => {
-    closeBookmarkFolderSelect()
+    closeFolderSelects()
   },
 )
 </script>
 
 <template>
   <section v-if="dialog.open" class="modal-mask" @mousedown.self.stop="emit('close')" @wheel.stop.prevent>
-    <form class="edit-modal" :class="{ 'bookmark-to-nav-modal': dialog.type === 'bookmarkToNav', 'bookmark-edit-modal': dialog.type === 'bookmark' || dialog.type === 'bookmarkCreate' }" @click.stop="closeBookmarkFolderSelect" @wheel.stop="emit('panel-wheel', $event)" @submit.prevent="emit('save')">
+    <form class="edit-modal" :class="{ 'bookmark-to-nav-modal': dialog.type === 'bookmarkToNav', 'bookmark-edit-modal': dialog.type === 'bookmark' || dialog.type === 'bookmarkCreate', 'folder-edit-modal': dialog.type === 'folder' || dialog.type === 'folderCreate' }" @click.stop="closeFolderSelects" @wheel.stop="emit('panel-wheel', $event)" @submit.prevent="emit('save')">
       <header class="modal-head"><h2>{{ dialog.title }}</h2></header>
 
       <label v-if="dialog.type === 'navGroup' || dialog.type === 'navGroupCreate'">
@@ -100,17 +131,36 @@ watch(
 
       <template v-if="dialog.type === 'folder' || dialog.type === 'folderCreate'">
         <label>名称<input v-model="dialog.form.name" placeholder="请输入收藏夹名称" /></label>
-        <label v-if="dialog.type === 'folderCreate'">上级收藏夹
-          <select v-model="dialog.form.parentId">
-            <option :value="null">根目录</option>
-            <option v-for="folder in folderManagementFlatList.filter((item) => item.depth < 3)" :key="`folder-parent-${folder.id}`" :value="folder.id">{{ '　'.repeat(folder.depth) }}{{ folder.name }}</option>
-          </select>
-        </label>
-        <label v-if="dialog.type === 'folder'">移动
-          <select v-model="dialog.form.parentId">
-            <option :value="null">根目录</option>
-            <option v-for="folder in eligibleFolderParents" :key="`folder-move-parent-${folder.id}`" :value="folder.id">{{ '　'.repeat(folder.depth) }}{{ folder.name }}</option>
-          </select>
+        <label>{{ dialog.type === 'folderCreate' ? '上级收藏夹' : '移动' }}
+          <div class="select-popover edit-folder-select" :class="{ open: folderParentSelectOpen }" @click.stop>
+            <button type="button" class="select-trigger" @click="toggleFolderParentSelect">
+              <span>{{ selectedFolderParentName }}</span>
+              <span class="select-arrow">⌄</span>
+            </button>
+            <div v-if="folderParentSelectOpen" class="select-options folder-select-options folder-parent-options">
+              <button
+                type="button"
+                class="folder-option"
+                :class="{ active: dialog.form.parentId == null || dialog.form.parentId === '' }"
+                @click.stop.prevent="selectFolderParent(null)"
+              >
+                <span class="folder-option-prefix"></span>
+                <span class="folder-option-name">根目录</span>
+              </button>
+              <button
+                v-for="folder in folderParentOptions"
+                :key="`folder-parent-option-${dialog.type}-${folder.id}`"
+                type="button"
+                class="folder-option"
+                :class="{ active: String(folder.id) === String(dialog.form.parentId) }"
+                :style="folderOptionStyle(folder)"
+                @click.stop.prevent="selectFolderParent(folder.id)"
+              >
+                <span class="folder-option-prefix">{{ folderPrefix(folder) }}</span>
+                <span class="folder-option-name">{{ folder.name }}</span>
+              </button>
+            </div>
+          </div>
         </label>
       </template>
 
@@ -126,9 +176,9 @@ watch(
             <button type="button" :class="{ active: dialog.form.iconMode === 'image' }" @click="emit('set-icon-mode', dialog.form, 'image')">图片</button>
           </div>
           <label>
-            <span class="label-line"><span>{{ dialog.form.iconMode === 'image' ? '图片地址' : '文本内容' }}</span><small v-if="dialog.form.iconMode !== 'image'">{{ String(dialog.form.icon || '').length }}/5</small></span>
+            <span class="label-line"><span>{{ dialog.form.iconMode === 'image' ? '图片地址' : '文本内容' }}</span><small v-if="dialog.form.iconMode !== 'image'">{{ String(dialog.form.icon || '').length }}/10</small></span>
             <span class="input-with-button">
-              <input v-model="dialog.form.icon" :maxlength="dialog.form.iconMode === 'image' ? undefined : 5" :placeholder="dialog.form.iconMode === 'image' ? '输入图标地址或上传' : '请输入文本内容'" @input="dialog.form.iconMode !== 'image' && emit('clamp-field', 'icon', 5)" />
+              <input v-model="dialog.form.icon" :maxlength="dialog.form.iconMode === 'image' ? undefined : 10" :placeholder="dialog.form.iconMode === 'image' ? '输入图标地址或上传' : '请输入文本内容'" @input="dialog.form.iconMode !== 'image' && emit('clamp-field', 'icon', 10)" />
               <label v-if="dialog.form.iconMode === 'image'" class="upload-inline">上传<input type="file" accept="image/*" @change="emit('upload-icon', $event, dialog.form, 'icon')" /></label>
             </span>
           </label>
