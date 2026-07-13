@@ -350,6 +350,7 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
 }
 .move-modal, .bookmark-to-nav-modal { width: min(560px, 100%); overflow: visible; color: rgba(250,252,255,.96); }
 .bookmark-edit-modal { overflow: visible; }
+.folder-edit-modal { overflow: visible; }
 .edit-modal input, .edit-modal select {
   height: 34px; border-radius: 9px; padding: 0 10px; line-height: 34px;
   color: rgba(250,252,255,.96); background: rgba(255,255,255,.08);
@@ -403,6 +404,7 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
   white-space: nowrap;
 }
 .folder-select-options { max-height: 220px; }
+.folder-parent-options { max-height: min(240px, 40vh); overflow-y: auto; }
 .folder-select-options button {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", Arial, sans-serif;
   letter-spacing: 0;
