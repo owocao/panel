@@ -10,7 +10,7 @@ defineProps({
 
 <template>
   <div v-if="item" class="nav-drag-float" :style="dragStyle">
-    <span class="nav-card"><span v-if="isImageValue(item.icon)" class="card-icon image-icon"><img :src="item.icon" alt="" /></span><span v-else class="card-text-icon" :class="cardTextClass(item.icon || item.name)">{{ limitText(item.icon || item.name, 5) }}</span></span>
+    <span class="nav-card"><span v-if="isImageValue(item.icon)" class="card-icon image-icon"><img :src="item.icon" alt="" /></span><span v-else class="card-text-icon" :class="cardTextClass(item.icon || item.name)">{{ limitText(item.icon || item.name, 10) }}</span></span>
     <span class="card-title">{{ limitText(item.name, 10) }}</span>
   </div>
 </template>

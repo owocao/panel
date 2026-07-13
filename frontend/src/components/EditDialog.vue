@@ -176,9 +176,9 @@ watch(
             <button type="button" :class="{ active: dialog.form.iconMode === 'image' }" @click="emit('set-icon-mode', dialog.form, 'image')">图片</button>
           </div>
           <label>
-            <span class="label-line"><span>{{ dialog.form.iconMode === 'image' ? '图片地址' : '文本内容' }}</span><small v-if="dialog.form.iconMode !== 'image'">{{ String(dialog.form.icon || '').length }}/5</small></span>
+            <span class="label-line"><span>{{ dialog.form.iconMode === 'image' ? '图片地址' : '文本内容' }}</span><small v-if="dialog.form.iconMode !== 'image'">{{ String(dialog.form.icon || '').length }}/10</small></span>
             <span class="input-with-button">
-              <input v-model="dialog.form.icon" :maxlength="dialog.form.iconMode === 'image' ? undefined : 5" :placeholder="dialog.form.iconMode === 'image' ? '输入图标地址或上传' : '请输入文本内容'" @input="dialog.form.iconMode !== 'image' && emit('clamp-field', 'icon', 5)" />
+              <input v-model="dialog.form.icon" :maxlength="dialog.form.iconMode === 'image' ? undefined : 10" :placeholder="dialog.form.iconMode === 'image' ? '输入图标地址或上传' : '请输入文本内容'" @input="dialog.form.iconMode !== 'image' && emit('clamp-field', 'icon', 10)" />
               <label v-if="dialog.form.iconMode === 'image'" class="upload-inline">上传<input type="file" accept="image/*" @change="emit('upload-icon', $event, dialog.form, 'icon')" /></label>
             </span>
           </label>

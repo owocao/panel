@@ -151,11 +151,13 @@ h1, h2, h3, p { margin: 0; }
 .card-text-icon.text-xl { font-size: 26px; }
 .card-text-icon.text-md { font-size: 18px; }
 .card-text-icon.text-sm { font-size: 11px; }
+.card-text-icon.text-xs { font-size: 8px; }
 .card-icon, .favicon, .logo {
   display: inline-grid; place-items: center; flex: 0 0 auto; overflow: hidden;
   width: 28px; height: 28px; border-radius: 9px; color: #fff; background: #57606a; font-size: 12px; font-weight: 800;
 }
 .image-icon { width: 60px; height: 60px; border-radius: 18px; background: transparent; }
+.nav-card > .image-icon, .nav-card > .card-text-icon { width: 100%; height: 100%; padding: 0; border-radius: inherit; box-sizing: border-box; }
 .logo.big { width: 56px; height: 56px; border-radius: 14px; font-size: 22px; }
 .logo img, .favicon img, .card-icon img { width: 100%; height: 100%; object-fit: cover; }
 

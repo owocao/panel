@@ -170,8 +170,8 @@ export function useEditSave({
         }
         const iconMode = form.iconMode || (isImageValue(form.icon) ? 'image' : 'text')
         const icon = iconMode === 'image' ? (form.icon || '') : (form.icon || name)
-        if (iconMode === 'text' && icon.length > 5) {
-          onStatus?.('文本内容最多 5 个字')
+        if (iconMode === 'text' && icon.length > 10) {
+          onStatus?.('文本内容最多 10 个字')
           return
         }
         const payload = { groupId: form.groupId, name, icon, lanUrl: form.lanUrl || '', wanUrl: form.wanUrl || '', urlMode: 'wan', sort: form.sort || 0 }

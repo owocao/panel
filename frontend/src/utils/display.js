@@ -9,10 +9,11 @@ export function limitText(value, size) {
 }
 
 export function cardTextClass(value) {
-  const len = limitText(value, 5).length
+  const len = limitText(value, 10).length
   if (len <= 2) return 'text-xl'
-  if (len <= 4) return 'text-md'
-  return 'text-sm'
+  if (len <= 5) return 'text-md'
+  if (len <= 7) return 'text-sm'
+  return 'text-xs'
 }
 
 export function iconUrl(name) {
