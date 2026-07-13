@@ -127,6 +127,71 @@ docker compose up -d
 
 不要把 `data/` 提交到 Git 仓库。
 
+### 全新生产部署前检查
+
+当前 `docker-compose.yml` 使用 `./data:/app/data` 挂载。首次部署前建议先检查部署目录是否已有旧数据：
+
+```bash
+ls -lah ./data
+find ./data -maxdepth 3 -type f 2>/dev/null
+```
+
+如果目录中存在：
+
+```text
+./data/db/biu-panel.db
+```
+
+说明该实例会继续使用旧数据库，其中可能包含历史测试数据、测试书签或旧配置。
+
+真正的空数据部署应满足以下任一条件：
+
+- 使用全新的部署目录；
+- 确认 `./data` 为空；
+- 在明确不需要旧数据并完成备份后，删除或重命名旧 `./data`。
+
+### 安全处理旧数据
+
+如果需要避免复用旧数据库，推荐先重命名旧数据目录，不要直接删除：
+
+```bash
+docker compose down
+mv data "data.backup-$(date +%Y%m%d-%H%M%S)"
+mkdir -p data
+docker compose up -d --build
+```
+
+注意：
+
+- 不要直接执行 `rm -rf data`；
+- 不要在未备份时执行 `docker compose down -v`；
+- 当前 compose 使用 bind mount，主要数据位于项目目录下的 `./data`；
+- 重命名 `data` 后可以随时回滚。
+
+### 启动后验证
+
+```bash
+docker compose ps
+docker compose logs --tail=100
+```
+
+首次打开页面应进入管理员初始化。初始化并登录后：
+
+- 首页导航为空；
+- 收藏夹为空；
+- 不应出现测试书签或演示数据。
+
+### 旧数据恢复
+
+如需回滚到旧数据目录：
+
+```bash
+docker compose down
+mv data data.failed-new
+mv data.backup-时间戳 data
+docker compose up -d
+```
+
 ## 7. 停止和重启
 
 停止服务：
