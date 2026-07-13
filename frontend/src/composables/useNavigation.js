@@ -116,36 +116,13 @@ export function useNavigation({ getNavigation, uploadAsset, settingsForm, settin
     window.open(url, target, features)
   }
 
-  async function probeUrl(url, timeoutValue) {
-    if (!url || url === '#') return false
-    const timeout = Math.max(200, Number(timeoutValue || 800) || 800)
-    const controller = new AbortController()
-    const timer = window.setTimeout(() => controller.abort(), timeout)
-    try {
-      await fetch(url, { mode: 'no-cors', cache: 'no-store', signal: controller.signal })
-      return true
-    } catch {
-      return false
-    } finally {
-      window.clearTimeout(timer)
-    }
-  }
-
   async function openNavItem(item, target = '_self', features = 'noopener,noreferrer') {
     const { primary, fallback } = navUrlCandidates(item, networkMode.value)
     const firstUrl = primary || fallback
     if (!firstUrl) return
     let openedWindow = null
     if (target !== '_self') openedWindow = window.open('about:blank', target, features)
-    if (!primary || !fallback) {
-      openResolvedUrl(firstUrl, target, openedWindow)
-      return
-    }
-    if (await probeUrl(primary, settingsForm.value.lanDetectTimeout)) {
-      openResolvedUrl(primary, target, openedWindow)
-      return
-    }
-    openResolvedUrl(fallback, target, openedWindow)
+    openResolvedUrl(firstUrl, target, openedWindow)
   }
 
   return {
@@ -168,7 +145,6 @@ export function useNavigation({ getNavigation, uploadAsset, settingsForm, settin
     moveSearchEngine,
     uploadSearchEngineIcon,
     openNavItemFromMenu,
-    probeUrl,
     openNavItem,
     normalizeNetworkMode,
   }
