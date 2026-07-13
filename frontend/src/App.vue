@@ -20,6 +20,7 @@ import { useNavigation } from './composables/useNavigation'
 import { useSettings } from './composables/useSettings'
 import { findFolderById, normalizeFolder } from './utils/bookmarkTree'
 import { cardTextClass, formatDisplayDate, formatDisplayTime, getNetworkIcon, getNetworkTip, iconUrl, isImageValue, limitText } from './utils/display'
+import { handleHomeKeydown, preventHomeSelection } from './utils/domGuards'
 import { ensureHttp, normalizeNetworkMode, resolveNavUrl } from './utils/navigation'
 import {
   createBookmark,
@@ -470,21 +471,6 @@ function handleGlobalKeydown(event) {
     return
   }
   closeMenu()
-}
-
-function isTextInputTarget(target) {
-  return target instanceof Element && Boolean(target.closest('input, textarea, select, [contenteditable="true"]'))
-}
-
-function preventHomeSelection(event) {
-  if (isTextInputTarget(event.target)) return
-  event.preventDefault()
-}
-
-function handleHomeKeydown(event) {
-  if (!((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a')) return
-  if (isTextInputTarget(event.target)) return
-  event.preventDefault()
 }
 
 function handleAuthExpired() {
