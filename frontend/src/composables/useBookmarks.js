@@ -16,10 +16,6 @@ export function useBookmarks({ getBookmarkFolders, getBookmarks, searchBookmarks
   const bookmarkCount = computed(() => bookmarks.value.length)
   let bookmarkSearchTimer
 
-  function getBookmarkSelectionIds() {
-    return selectedBookmarkIds.value
-  }
-
   function isBookmarkSelected(bookmarkId) {
     return selectedBookmarkIds.value.includes(bookmarkId)
   }
@@ -138,7 +134,6 @@ export function useBookmarks({ getBookmarkFolders, getBookmarks, searchBookmarks
     folderFlatList,
     folderCount,
     bookmarkCount,
-    getBookmarkSelectionIds,
     isBookmarkSelected,
     clearBookmarkSelection,
     toggleBookmarkSelection,

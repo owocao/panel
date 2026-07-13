@@ -2,8 +2,6 @@ import { findFolderById, normalizeFolder } from '../utils/bookmarkTree'
 
 export function useEditSave({
   editDialog,
-  quickNav,
-  quickBookmark,
   metadataLoading,
   assetUploading,
   settingsOpen,
@@ -128,16 +126,6 @@ export function useEditSave({
     await fillMetadata(target)
     if (previousUrl === undefined) delete target.url
     else target.url = previousUrl
-  }
-
-  async function fillQuickBookmarkMetadata() {
-    await fillMetadata(quickBookmark.value)
-  }
-
-  async function fillQuickNavMetadata() {
-    const target = { name: quickNav.value.cardName, wanUrl: quickNav.value.url, lanUrl: quickNav.value.url, icon: '' }
-    await fillMetadata(target)
-    quickNav.value.cardName = target.name || quickNav.value.cardName
   }
 
   async function saveEditDialog() {
@@ -298,10 +286,6 @@ export function useEditSave({
       editDialog.value = { open: true, type: 'folderCreate', title: '请先创建收藏夹', form: { parentId: null, name: '默认收藏', sort: folderFlatList.value.length + 1 } }
       return
     }
-    if (!targetFolder) {
-      onStatus?.('请先创建收藏夹')
-      return
-    }
     editDialog.value = { open: true, type: 'bookmarkCreate', title: `新增书签 · ${targetFolder.name}`, form: { folderId: targetFolder.id, title: '', url: '', favicon: '', note: '', sort: bookmarks.value.length + 1 } }
   }
 
@@ -311,8 +295,6 @@ export function useEditSave({
     uploadIconFile,
     fillMetadata,
     fillMetadataFromField,
-    fillQuickBookmarkMetadata,
-    fillQuickNavMetadata,
     createGroupByPrompt,
     addCardFromMenu,
     createFolderByPrompt,

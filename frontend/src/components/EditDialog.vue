@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { folderOptionStyle, folderPrefix } from '../utils/folderDisplay'
 
 const props = defineProps({
   dialog: {
@@ -64,23 +65,6 @@ const selectedBookmarkFolderName = computed(() => {
   const selected = props.folderFlatList.find((folder) => String(folder.id) === String(props.dialog.form.folderId))
   return selected ? selected.name : '请选择收藏夹'
 })
-
-function folderDepth(folder) {
-  return Number(folder?.depth || 0)
-}
-
-function folderPrefix(folder) {
-  const depth = folderDepth(folder)
-  return depth > 0 ? '└' : ''
-}
-
-function folderOptionStyle(folder) {
-  const depth = folderDepth(folder)
-  return {
-    paddingLeft: `${9 + depth * 18}px`,
-    '--folder-depth-line': `${12 + Math.max(0, depth - 1) * 18}px`,
-  }
-}
 
 function toggleBookmarkFolderSelect() {
   bookmarkFolderSelectOpen.value = !bookmarkFolderSelectOpen.value
