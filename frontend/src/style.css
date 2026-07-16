@@ -189,6 +189,7 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
 }
 .bookmark-drawer, .settings-mask, .settings-panel, .modal-mask, .edit-modal, .explorer-sidebar, .explorer-content, .settings-menu, .settings-content, .context-menu, .select-options { overscroll-behavior: contain; }
 .drawer-head, .settings-head, .modal-head, .modal-actions, .manager-head, .manager-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.drawer-title { min-width: 0; }
 .drawer-head span { display: block; font-size: 18px; font-weight: 800; }
 .drawer-head small { color: var(--muted); font-size: 12px; }
 .bookmark-search { display: grid; gap: 6px; margin: 0; color: var(--muted); font-size: 13px; font-weight: 800; }
@@ -765,6 +766,7 @@ button:disabled, button:disabled:hover { opacity: .58; cursor: wait; transform: 
 @media (max-width: 900px) {
   .time-stack small { display: inline-block; }
   .drawer-head, .settings-head { align-items: flex-start; flex-direction: column; }
+  .bookmark-drawer .drawer-head { align-items: center; flex-direction: row; }
   .bookmark-body, .settings-layout, .settings-grid { grid-template-columns: 1fr; }
   .bookmark-drawer { inset: 10px; width: auto; padding: 14px; }
   .bookmark-search-row { grid-template-columns: 1fr; }
