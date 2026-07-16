@@ -24,6 +24,7 @@ const props = defineProps({
 
 const emit = defineEmits([
   'close-menu',
+  'close',
   'panel-wheel',
   'create-folder',
   'create-bookmark',
@@ -60,9 +61,12 @@ function isBookmarkSelected(bookmark) {
 <template>
   <aside v-if="open" class="bookmark-drawer" :class="{ 'is-dragging': dragging }" aria-label="收藏夹" @click.stop="emit('close-menu')" @wheel.stop="emit('panel-wheel', $event)">
     <div class="drawer-head">
-      <div>
+      <div class="drawer-title">
         <span>收藏夹</span>
         <small>{{ folderCount }} 个文件夹 · {{ bookmarkCount }} 条收藏</small>
+      </div>
+      <div class="inline-actions">
+        <button type="button" aria-label="关闭收藏夹" title="关闭" @click.stop="emit('close')">关闭</button>
       </div>
     </div>
 

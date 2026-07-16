@@ -867,6 +867,7 @@ async function removeNavCard(item) {
         :drag-insert-position="dragState.insertPosition"
         :drag-source-id="dragState.item?.id ?? null"
         @close-menu="closeMenu"
+        @close="drawerOpen = false"
         @panel-wheel="handleOverlayWheel"
         @create-folder="createFolderByPrompt"
         @create-bookmark="createBookmarkByPrompt(activeFolder)"
